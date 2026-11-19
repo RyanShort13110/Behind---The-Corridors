@@ -145,7 +145,13 @@ export function createCorridor(scene) {
   const knobRose = new THREE.Mesh(knobRoseGeo, mats.metal);
   const knobLever = new THREE.Mesh(knobLeverGeo, mats.metal);
   knobLever.position.set(-0.07, 0, 0.03);
-  lockedKnob.add(knobRose, knobLever);
+  // Invisible, slightly larger tap target — intentional clicks only (no aim cone).
+  const knobHitGeo = new THREE.BoxGeometry(0.42, 0.36, 0.22);
+  const knobHitMat = new THREE.MeshBasicMaterial({ visible: false });
+  const knobHit = new THREE.Mesh(knobHitGeo, knobHitMat);
+  knobHit.position.set(-0.04, 0, 0.02);
+  knobHit.userData.inspectHitOnly = true;
+  lockedKnob.add(knobRose, knobLever, knobHit);
   world.add(lockedKnob);
 
   // Commit one InstancedMesh per material.
@@ -233,6 +239,8 @@ export function createCorridor(scene) {
       plaqueMat.dispose();
       knobRoseGeo.dispose();
       knobLeverGeo.dispose();
+      knobHitGeo.dispose();
+      knobHitMat.dispose();
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);
       scene.remove(world);

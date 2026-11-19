@@ -2,13 +2,16 @@ import * as THREE from 'three';
 
 /**
  * Proximity highlights + click-to-inspect for named 3D objects.
- * Highlight is a tight EdgesGeometry outline on the object meshes themselves —
- * not a floating AABB box.
+ * Highlight is a tight EdgesGeometry outline on the object meshes themselves.
+ * Inspect only fires on a deliberate TAP (small movement) — never on scroll
+ * or look-drag pointerdowns.
  */
 const EDGE_COLOR = 0xd7ebe4;
 const MAX_EDGE_OPACITY = 0.82;
 const FADE_RATE = 7;
 const EDGE_EXPAND = 1.035;
+const TAP_SLOP = 14; // px — anything larger is a scroll / look gesture
+const TAP_MAX_MS = 500;
 
 function collectMeshes(root) {
   const meshes = [];
@@ -29,6 +32,7 @@ function makeMeshOutlines(meshes) {
   });
   const lines = [];
   for (const mesh of meshes) {
+    if (mesh.userData.inspectHitOnly) continue;
     const edges = new THREE.EdgesGeometry(mesh.geometry, 20);
     const line = new THREE.LineSegments(edges, mat);
     line.scale.setScalar(EDGE_EXPAND);
@@ -46,12 +50,12 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const eye = new THREE.Vector3();
-  const aim = new THREE.Vector3();
   const center = new THREE.Vector3();
   const box = new THREE.Box3();
   let nearest = null;
   let openId = null;
   let enabled = true;
+  let tap = null;
 
   function setPanel(open, entry = null) {
     openId = open && entry ? entry.id : null;
@@ -64,7 +68,7 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
   }
 
   function register({ id, object, title, body, radius = 3.4, sceneRoot, pickMeshes }) {
-    void sceneRoot; // outlines parent to the meshes themselves
+    void sceneRoot;
     const meshes = pickMeshes || collectMeshes(object);
     const { lines, material } = makeMeshOutlines(meshes);
     const entry = {
@@ -86,6 +90,7 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
 
   function clear() {
     setPanel(false);
+    tap = null;
     for (const entry of entries) {
       for (const line of entry.lines) {
         line.parent?.remove(line);
@@ -110,6 +115,7 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
 
   function update(dt, active) {
     enabled = active;
+    if (!active) tap = null;
     camera.getWorldPosition(eye);
 
     let best = null;
@@ -144,24 +150,48 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
+    // Require a real mesh hit — no cone aim-assist (that fired while walking).
     const hits = raycaster.intersectObjects(nearest.pickMeshes, true);
-    if (hits.length) return nearest;
-
-    // Soft aim assist for thin props (handles, signs).
-    aim.copy(nearest.worldCenter).sub(eye).normalize();
-    if (raycaster.ray.direction.dot(aim) > 0.978 && nearest.dist < nearest.radius) {
-      return nearest;
-    }
-    return null;
+    return hits.length ? nearest : null;
   }
 
   function onPointerDown(event) {
     if (event.button !== 0 || !enabled || openId) return;
+    tap = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      at: performance.now(),
+    };
+  }
+
+  function onPointerMove(event) {
+    if (!tap || event.pointerId !== tap.pointerId) return;
+    const dx = event.clientX - tap.x;
+    const dy = event.clientY - tap.y;
+    if (dx * dx + dy * dy > TAP_SLOP * TAP_SLOP) {
+      // Scroll / look drag — abandon inspect for this gesture.
+      tap = null;
+    }
+  }
+
+  function onPointerUp(event) {
+    if (!tap || event.pointerId !== tap.pointerId) return;
+    const dx = event.clientX - tap.x;
+    const dy = event.clientY - tap.y;
+    const elapsed = performance.now() - tap.at;
+    const stillTap = dx * dx + dy * dy <= TAP_SLOP * TAP_SLOP && elapsed <= TAP_MAX_MS;
+    tap = null;
+    if (!stillTap || !enabled || openId) return;
     const hit = pickFromEvent(event);
     if (hit) {
       event.preventDefault();
       setPanel(true, hit);
     }
+  }
+
+  function onPointerCancel(event) {
+    if (tap && event.pointerId === tap.pointerId) tap = null;
   }
 
   function onKeyDown(event) {
@@ -172,6 +202,9 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
   }
 
   canvas.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerCancel);
   closeEl?.addEventListener('click', () => setPanel(false));
   window.addEventListener('keydown', onKeyDown);
 
@@ -184,6 +217,9 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
     get isOpen() { return Boolean(openId); },
     dispose() {
       canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
       window.removeEventListener('keydown', onKeyDown);
       clear();
     },

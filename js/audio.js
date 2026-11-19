@@ -6,7 +6,9 @@
  */
 const BREATH_FILE = './assets/breathing-scared.m4a';
 const BREATH_DURATION = 5;
-const BREATH_VOLUME = 0.025; // User-tested and approved gain.
+const BREATH_VOLUME = 0.07;
+// Scales the Level 01 psychological bed + corridor accents (breathing uses BREATH_VOLUME separately).
+const CORRIDOR_GAIN = 4.6;
 
 export function createAudioDirector() {
   let ctx = null;
@@ -15,6 +17,13 @@ export function createAudioDirector() {
   let phoneHigh, phoneLow;
   let officeAudioOrigin = 0;
   let breathArmed = true;
+  // Psychological score bed (corridor-first): room air + dissonant pad + thin anxiety.
+  // Replaces the constant fluorescent sawtooth drone as the emotional bed.
+  let scoreReady = false;
+  let scoreAirSource = null, scoreAirGain = null, scoreAirFilter = null;
+  let scorePadLow = null, scorePadHigh = null, scorePadGain = null;
+  let scoreTension = null, scoreTensionGain = null;
+  let scoreAnxiety = null, scoreAnxietyGain = null;
   let nightStepBuffer = null;
   let nightStepBus = null;
   let nightStepIndex = 0;
@@ -111,6 +120,97 @@ export function createAudioDirector() {
     } else {
       source.connect(lowPass).connect(breathingGain).connect(ctx.destination);
     }
+  }
+
+  /**
+   * Sparse psychological bed for Level 01. Not a melody — slow dissonance,
+   * filtered room air, and a nearly subliminal high tone that tightens as
+   * the corridor deepens. Event sounds (fault buzz, breathing, rear motor)
+   * stay separate punctuation on top.
+   */
+  function ensureHorrorScore() {
+    if (!ctx || scoreReady) return;
+    scoreReady = true;
+
+    const duration = 4.2;
+    const count = Math.ceil(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, count, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let brown = 0;
+    for (let i = 0; i < count; i++) {
+      const white = Math.random() * 2 - 1;
+      brown = (brown + white * 0.02) * 0.986;
+      data[i] = brown * 0.9 + white * 0.08;
+    }
+    const join = Math.min(Math.floor(ctx.sampleRate * 0.1), Math.floor(count / 8));
+    const head = data.slice(0, join);
+    for (let i = 0; i < join; i++) {
+      const blend = 0.5 - 0.5 * Math.cos(Math.PI * (i + 1) / join);
+      const k = count - join + i;
+      data[k] = data[k] * (1 - blend) + head[join - 1 - i] * blend;
+    }
+    scoreAirSource = ctx.createBufferSource();
+    scoreAirSource.buffer = buffer;
+    scoreAirSource.loop = true;
+    scoreAirFilter = ctx.createBiquadFilter();
+    scoreAirFilter.type = 'bandpass';
+    scoreAirFilter.frequency.value = 240;
+    scoreAirFilter.Q.value = 0.55;
+    scoreAirGain = ctx.createGain();
+    scoreAirGain.gain.value = 0;
+    scoreAirSource.connect(scoreAirFilter).connect(scoreAirGain).connect(ctx.destination);
+    scoreAirSource.start();
+
+    // Minor-second low pad: slow beating reads as unease, not "music."
+    const padFilter = ctx.createBiquadFilter();
+    padFilter.type = 'lowpass';
+    padFilter.frequency.value = 130;
+    padFilter.Q.value = 0.7;
+    scorePadGain = ctx.createGain();
+    scorePadGain.gain.value = 0;
+    scorePadLow = ctx.createOscillator();
+    scorePadLow.type = 'sine';
+    scorePadLow.frequency.value = 46.2;
+    scorePadHigh = ctx.createOscillator();
+    scorePadHigh.type = 'triangle';
+    scorePadHigh.frequency.value = 49.1;
+    scorePadLow.connect(padFilter);
+    scorePadHigh.connect(padFilter);
+    padFilter.connect(scorePadGain).connect(ctx.destination);
+    scorePadLow.start();
+    scorePadHigh.start();
+
+    // Mid dissonance that arrives deeper in the hall (tritone color over the pad).
+    const tensionFilter = ctx.createBiquadFilter();
+    tensionFilter.type = 'lowpass';
+    tensionFilter.frequency.value = 220;
+    scoreTensionGain = ctx.createGain();
+    scoreTensionGain.gain.value = 0;
+    scoreTension = ctx.createOscillator();
+    scoreTension.type = 'sine';
+    scoreTension.frequency.value = 65.4;
+    scoreTension.connect(tensionFilter).connect(scoreTensionGain).connect(ctx.destination);
+    scoreTension.start();
+
+    // Thin high anxiety — almost tinnitus, never melodic.
+    const anxietyFilter = ctx.createBiquadFilter();
+    anxietyFilter.type = 'bandpass';
+    anxietyFilter.frequency.value = 2100;
+    anxietyFilter.Q.value = 6;
+    scoreAnxietyGain = ctx.createGain();
+    scoreAnxietyGain.gain.value = 0;
+    scoreAnxiety = ctx.createOscillator();
+    scoreAnxiety.type = 'sine';
+    scoreAnxiety.frequency.value = 1860;
+    scoreAnxiety.connect(anxietyFilter).connect(scoreAnxietyGain).connect(ctx.destination);
+    scoreAnxiety.start();
+  }
+
+  function silenceHorrorScore(seconds = 0.2) {
+    setGain(scoreAirGain, 0, seconds);
+    setGain(scorePadGain, 0, seconds);
+    setGain(scoreTensionGain, 0, seconds);
+    setGain(scoreAnxietyGain, 0, seconds);
   }
 
   // Level 04 / The Night Shift. Nothing plays until the FIRST footstep.
@@ -351,6 +451,7 @@ export function createAudioDirector() {
       setGain(motorGain, 0);
       setGain(phoneHigh, 0);
       setGain(phoneLow, 0);
+      silenceHorrorScore(0.08);
       setGain(nightAirGain, 0, 0.035);
       setGain(nightDroneGain, 0, 0.035);
       setGain(unseenNoiseGain, 0, 0.06);
@@ -374,25 +475,73 @@ export function createAudioDirector() {
 
   function update(progress, reduced, story) {
     if (!enabled || !ctx || ctx.state !== 'running') return;
-    // Electrical ambiance drops away as the visitor approaches the last door.
-    // Near the elevator, quiet is more effective than extra loud effects.
+    ensureHorrorScore();
+    const t = ctx.currentTime;
+    // Shape dread by depth: quiet near the sealed door, hollow on the return.
     const nearDoor = progress > 0.69 && progress < 0.87;
     const atDeadEnd = progress > 0.88;
     const inRearCabin = story.rearElevatorUnlocked && progress < 0.09;
-    const quietFactor = nearDoor ? 0.40 : atDeadEnd ? 0.22 : inRearCabin ? 0.32 : 1;
-    setGain(humGain, 0.014 * quietFactor, 0.25);
+    const returning = story.hasBacktracked;
+    const depth = Math.max(0, Math.min(1, (progress - 0.09) / 0.8));
+    const quietFactor = nearDoor ? 0.42 : atDeadEnd ? 0.2 : inRearCabin ? 0.28 : 1;
+    const returnHollow = returning ? 0.72 : 1;
+    const breathZone = !returning && progress >= 0.72 && progress <= 0.86;
 
-    // Brief, deterministic fluorescent buzz during the lighting fault.
-    // Reduced-motion also disables the rapidly changing fault effect.
+    // Trace of building tone under the score — no longer the main bed.
+    setGain(humGain, 0.004 * CORRIDOR_GAIN * quietFactor, 0.35);
+
+    // Room air — opens a little as the hall deepens.
+    const airSwell = 0.88 + 0.12 * Math.sin(t * 0.11);
+    setGain(
+      scoreAirGain,
+      (0.0028 + depth * 0.0034) * CORRIDOR_GAIN * quietFactor * returnHollow * airSwell,
+      0.4
+    );
+    scoreAirFilter?.frequency.setTargetAtTime(
+      (returning ? 190 : 230) + depth * 70 + (breathZone ? 40 : 0), t, 0.5
+    );
+
+    // Low beating pad — psychological pressure, not a soundtrack melody.
+    const padPulse = 0.9 + 0.1 * Math.sin(t * 0.07);
+    setGain(
+      scorePadGain,
+      (0.0065 + depth * 0.004) * CORRIDOR_GAIN * quietFactor * returnHollow * padPulse,
+      0.45
+    );
+    scorePadLow?.frequency.setTargetAtTime(46.2 + Math.sin(t * 0.05) * 0.35, t, 0.6);
+    scorePadHigh?.frequency.setTargetAtTime(
+      (returning ? 50.8 : 49.1) + Math.sin(t * 0.053 + 1.2) * 0.45, t, 0.6
+    );
+
+    // Tritone tension arrives mid-corridor and thins at the dead end.
+    const tensionAmt = Math.max(0, Math.min(1, (progress - 0.28) / 0.45));
+    setGain(
+      scoreTensionGain,
+      (0.001 + tensionAmt * 0.0042) * CORRIDOR_GAIN * quietFactor * (returning ? 0.55 : 1) * padPulse,
+      0.5
+    );
+    scoreTension?.frequency.setTargetAtTime(65.4 + depth * 2.2 + Math.sin(t * 0.09) * 0.8, t, 0.55);
+
+    // High anxiety — swells toward the breathing beat, then collapses.
+    const anxietyWave = 0.7 + 0.3 * Math.sin(t * 0.23);
+    const anxietyDepth = breathZone ? 1 : depth * 0.55;
+    setGain(
+      scoreAnxietyGain,
+      (0.00015 + anxietyDepth * 0.00085) * CORRIDOR_GAIN * quietFactor * (returning ? 0.35 : 1) * anxietyWave,
+      0.35
+    );
+    scoreAnxiety?.frequency.setTargetAtTime(1860 + Math.sin(t * 0.17) * 28, t, 0.4);
+
+    // Brief fluorescent buzz only during the lighting fault — punctuation, not bed.
     const faulty = !reduced && progress > 0.46 && progress < 0.70;
     const buzzPulse = faulty && Math.sin(progress * 29) > 0.48;
-    setGain(buzzGain, buzzPulse ? 0.004 : 0.0009 * quietFactor, 0.085);
+    setGain(buzzGain, (buzzPulse ? 0.012 : 0.0009 * quietFactor) * CORRIDOR_GAIN, 0.085);
 
     // The far-end elevator is silent and sealed. Only the one BEHIND you
     // produces a motor sound as you walk back toward the beginning.
     const rearMotor = story.rearElevatorUnlocked && progress < 0.21
       ? (progress < 0.028 ? 0.65 : 1) : 0;
-    setGain(motorGain, 0.008 * rearMotor, 0.22);
+    setGain(motorGain, 0.028 * CORRIDOR_GAIN * rearMotor, 0.22);
 
     // Play the recording only once on the initial forward journey.
     // Reversing after reaching the dead end permanently silences it until Restart.
@@ -430,6 +579,7 @@ export function createAudioDirector() {
     stopBreathing();
     setGain(motorGain, 0);
     setGain(buzzGain, 0);
+    silenceHorrorScore(0.35);
     officeAudioOrigin = ctx?.currentTime ?? 0;
   }
 
@@ -726,6 +876,7 @@ export function createAudioDirector() {
     setGain(motorGain, 0);
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
+    silenceHorrorScore(0.08);
     setGain(nightAirGain, 0, 0.025);
     setGain(nightDroneGain, 0, 0.025);
     setGain(unseenNoiseGain, 0, 0.05);
@@ -741,6 +892,9 @@ export function createAudioDirector() {
   function dispose() {
     stopUnseenRoars();
     stopBreathing();
+    silenceHorrorScore(0.02);
+    try { scoreAirSource?.stop(); scorePadLow?.stop(); scorePadHigh?.stop(); } catch (_) { /* already stopped */ }
+    try { scoreTension?.stop(); scoreAnxiety?.stop(); } catch (_) { /* already stopped */ }
     try { unseenNoise?.stop(); unseenTone?.stop(); } catch (_) { /* already stopped */ }
     try { nightAirSource?.stop(); nightDroneSource?.stop(); } catch (_) { /* already stopped */ }
     ctx?.close().catch(() => {});

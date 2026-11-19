@@ -2,6 +2,9 @@
  * Limited left/right head look layered on top of the scroll camera.
  * Desktop: A/D, arrows, or right-drag.
  * Touch / pen: horizontal drag peeks; vertical drag keeps page scroll (walk).
+ *
+ * Pointer and keyboard look both hold after release so you can inspect.
+ * Walking releases the hold and recenters.
  */
 const MAX_YAW = 0.48; // ~27°
 const KEY_RATE = 1.85;
@@ -9,11 +12,14 @@ const RETURN_RATE = 2.6;
 const DRAG_SENS = 0.0032;
 const AXIS_DEADZONE = 12; // px before committing to look vs scroll
 const AXIS_RATIO = 1.2; // |dx| must beat |dy| by this factor to steal the gesture
+const WALK_RELEASE = 0.004; // progress delta that drops sticky look
 
 export function createLookControls({ canvas }) {
   const keys = { left: false, right: false };
   let yaw = 0;
   let enabled = true;
+  // After touch / pen / right-drag look, keep facing until walk or keys.
+  let sticky = false;
 
   // Active look drag (right-mouse, or touch/pen after horizontal lock).
   let drag = null;
@@ -33,15 +39,18 @@ export function createLookControls({ canvas }) {
 
   function beginDrag(event) {
     drag = { pointerId: event.pointerId, lastX: event.clientX };
+    sticky = true;
     try { canvas.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
   }
 
   function endDrag(pointerId) {
     if (drag && (pointerId == null || drag.pointerId === pointerId)) drag = null;
+    // sticky stays true — yaw holds for an inspect tap
   }
 
   function applyLookDelta(dx) {
     yaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, yaw - dx * DRAG_SENS));
+    sticky = true;
   }
 
   function onPointerDown(event) {
@@ -111,9 +120,6 @@ export function createLookControls({ canvas }) {
   function onPointerUp(event) {
     if (stroke && stroke.pointerId === event.pointerId) stroke = null;
     endDrag(event.pointerId);
-    if (event.pointerType === 'mouse' && event.button === 2) {
-      // right-drag end already covered by endDrag
-    }
   }
 
   function onPointerCancel(event) {
@@ -137,6 +143,7 @@ export function createLookControls({ canvas }) {
   return {
     get yaw() { return yaw; },
     get isDragging() { return Boolean(drag); },
+    get isSticky() { return sticky; },
     setEnabled(value) {
       enabled = value;
       if (!value) {
@@ -147,21 +154,28 @@ export function createLookControls({ canvas }) {
     },
     reset() {
       yaw = 0;
+      sticky = false;
       keys.left = keys.right = false;
       drag = null;
       stroke = null;
     },
+    /** Call when the player walks; releases held look so the camera recenters. */
+    noteWalk(progressDelta) {
+      if (Math.abs(progressDelta) >= WALK_RELEASE) sticky = false;
+    },
     update(dt, reduced) {
       if (!enabled || reduced) {
-        yaw += (0 - yaw) * Math.min(1, dt * RETURN_RATE);
+        // Keep facing while inspect is open / look temporarily disabled.
+        if (!sticky) yaw += (0 - yaw) * Math.min(1, dt * RETURN_RATE);
         return yaw;
       }
       let input = 0;
       if (keys.left) input += 1;
       if (keys.right) input -= 1;
       if (input !== 0) {
+        sticky = true;
         yaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, yaw + input * KEY_RATE * dt));
-      } else if (!drag) {
+      } else if (!drag && !sticky) {
         yaw += (0 - yaw) * Math.min(1, dt * RETURN_RATE);
       }
       return yaw;

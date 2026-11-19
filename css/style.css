@@ -53,3 +53,12 @@ body.debug-performance .perf-hud{display:block}
 .unseen-retreat-prompt strong{font:700 clamp(17px,2.5vw,27px) 'Courier New',monospace;letter-spacing:.22em}
 .unseen-retreat-prompt span{font:11px 'Courier New',monospace;letter-spacing:.16em;color:#b8cec9}
 @media(prefers-reduced-motion:reduce){.unseen-retreat-prompt{transition:none}}
+
+/* Keep story copy under the topbar so mid-viewport doors/handles stay clear. */
+.narrative{top:88px;transform:none;max-width:min(440px,78vw)}
+.narrative p{font-size:clamp(17px,2.55vw,30px);line-height:1.22}
+.chapter{margin-bottom:8px}
+@media(max-width:650px){
+  .narrative{top:64px;left:7vw;right:7vw;max-width:none}
+  .narrative p{font-size:clamp(16px,4.2vw,24px)}
+}

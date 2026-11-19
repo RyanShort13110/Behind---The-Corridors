@@ -852,6 +852,7 @@ function frame(now) {
     }
 
     const canInteract = chapterId === 'corridor' && !ended && !transitioning;
+    look?.noteWalk(p - previousDisplayed);
     look?.setEnabled(canInteract && !interaction?.isOpen);
     camera.rotation.y += look?.update(dt, reduced) ?? 0;
     interaction?.update(dt, canInteract && !interaction?.isOpen);
