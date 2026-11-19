@@ -37,6 +37,15 @@ export function createAudioDirector() {
   let musicConvolver = null;
   let musicNextNote = 0;
   let musicNoteIndex = 0;
+  // Level 02: unfinished memory music — a name on the tip of the tongue.
+  let officeMusicActive = false;
+  let officePadReady = false;
+  let officePadGain = null;
+  let officePadLow = null;
+  let officePadFifth = null;
+  let officePadAlmost = null;
+  let officePhraseIndex = 0;
+  let officePhraseNote = 0;
   let sfxBusyUntil = 0;
   let elevWasUnlocked = false;
   let elevOpenPrev = 0;
@@ -58,6 +67,19 @@ export function createAudioDirector() {
     98.00,  // G2
     146.83, // D3
   ];
+  // Office memory phrases: each almost becomes a name, then fails to resolve.
+  // notes close together; rest is the empty air after the thought slips.
+  const OFFICE_PHRASES = [
+    { notes: [220.00, 246.94, 261.63], gaps: [0.62, 0.78], rest: 5.8 }, // A B C — starts the name
+    { notes: [293.66, 277.18], gaps: [0.95], rest: 6.4 }, // D Db — wrong contour, almost
+    { notes: [164.81, 174.61, 164.81, 155.56], gaps: [0.42, 0.48, 0.85], rest: 7.1 }, // E F E Eb — tasting it
+    { notes: [196.00, 174.61], gaps: [1.15], rest: 5.2 }, // G F — gives up mid-breath
+    { notes: [261.63], gaps: [], rest: 4.6 }, // lone C — empty mouth
+    { notes: [220.00, 207.65, 196.00, 174.61], gaps: [0.88, 0.95, 1.25], rest: 8.2 }, // falls past the tonic
+    { notes: [130.81, 146.83, 164.81], gaps: [0.7, 0.55], rest: 6.0 }, // C D E — reaches upward, never lands
+  ];
+  const OFFICE_NOTE_PEAK = 0.048;
+  const OFFICE_NOTE_DUR = 4.8;
   let nightStepBuffer = null;
   let nightStepBus = null;
   let nightStepIndex = 0;
@@ -272,6 +294,112 @@ export function createAudioDirector() {
     setGain(scoreTensionGain, 0, seconds);
     setGain(scoreAnxietyGain, 0, seconds);
     setGain(musicGain, 0, seconds);
+    setGain(officePadGain, 0, seconds);
+  }
+
+  /**
+   * Soft open-fifth bed with a wavering "almost" tone — the feeling of a name
+   * without its consonants. Sits under sparse unfinished phrases.
+   */
+  function ensureOfficeMemoryPad() {
+    if (!ctx || officePadReady) return;
+    officePadReady = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 900;
+    filter.Q.value = 0.55;
+    officePadGain = ctx.createGain();
+    officePadGain.gain.value = 0;
+    officePadLow = ctx.createOscillator();
+    officePadLow.type = 'sine';
+    officePadLow.frequency.value = 110; // A2
+    officePadFifth = ctx.createOscillator();
+    officePadFifth.type = 'sine';
+    officePadFifth.frequency.value = 164.81; // E3
+    officePadAlmost = ctx.createOscillator();
+    officePadAlmost.type = 'sine';
+    // Slightly sharp of C — the wrong partial of a remembered name.
+    officePadAlmost.frequency.value = 264.2;
+    const almostAmp = ctx.createGain();
+    almostAmp.gain.value = 0.28;
+    officePadLow.connect(filter);
+    officePadFifth.connect(filter);
+    officePadAlmost.connect(almostAmp).connect(filter);
+    filter.connect(officePadGain).connect(ctx.destination);
+    officePadLow.start();
+    officePadFifth.start();
+    officePadAlmost.start();
+  }
+
+  /** Fragile sine with a detuned ghost — almost unison, never settled. */
+  function scheduleOfficeMemoryNote(freq, when, dur = OFFICE_NOTE_DUR) {
+    if (!ctx || !musicGain) return;
+    const osc = ctx.createOscillator();
+    const ghost = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const amp = ctx.createGain();
+    const ghostAmp = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    ghost.type = 'sine';
+    ghost.frequency.value = freq * 1.0045; // tip-of-tongue beat, not harmony
+    ghostAmp.gain.value = 0.18;
+    filter.type = 'lowpass';
+    filter.frequency.value = 780;
+    amp.gain.value = 0;
+    osc.connect(filter);
+    ghost.connect(ghostAmp).connect(filter);
+    filter.connect(amp).connect(musicGain);
+    const peak = OFFICE_NOTE_PEAK;
+    const attack = 1.55;
+    const sustainEnd = when + Math.min(1.1, dur * 0.2);
+    amp.gain.setValueAtTime(0, when);
+    amp.gain.linearRampToValueAtTime(peak, when + attack);
+    amp.gain.linearRampToValueAtTime(peak * 0.42, sustainEnd);
+    amp.gain.exponentialRampToValueAtTime(0.0008, when + dur);
+    osc.start(when);
+    ghost.start(when);
+    osc.stop(when + dur + 0.12);
+    ghost.stop(when + dur + 0.12);
+    osc.onended = () => {
+      try {
+        osc.disconnect(); ghost.disconnect(); ghostAmp.disconnect();
+        filter.disconnect(); amp.disconnect();
+      } catch (_) { /* ignore */ }
+    };
+  }
+
+  function advanceOfficeMusic(duck) {
+    if (!ctx || !officeMusicActive) return;
+    ensureHorrorScore();
+    ensureOfficeMemoryPad();
+    const t = ctx.currentTime;
+    // Pad is the ache; motif is the failed recollection.
+    setGain(officePadGain, duck ? 0.008 : 0.028, duck ? 0.18 : 1.4);
+    setGain(musicGain, duck ? 0.12 : 1, duck ? 0.14 : 0.85);
+    // Slow drift on the "almost" partial — never locks into tune.
+    if (officePadAlmost && !duck) {
+      const wobble = 261.63 + Math.sin(t * 0.17) * 3.4 + Math.sin(t * 0.41) * 1.6;
+      try { officePadAlmost.frequency.setTargetAtTime(wobble, t, 0.65); } catch (_) { /* ignore */ }
+    }
+    if (duck) return;
+    if (musicNextNote < t - 0.05) musicNextNote = t + 1.4;
+    const horizon = t + 0.4;
+    while (musicNextNote < horizon + 5.5) {
+      const phrase = OFFICE_PHRASES[officePhraseIndex % OFFICE_PHRASES.length];
+      const note = phrase.notes[officePhraseNote];
+      const isLast = officePhraseNote >= phrase.notes.length - 1;
+      const dur = isLast ? OFFICE_NOTE_DUR * 1.15 : OFFICE_NOTE_DUR * 0.72;
+      scheduleOfficeMemoryNote(note, Math.max(musicNextNote, t + 0.02), dur);
+      if (isLast) {
+        musicNextNote += (phrase.rest || 5.5);
+        officePhraseNote = 0;
+        officePhraseIndex += 1;
+      } else {
+        musicNextNote += phrase.gaps[officePhraseNote] ?? 0.7;
+        officePhraseNote += 1;
+      }
+    }
   }
 
   function markSfx(seconds = 0.45) {
@@ -803,6 +931,7 @@ export function createAudioDirector() {
       setGain(phoneHigh, 0);
       setGain(phoneLow, 0);
       silenceHorrorScore(0.08);
+      officeMusicActive = false;
       musicNextNote = 0;
       setGain(nightAirGain, 0, 0.035);
       setGain(nightDroneGain, 0, 0.035);
@@ -942,12 +1071,24 @@ export function createAudioDirector() {
     setGain(buzzGain, 0);
     silenceHorrorScore(0.35);
     officeAudioOrigin = ctx?.currentTime ?? 0;
+    officeMusicActive = true;
+    officePhraseIndex = 0;
+    officePhraseNote = 0;
+    musicNoteIndex = 0;
+    musicNextNote = (ctx?.currentTime ?? 0) + 2.6;
+    if (ctx) {
+      ensureHorrorScore();
+      ensureOfficeMemoryPad();
+      // Slightly wetter hall for unfinished thoughts.
+      setGain(musicDryGain, 0.22, 0.01);
+      setGain(musicWetGain, 0.92, 0.01);
+    }
   }
 
   function updateOffice(progress, state) {
     if (!enabled || !ctx || ctx.state !== 'running') return;
-    setGain(humGain, 0.010, 0.32);
-    setGain(buzzGain, 0.00055, 0.32);
+    setGain(humGain, 0.007, 0.4);
+    setGain(buzzGain, 0.00035, 0.4);
     setGain(motorGain, 0, 0.2);
     // Two short bursts, then a long, ordinary pause. Once the protagonist
     // retraces their route, the phone does not ring again this playthrough.
@@ -958,6 +1099,9 @@ export function createAudioDirector() {
     const value = ringActive && doublePulse ? 0.0025 * near : 0;
     setGain(phoneHigh, value, 0.045);
     setGain(phoneLow, value * 0.65, 0.045);
+    const t = ctx.currentTime;
+    const duckMusic = (ringActive && doublePulse && value > 0.0008) || t < sfxBusyUntil;
+    advanceOfficeMusic(duckMusic);
   }
 
   // Quiet, directional double-component latch sound, synthesized locally.
@@ -976,10 +1120,15 @@ export function createAudioDirector() {
     // There is no new loud cue: the phone simply stops and the building
     // shifts from modern electrical buzz to near-silence.
     stopBreathing();
+    officeMusicActive = false;
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
     setGain(buzzGain, 0);
     setGain(motorGain, 0);
+    silenceHorrorScore(0.45);
+    // Restore corridor music dry/wet for later replays.
+    setGain(musicDryGain, MUSIC_REVERB_DRY, 0.01);
+    setGain(musicWetGain, MUSIC_REVERB_WET, 0.01);
   }
 
   function updateRecords(progress, state) {
@@ -1216,7 +1365,12 @@ export function createAudioDirector() {
     setGain(motorGain, 0);
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
+    officeMusicActive = false;
+    officePhraseIndex = 0;
+    officePhraseNote = 0;
     silenceHorrorScore(0.08);
+    setGain(musicDryGain, MUSIC_REVERB_DRY, 0.01);
+    setGain(musicWetGain, MUSIC_REVERB_WET, 0.01);
     elevWasUnlocked = false;
     elevOpenPrev = 0;
     elevOpenSfxPlayed = false;
@@ -1242,6 +1396,7 @@ export function createAudioDirector() {
     silenceHorrorScore(0.02);
     try { scoreAirSource?.stop(); scorePadLow?.stop(); scorePadHigh?.stop(); } catch (_) { /* already stopped */ }
     try { scoreTension?.stop(); scoreAnxiety?.stop(); } catch (_) { /* already stopped */ }
+    try { officePadLow?.stop(); officePadFifth?.stop(); officePadAlmost?.stop(); } catch (_) { /* already stopped */ }
     try { unseenNoise?.stop(); unseenTone?.stop(); } catch (_) { /* already stopped */ }
     try { nightAirSource?.stop(); nightDroneSource?.stop(); } catch (_) { /* already stopped */ }
     ctx?.close().catch(() => {});
