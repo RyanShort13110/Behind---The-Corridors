@@ -2,37 +2,43 @@ import * as THREE from 'three';
 
 /**
  * Proximity highlights + click-to-inspect for named 3D objects.
- * Outlines stay faint and cold — readable at arm's length, never collectible-glow.
+ * Highlight is a tight EdgesGeometry outline on the object meshes themselves —
+ * not a floating AABB box.
  */
-const EDGE_COLOR = 0xb7c4c0;
-const MAX_EDGE_OPACITY = 0.38;
+const EDGE_COLOR = 0xd7ebe4;
+const MAX_EDGE_OPACITY = 0.82;
 const FADE_RATE = 7;
-
-function makeUnitOutline() {
-  const geo = new THREE.BoxGeometry(1, 1, 1);
-  const edges = new THREE.EdgesGeometry(geo, 15);
-  geo.dispose();
-  const mat = new THREE.LineBasicMaterial({
-    color: EDGE_COLOR,
-    transparent: true,
-    opacity: 0,
-    depthTest: true,
-    depthWrite: false,
-    fog: false,
-  });
-  const lines = new THREE.LineSegments(edges, mat);
-  lines.renderOrder = 3;
-  lines.visible = false;
-  lines.frustumCulled = false;
-  return lines;
-}
+const EDGE_EXPAND = 1.035;
 
 function collectMeshes(root) {
   const meshes = [];
   root.traverse(child => {
-    if (child.isMesh) meshes.push(child);
+    if (child.isMesh && child.geometry) meshes.push(child);
   });
-  return meshes.length ? meshes : [root];
+  return meshes.length ? meshes : [];
+}
+
+function makeMeshOutlines(meshes) {
+  const mat = new THREE.LineBasicMaterial({
+    color: EDGE_COLOR,
+    transparent: true,
+    opacity: 0,
+    depthTest: false,
+    depthWrite: false,
+    fog: false,
+  });
+  const lines = [];
+  for (const mesh of meshes) {
+    const edges = new THREE.EdgesGeometry(mesh.geometry, 20);
+    const line = new THREE.LineSegments(edges, mat);
+    line.scale.setScalar(EDGE_EXPAND);
+    line.renderOrder = 10;
+    line.visible = false;
+    line.frustumCulled = false;
+    mesh.add(line);
+    lines.push(line);
+  }
+  return { lines, material: mat };
 }
 
 export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl, closeEl }) {
@@ -41,7 +47,6 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
   const pointer = new THREE.Vector2();
   const eye = new THREE.Vector3();
   const aim = new THREE.Vector3();
-  const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   const box = new THREE.Box3();
   let nearest = null;
@@ -59,19 +64,19 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
   }
 
   function register({ id, object, title, body, radius = 3.4, sceneRoot, pickMeshes }) {
-    const outline = makeUnitOutline();
-    const root = sceneRoot || object.parent || object;
-    root.add(outline);
+    void sceneRoot; // outlines parent to the meshes themselves
+    const meshes = pickMeshes || collectMeshes(object);
+    const { lines, material } = makeMeshOutlines(meshes);
     const entry = {
       id,
       object,
       title,
       body,
       radius,
-      outline,
-      material: outline.material,
+      lines,
+      material,
       opacity: 0,
-      pickMeshes: pickMeshes || collectMeshes(object),
+      pickMeshes: meshes,
       worldCenter: new THREE.Vector3(),
       dist: Infinity,
     };
@@ -82,27 +87,25 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
   function clear() {
     setPanel(false);
     for (const entry of entries) {
-      entry.outline.parent?.remove(entry.outline);
-      entry.outline.geometry.dispose();
+      for (const line of entry.lines) {
+        line.parent?.remove(line);
+        line.geometry.dispose();
+      }
       entry.material.dispose();
     }
     entries.length = 0;
     nearest = null;
   }
 
-  function syncOutline(entry) {
+  function syncCenter(entry) {
     entry.object.updateWorldMatrix(true, true);
     box.setFromObject(entry.object);
-    if (box.isEmpty()) return;
-    box.getSize(size);
+    if (box.isEmpty()) {
+      entry.object.getWorldPosition(entry.worldCenter);
+      return;
+    }
     box.getCenter(center);
     entry.worldCenter.copy(center);
-    entry.outline.position.copy(center);
-    entry.outline.scale.set(
-      Math.max(size.x, 0.12) * 1.06,
-      Math.max(size.y, 0.12) * 1.06,
-      Math.max(size.z, 0.12) * 1.06
-    );
   }
 
   function update(dt, active) {
@@ -111,17 +114,13 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
 
     let best = null;
     let bestDist = Infinity;
-    if (enabled) {
-      for (const entry of entries) {
-        syncOutline(entry);
-        entry.dist = eye.distanceTo(entry.worldCenter);
-        if (entry.dist < entry.radius && entry.dist < bestDist) {
-          best = entry;
-          bestDist = entry.dist;
-        }
+    for (const entry of entries) {
+      syncCenter(entry);
+      entry.dist = eye.distanceTo(entry.worldCenter);
+      if (enabled && entry.dist < entry.radius && entry.dist < bestDist) {
+        best = entry;
+        bestDist = entry.dist;
       }
-    } else {
-      for (const entry of entries) syncOutline(entry);
     }
     nearest = best;
 
@@ -130,10 +129,11 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
       const want = entry === nearest ? 1 : 0;
       entry.opacity += (want - entry.opacity) * fade;
       const pulse = entry === nearest
-        ? 0.82 + Math.sin(performance.now() * 0.0024) * 0.18
+        ? 0.78 + Math.sin(performance.now() * 0.0036) * 0.22
         : 1;
       entry.material.opacity = entry.opacity * MAX_EDGE_OPACITY * pulse;
-      entry.outline.visible = entry.opacity > 0.01;
+      const show = entry.opacity > 0.01;
+      for (const line of entry.lines) line.visible = show;
     }
     return nearest;
   }
@@ -147,7 +147,7 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
     const hits = raycaster.intersectObjects(nearest.pickMeshes, true);
     if (hits.length) return nearest;
 
-    // Soft aim assist for thin props (signs, door edges).
+    // Soft aim assist for thin props (handles, signs).
     aim.copy(nearest.worldCenter).sub(eye).normalize();
     if (raycaster.ray.direction.dot(aim) > 0.978 && nearest.dist < nearest.radius) {
       return nearest;

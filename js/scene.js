@@ -85,7 +85,10 @@ export function createCorridor(scene) {
       } else {
         add(0.09, 2.42, 1.25, side * 2.55, 1.36, doorZ, mats.trim);
         add(0.12, 2.28, 1.04, side * 2.5, 1.36, doorZ, mats.door);
-        add(0.19, 0.055, 0.08, side * 2.39, 1.25, z - 1.48, mats.metal);
+        // Fourth right door gets a dedicated inspectable knob (added below).
+        if (!(i === 3 && side === 1)) {
+          add(0.19, 0.055, 0.08, side * 2.39, 1.25, z - 1.48, mats.metal);
+        }
       }
       add(0.035, 0.46, 0.31, side * 2.38, 2.56, doorZ, mats.metal);
     }
@@ -130,6 +133,21 @@ export function createCorridor(scene) {
   plaque.name = 'door-plaque';
   world.add(plaque);
 
+  // Fourth right-door handle — ahead enough that its edge outline reads while
+  // still facing down the corridor, inviting a look + click.
+  const lockedKnobBay = 3;
+  const lockedKnobZ = -2 - lockedKnobBay * 4.5 - 1.48;
+  const lockedKnob = new THREE.Group();
+  lockedKnob.name = 'locked-doorknob';
+  lockedKnob.position.set(2.39, 1.25, lockedKnobZ);
+  const knobRoseGeo = new THREE.BoxGeometry(0.09, 0.16, 0.045);
+  const knobLeverGeo = new THREE.BoxGeometry(0.24, 0.055, 0.08);
+  const knobRose = new THREE.Mesh(knobRoseGeo, mats.metal);
+  const knobLever = new THREE.Mesh(knobLeverGeo, mats.metal);
+  knobLever.position.set(-0.07, 0, 0.03);
+  lockedKnob.add(knobRose, knobLever);
+  world.add(lockedKnob);
+
   // Commit one InstancedMesh per material.
   for (const [material, matrices] of matricesByMaterial) {
     const batch = new THREE.InstancedMesh(cube, material, matrices.length);
@@ -158,6 +176,14 @@ export function createCorridor(scene) {
   scene.fog = new THREE.FogExp2(0x060b0d, 0.065);
 
   const interactables = [
+    {
+      id: 'locked-doorknob',
+      object: lockedKnob,
+      // Large enough to light up while the door is still ahead in forward view.
+      radius: 9.5,
+      title: 'DOOR HANDLE',
+      body: 'Locked.',
+    },
     {
       id: 'exit-sign',
       object: sign,
@@ -205,6 +231,8 @@ export function createCorridor(scene) {
       signMat.dispose();
       plaqueGeo.dispose();
       plaqueMat.dispose();
+      knobRoseGeo.dispose();
+      knobLeverGeo.dispose();
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);
       scene.remove(world);
