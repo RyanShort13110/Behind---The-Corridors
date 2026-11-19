@@ -10,9 +10,10 @@ import {
 const clamp01 = n => Math.max(0, Math.min(1, n));
 const smooth = t => t * t * (3 - 2 * t);
 
-export function officeCameraPose(progress, secondApproach) {
+export function officeCameraPose(progress, secondApproach, keypadUnlocked = false) {
   const straightZ = OFFICE_START_Z - progress * OFFICE_METERS;
-  if (!secondApproach || progress <= OFFICE_BRANCH_START) {
+  // Stay in the aisle until the service keypad unlocks the side passage.
+  if (!secondApproach || !keypadUnlocked || progress <= OFFICE_BRANCH_START) {
     return { x: 0, z: straightZ, yaw: 0 };
   }
   const t = smooth(clamp01((progress - OFFICE_BRANCH_START) /

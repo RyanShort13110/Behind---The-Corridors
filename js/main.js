@@ -8,6 +8,7 @@ import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
 import { createLookControls } from './look.js';
 import { createInventory } from './inventory.js';
+import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
@@ -41,6 +42,8 @@ const el = {
   itemDetail: $('item-detail'), itemDetailClose: $('item-detail-close'),
   itemDetailCanvas: $('item-detail-canvas'), itemDetailTitle: $('item-detail-title'),
   itemDetailBody: $('item-detail-body'),
+  keypad: $('keypad'), keypadClose: $('keypad-close'),
+  keypadDisplay: $('keypad-display'), keypadGrid: $('keypad-grid'),
 };
 
 // Mapping 0 => camera inside the rear cabin, .09 => original corridor start,
@@ -66,7 +69,7 @@ let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let activeBeat = -1;
 let ended = false;
-let renderer, camera, scene, director, monitor, interaction, look, inventory;
+let renderer, camera, scene, director, monitor, interaction, look, inventory, keypad;
 let lastTime = performance.now();
 let scrollTrigger = null;
 let chapterId = 'corridor';
@@ -76,7 +79,14 @@ let transitioning = false;
 const walkKeys = { forward: false, back: false };
 let devChapterUI = null;
 // Chapter memory persists across scene disposal (proximity != confirmed observation).
-const memory = { chaptersCompleted: [], lighterEncountered: false, photographPassed: false, extraStepHeard: false, keyPassed: false };
+const memory = {
+  chaptersCompleted: [],
+  lighterEncountered: false,
+  keyFobEncountered: false,
+  photographPassed: false,
+  extraStepHeard: false,
+  keyPassed: false,
+};
 const ORIGINAL_LOCATION_HTML = 'NORTH WING <span class="separator">/</span> LEVEL 13';
 
 // Sparse forward thoughts — ordinary, then wrong, then the breathing.
@@ -175,16 +185,48 @@ try {
     closeEl: el.inspectClose,
     actionEl: el.inspectAction,
     inventory,
-    onInspect: id => audio.playInteract(id),
-    onTake: itemId => audio.playInteract(itemId),
+    onInspect: id => {
+      audio.playInteract(id);
+      if (id === 'office-lighter') {
+        officeStory.state.lighterInspected = true;
+        memory.lighterEncountered = true;
+      } else if (id === 'office-key-fob') {
+        officeStory.state.keyFobInspected = true;
+        memory.keyFobEncountered = true;
+      }
+    },
+    onTake: (itemId, entryId) => {
+      audio.playInteract(itemId);
+      if (entryId === 'office-sticky-note') officeStory.state.stickyTaken = true;
+    },
     onUse: (_itemId, targetId) => {
       if (targetId !== 'locked-doorknob') return;
       audio.playUnlock();
       director.get('corridor')?.openLockedDoor?.();
     },
+    onKeypad: () => {
+      interaction?.close();
+      closeItemDetail();
+      keypad?.open();
+      audio.playInteract('office-keypad');
+    },
+  });
+  keypad = createKeypad({
+    root: el.keypad,
+    displayEl: el.keypadDisplay,
+    gridEl: el.keypadGrid,
+    closeEl: el.keypadClose,
+    getExpectedCode: () => officeStory.state.keypadCode,
+    onDigit: () => audio.playInteract('keypad-digit'),
+    onClear: () => audio.playInteract('keypad-clear'),
+    onWrong: () => audio.playInteract('keypad-wrong'),
+    onSuccess: () => {
+      officeStory.unlockKeypad();
+      audio.playUnlock();
+    },
   });
   look = createLookControls({ canvas: renderer.domElement });
-  bindCorridorInteractables();
+  bindChapterInteractables();
   monitor = createPerformanceMonitor(renderer, resize, () => quality, el.perf);
   resize();
   window.addEventListener('resize', resize, { passive: true });
@@ -195,11 +237,13 @@ try {
   el.begin.disabled = true;
 }
 
-function bindCorridorInteractables() {
+function bindChapterInteractables() {
   interaction?.clear();
   if (!director || !scene) return;
+  const modules = chapterId === 'corridor'
+    ? [director.get('corridor'), director.get('elevator')]
+    : [director.get(chapterId)];
   const corridor = director.get('corridor');
-  const modules = [corridor, director.get('elevator')];
   for (const module of modules) {
     for (const spec of module?.interactables || []) {
       const entry = interaction.register({ ...spec, sceneRoot: scene });
@@ -240,6 +284,23 @@ function drawBrassKeyPreview(canvas) {
   ctx.restore();
 }
 
+function drawStickyNotePreview(canvas, code = '0000') {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#d6c46a';
+  ctx.fillRect(w * 0.22, h * 0.12, w * 0.56, h * 0.72);
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.fillRect(w * 0.22, h * 0.12, w * 0.56, h * 0.1);
+  ctx.fillStyle = '#2a3234';
+  ctx.font = `700 ${Math.round(h * 0.16)}px "Courier New", monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(code).split('').join(' '), w * 0.5, h * 0.52);
+}
+
 function closeItemDetail() {
   if (!el.itemDetail) return;
   el.itemDetail.classList.remove('is-open');
@@ -252,6 +313,9 @@ function openItemDetail(item) {
   el.itemDetailBody.textContent = item.tooltip
     || 'An item you are carrying.';
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
+  else if (item.id === 'sticky-note') {
+    drawStickyNotePreview(el.itemDetailCanvas, officeStory.state.keypadCode);
+  }
   else if (String(item.id).startsWith('stuffed-dragon')) {
     drawStuffedDragonPreview(el.itemDetailCanvas, item.previewColor ?? 0xf2f0ea);
   } else {
@@ -366,7 +430,7 @@ function reset() {
   } else {
     director?.reset();
   }
-  bindCorridorInteractables();
+  bindChapterInteractables();
   look?.reset();
   inventory?.clear();
   renderInventory([]);
@@ -379,9 +443,11 @@ function reset() {
   unseenStory.reset();
   memory.chaptersCompleted.length = 0;
   memory.lighterEncountered = false;
+  memory.keyFobEncountered = false;
   memory.photographPassed = false;
   memory.extraStepHeard = false;
   memory.keyPassed = false;
+  keypad?.close();
   audio.reset();
   hideEndCard();
   activeBeat = -1;
@@ -407,10 +473,11 @@ async function enterOffice() {
     renderInventory([]);
     director.dispose();
     director = createSceneDirector();
-    director.add('office', createOffice(scene));
+    officeStory.reset();
+    director.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     director.activate('office');
     chapterId = 'office';
-    officeStory.reset();
+    bindChapterInteractables();
     audio.enterOffice();
     hideEndCard();
     el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
@@ -647,7 +714,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
       const { createOffice } = await import('./levels/office.js');
-      next.add('office', createOffice(scene));
+      officeStory.reset();
+      next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
       const { createRecords } = await import('./levels/records.js');
       next.add('records', createRecords(scene));
@@ -666,20 +734,23 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     director = next;
     next = null; // Ownership was transferred to the active director.
     chapterId = target;
-    if (target === 'corridor') bindCorridorInteractables();
+    bindChapterInteractables();
 
     // Fresh chapter means no artificially unlocked doors, footsteps, or clues.
+    // Office already rolled its keypad code before createOffice above.
     story.reset();
-    officeStory.reset();
+    if (target !== 'office') officeStory.reset();
     recordsStory.reset();
     nightStory.reset();
     thresholdStory.reset();
     unseenStory.reset();
     memory.chaptersCompleted.length = 0;
     memory.lighterEncountered = false;
+    memory.keyFobEncountered = false;
     memory.photographPassed = false;
     memory.extraStepHeard = false;
     memory.keyPassed = false;
+    keypad?.close();
     audio.reset();
     if (target === 'office') audio.enterOffice();
     else if (target === 'records') audio.enterRecords();
@@ -852,6 +923,11 @@ function updateNarrative(p) {
       instruction = `${useLabel} · CLICK TO INSPECT`;
     } else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
     else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
+  } else if (inOffice && interaction?.nearest && !interaction.isOpen && !keypad?.isOpen && !ended) {
+    const near = interaction.nearest;
+    if (near.kind === 'keypad') instruction = 'CLICK TO ENTER CODE · A / D OR SWIPE TO LOOK';
+    else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
+    else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
   }
   if (el.instruction.textContent !== instruction) el.instruction.textContent = instruction;
   const show = inCorridor
@@ -876,6 +952,7 @@ function updateNarrative(p) {
     else if (p > 0.027 && ended) hideEndCard();
   } else if (inOffice) {
     memory.lighterEncountered ||= state.lighterPassed;
+    memory.keyFobEncountered ||= state.keyFobInspected;
     if (state.completed && !ended) showEndCard('office');
     else if (p < OFFICE_EXIT_PROGRESS - 0.035 && ended) hideEndCard();
   } else if (inRecords) {
@@ -911,7 +988,7 @@ function frame(now) {
             : chapterId === 'threshold' ? THRESHOLD_METERS : UNSEEN_METERS;
     // Apply held walk keys before reading scroll so look keys can't cancel motion.
     const walkDir = (walkKeys.forward ? 1 : 0) + (walkKeys.back ? -1 : 0);
-    if (walkDir !== 0 && !interaction?.isOpen) {
+    if (walkDir !== 0 && !interaction?.isOpen && !keypad?.isOpen) {
       const keyStep = MAX_WALK_SPEED * dt / meters;
       const next = progress + walkDir * keyStep;
       window.scrollTo({ top: scrollYFor(THREE.MathUtils.clamp(next, 0, 1)), behavior: 'instant' });
@@ -970,7 +1047,11 @@ function frame(now) {
       0
     );
     if (chapterId === 'office') {
-      const route = officeCameraPose(p, officeStory.state.secondApproachStarted);
+      const route = officeCameraPose(
+        p,
+        officeStory.state.secondApproachStarted,
+        officeStory.state.keypadUnlocked
+      );
       camera.position.x += route.x;
       camera.position.z = route.z;
       camera.rotation.y += route.yaw;
@@ -988,14 +1069,18 @@ function frame(now) {
       camera.rotation.x += route.pitch;
     }
 
-    const canInteract = chapterId === 'corridor' && !ended && !transitioning;
+    const canInteract = (chapterId === 'corridor' || chapterId === 'office')
+      && !ended && !transitioning;
+    const uiBlocking = interaction?.isOpen || keypad?.isOpen;
     look?.noteWalk(p - previousDisplayed);
-    look?.setEnabled(canInteract && !interaction?.isOpen);
+    look?.setEnabled(canInteract && !uiBlocking);
     camera.rotation.y += look?.update(dt, reduced) ?? 0;
+    const interactStory = chapterId === 'corridor' ? story.state
+      : chapterId === 'office' ? officeStory.state : null;
     interaction?.update(
       dt,
-      canInteract && !interaction?.isOpen,
-      chapterId === 'corridor' ? story.state : null
+      canInteract && !uiBlocking,
+      interactStory
     );
 
     if (chapterId === 'corridor') {

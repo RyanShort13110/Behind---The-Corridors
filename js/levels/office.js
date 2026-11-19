@@ -1,12 +1,14 @@
 import * as THREE from 'three';
-
 /**
  * Level 02: The Office. A modest, contiguous floor with a single central
  * traversal line, photographed through a fixed-forward first-person camera.
- * Static boxes are instanced by material. Only the pulled-out chair and the
- * records doors are animated. No textures or external assets are required.
+ * Static boxes are instanced by material. Only the hinged service door is
+ * animated. No textures or external assets are required.
+ *
+ * @param {object} [options]
+ * @param {string} [options.keypadCode] 4-digit service code shown on the sticky note
  */
-export function createOffice(scene) {
+export function createOffice(scene, { keypadCode = '0000' } = {}) {
   const world = new THREE.Group();
   world.name = 'Level 02 / The Office';
   scene.add(world);
@@ -33,6 +35,13 @@ export function createOffice(scene) {
     lighterDark: new THREE.MeshStandardMaterial({ color: 0x24292b, roughness: 0.74, metalness: 0.10 }),
     lighterRed: new THREE.MeshStandardMaterial({ color: 0x9e3830, roughness: 0.61, metalness: 0 }),
     cup: new THREE.MeshStandardMaterial({ color: 0xb4b7a7, roughness: 0.74 }),
+    sticky: new THREE.MeshStandardMaterial({ color: 0xd6c46a, roughness: 0.78, metalness: 0 }),
+    stickyInk: new THREE.MeshStandardMaterial({ color: 0x2a3234, roughness: 0.9, metalness: 0 }),
+    fob: new THREE.MeshStandardMaterial({ color: 0xd45a28, roughness: 0.55, metalness: 0.08 }),
+    fobRing: new THREE.MeshStandardMaterial({ color: 0x8a9490, roughness: 0.4, metalness: 0.7 }),
+    keypad: new THREE.MeshStandardMaterial({ color: 0x1a2224, roughness: 0.7, metalness: 0.25 }),
+    keypadFace: new THREE.MeshStandardMaterial({ color: 0x2c383a, roughness: 0.55, metalness: 0.2 }),
+    keypadBtn: new THREE.MeshStandardMaterial({ color: 0x4a5856, roughness: 0.5, metalness: 0.15 }),
     diffuse: new THREE.MeshStandardMaterial({ color: 0xd6e7df, emissive: 0x9dbbb2, emissiveIntensity: 0.50 }),
     dark: new THREE.MeshBasicMaterial({ color: 0x080e0f }),
   };
@@ -103,16 +112,15 @@ export function createOffice(scene) {
       add(0.82, 0.43, 0.016, x, 1.28, z - 0.134, materials.screen);
       add(0.08, 0.24, 0.10, x, 1.01, z - 0.2, materials.metal);
       add(0.57, 0.025, 0.23, x, 0.95, z + 0.3, materials.plastic);
-      // The RIGHT desk with the displaced chair has a front-facing entrance, rather
-      // than an opaque partition across the entire bay. This makes both its
-      // pulled-out AND tucked-in positions visible from the fixed camera aisle.
+      // The RIGHT desk with the aisle chair keeps a front-facing entrance so
+      // the seat stays readable from the walking line.
       if (index === 4 && side === 1) {
         add(0.06, 1.28, 1.72, side * 1.83, 0.66, z - 0.92, materials.partition);
       } else {
         add(0.06, 1.28, 3.6, side * 1.83, 0.66, z, materials.partition);
       }
       add(2.85, 1.45, 0.06, side * 4.1, 0.73, z - 2.3, materials.partition);
-      // Most chairs are already tucked in. One has been left out.
+      // Most chairs are tucked in. One sits permanently in the aisle.
       if (!(index === 4 && side === 1)) {
         add(0.66, 0.16, 0.60, side * 2.52, 0.52, z + 0.56, materials.fabric);
         add(0.66, 0.73, 0.11, side * 2.52, 1.00, z + 0.86, materials.fabric);
@@ -127,30 +135,25 @@ export function createOffice(scene) {
     }
   }
 
-  // A single recognizable OFFICE CHAIR, well outside its workstation on the
-  // first pass. The seat, back, arms and wheeled base are distinctive in profile.
-  // In the second pass it is tucked in again, not missing or moved offstage.
-  // No camera collisions: the pulled-out seat never reaches the walking line.
-  // RIGHT side avoids the left-hand narrative captions covering the chair.
-  const chairOut = { x: 1.20, z: -21.50, yaw: -0.29 };
-  const chairIn  = { x: 2.47, z: -21.98, yaw: -0.02 };
-  const changedChair = new THREE.Group();
-  changedChair.name = 'Pulled-out office chair / changed on return';
-  changedChair.position.set(chairOut.x, 0, chairOut.z);
-  changedChair.rotation.y = chairOut.yaw;
-  world.add(changedChair);
-  add(0.68, 0.17, 0.62, 0, 0.54, 0, materials.fabric, changedChair);  // seat
-  add(0.70, 0.75, 0.13, 0, 1.02, 0.36, materials.fabric, changedChair); // back
-  add(0.58, 0.49, 0.035, 0, 1.05, 0.438, materials.fabric, changedChair); // inset
-  add(0.06, 0.32, 0.07, -0.29, 0.70, 0.08, materials.metal, changedChair);
-  add(0.06, 0.32, 0.07,  0.29, 0.70, 0.08, materials.metal, changedChair);
-  add(0.13, 0.06, 0.35, -0.31, 0.85, 0.06, materials.fabric, changedChair);
-  add(0.13, 0.06, 0.35,  0.31, 0.85, 0.06, materials.fabric, changedChair);
-  add(0.085, 0.41, 0.085, 0, 0.25, 0.04, materials.metal, changedChair);
-  add(0.65, 0.06, 0.09, 0, 0.11, 0.04, materials.metal, changedChair);
-  add(0.09, 0.06, 0.60, 0, 0.11, 0.04, materials.metal, changedChair);
+  // A single office chair left permanently in the aisle — ordinary clutter,
+  // not a scene-change beat. Stays clear of the walking line and captions.
+  const aisleChair = new THREE.Group();
+  aisleChair.name = 'Aisle office chair / static';
+  aisleChair.position.set(1.20, 0, -21.50);
+  aisleChair.rotation.y = -0.29;
+  world.add(aisleChair);
+  add(0.68, 0.17, 0.62, 0, 0.54, 0, materials.fabric, aisleChair);  // seat
+  add(0.70, 0.75, 0.13, 0, 1.02, 0.36, materials.fabric, aisleChair); // back
+  add(0.58, 0.49, 0.035, 0, 1.05, 0.438, materials.fabric, aisleChair); // inset
+  add(0.06, 0.32, 0.07, -0.29, 0.70, 0.08, materials.metal, aisleChair);
+  add(0.06, 0.32, 0.07,  0.29, 0.70, 0.08, materials.metal, aisleChair);
+  add(0.13, 0.06, 0.35, -0.31, 0.85, 0.06, materials.fabric, aisleChair);
+  add(0.13, 0.06, 0.35,  0.31, 0.85, 0.06, materials.fabric, aisleChair);
+  add(0.085, 0.41, 0.085, 0, 0.25, 0.04, materials.metal, aisleChair);
+  add(0.65, 0.06, 0.09, 0, 0.11, 0.04, materials.metal, aisleChair);
+  add(0.09, 0.06, 0.60, 0, 0.11, 0.04, materials.metal, aisleChair);
   for (const [cx, cz] of [[-0.3,0.04],[0.3,0.04],[0,-0.24],[0,0.32]]) {
-    add(0.13, 0.11, 0.105, cx, 0.056, cz, materials.plastic, changedChair);
+    add(0.13, 0.11, 0.105, cx, 0.056, cz, materials.plastic, aisleChair);
   }
 
   // An ordinary shared side counter on the RIGHT edge of the aisle. The original
@@ -257,6 +260,73 @@ export function createOffice(scene) {
     materials.scratch, lighter);
   scratch.rotation.z = -0.46;
 
+  // Tap target for inspect (not takeable — the lighter recurs later).
+  const lighterHitGeo = new THREE.BoxGeometry(0.14, 0.28, 0.12);
+  separateGeometries.push(lighterHitGeo);
+  const lighterHit = new THREE.Mesh(
+    lighterHitGeo,
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  lighterHit.position.set(0, 0.02, 0);
+  lighterHit.userData.inspectHitOnly = true;
+  lighter.add(lighterHit);
+
+  // Sticky note with the service-door code — takeable, readable in inventory.
+  const stickyNote = new THREE.Group();
+  stickyNote.name = 'Sticky note / four-digit code';
+  stickyNote.position.set(1.42, 1.112, -17.18);
+  stickyNote.rotation.y = 0.18;
+  stickyNote.rotation.z = -0.04;
+  world.add(stickyNote);
+  add(0.11, 0.002, 0.12, 0, 0, 0, materials.sticky, stickyNote);
+  add(0.07, 0.0015, 0.012, 0, 0.002, 0.02, materials.stickyInk, stickyNote);
+  add(0.055, 0.0015, 0.01, 0, 0.002, 0.0, materials.stickyInk, stickyNote);
+  add(0.06, 0.0015, 0.01, 0, 0.002, -0.02, materials.stickyInk, stickyNote);
+  const stickyHitGeo = new THREE.BoxGeometry(0.16, 0.06, 0.16);
+  separateGeometries.push(stickyHitGeo);
+  const stickyHit = new THREE.Mesh(
+    stickyHitGeo,
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  stickyHit.position.set(0, 0.01, 0);
+  stickyHit.userData.inspectHitOnly = true;
+  stickyNote.add(stickyHit);
+
+  // Round orange employee key fob — inspect only; used later in Records.
+  const keyFob = new THREE.Group();
+  keyFob.name = 'Orange employee key fob / inspect only';
+  keyFob.position.set(1.08, 1.118, -22.15);
+  keyFob.rotation.x = -Math.PI / 2;
+  keyFob.rotation.z = 0.55;
+  world.add(keyFob);
+  const fobDisc = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.038, 0.038, 0.012, 16),
+    materials.fob
+  );
+  keyFob.add(fobDisc);
+  separateGeometries.push(fobDisc.geometry);
+  const fobRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.016, 0.0035, 8, 14),
+    materials.fobRing
+  );
+  fobRing.position.set(0.042, 0, 0);
+  fobRing.rotation.y = Math.PI / 2;
+  keyFob.add(fobRing);
+  separateGeometries.push(fobRing.geometry);
+  const fobHitGeo = new THREE.BoxGeometry(0.12, 0.05, 0.1);
+  separateGeometries.push(fobHitGeo);
+  const fobHit = new THREE.Mesh(
+    fobHitGeo,
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  fobHit.userData.inspectHitOnly = true;
+  keyFob.add(fobHit);
+
+  // Small side ledge so the fob isn't floating over carpet.
+  add(0.42, 0.05, 0.32, 1.15, 1.06, -22.18, materials.wood);
+  add(0.04, 0.9, 0.04, 1.28, 0.55, -22.28, materials.metal);
+  add(0.04, 0.9, 0.04, 1.02, 0.55, -22.08, materials.metal);
+
   // Ringing phone, always without an onscreen explanation. The sound system
   // adds distant, low-volume analogue rings while the player approaches.
   add(0.30, 0.11, 0.20, 4.02, 0.99, -31.9, materials.plastic);
@@ -324,7 +394,7 @@ export function createOffice(scene) {
 
   // Narrow service entrance beside (not INSIDE) the meeting room. On the first
   // pass it is unremarkable: the closed door resembles a supply closet. The
-  // latch releases only after the chair has changed and the player retreats.
+  // latch releases only after the player reaches the far door and retreats.
   // The room is at x=2.58..6.2, z=-35.3..-45.3; this alcove fits just BEFORE it.
   add(3.60, 0.14, 2.65, 3.95, -0.06, -33.65, materials.floor);
   add(3.60, 0.13, 2.65, 3.95, 3.62, -33.65, materials.ceiling);
@@ -342,6 +412,37 @@ export function createOffice(scene) {
   world.add(serviceDoor);
   add(0.080, 2.69, 1.30, 0, 1.44, -0.65, materials.wall, serviceDoor);
   add(0.068, 0.045, 0.043, -0.072, 1.25, -1.10, materials.metal, serviceDoor);
+
+  // Wall-mounted service keypad on the near jamb (facing the aisle).
+  const keypad = new THREE.Group();
+  keypad.name = 'Service access keypad';
+  keypad.position.set(2.12, 1.38, -33.35);
+  keypad.rotation.y = -Math.PI / 2;
+  world.add(keypad);
+  add(0.18, 0.28, 0.04, 0, 0, 0, materials.keypad, keypad);
+  add(0.15, 0.24, 0.018, 0, 0, 0.028, materials.keypadFace, keypad);
+  add(0.11, 0.035, 0.01, 0, 0.075, 0.04, materials.dark, keypad);
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      add(
+        0.028, 0.022, 0.01,
+        -0.04 + col * 0.04,
+        0.02 - row * 0.04,
+        0.04,
+        materials.keypadBtn,
+        keypad
+      );
+    }
+  }
+  const keypadHitGeo = new THREE.BoxGeometry(0.28, 0.4, 0.2);
+  separateGeometries.push(keypadHitGeo);
+  const keypadHit = new THREE.Mesh(
+    keypadHitGeo,
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  keypadHit.userData.inspectHitOnly = true;
+  keypad.add(keypadHit);
+
   // Small directional sign visible when approaching the junction.
   const passageCanvas = document.createElement('canvas');
   passageCanvas.width = 512; passageCanvas.height = 128;
@@ -412,25 +513,60 @@ export function createOffice(scene) {
 
   const follow = (current, target, dt, reduced) =>
     reduced ? target : current + (target - current) * (1 - Math.exp(-dt * 1.6));
+  const codeSpaced = String(keypadCode).split('').join(' ');
+  const interactables = [
+    {
+      id: 'office-lighter',
+      object: lighter,
+      radius: 5.2,
+      title: 'LIGHTER',
+      body: 'Cheap plastic. Scratched. Still has fuel.',
+    },
+    {
+      id: 'office-sticky-note',
+      object: stickyNote,
+      radius: 5.0,
+      title: 'STICKY NOTE',
+      body: `Four digits in blue ink: ${codeSpaced}. The handwriting looks like mine.`,
+      tooltip: `Service code ${codeSpaced}. Handwriting that feels familiar.`,
+      takeable: true,
+      itemId: 'sticky-note',
+      itemLabel: 'STICKY NOTE',
+    },
+    {
+      id: 'office-key-fob',
+      object: keyFob,
+      radius: 5.0,
+      title: 'KEY FOB',
+      body: 'This key fob looks familiar… did I work here?',
+    },
+    {
+      id: 'office-keypad',
+      object: keypad,
+      radius: 5.4,
+      kind: 'keypad',
+      onlyAfterSecondApproach: true,
+      title: 'KEYPAD',
+      body: 'Four digits.',
+    },
+  ];
+
   return {
+    lighter,
+    stickyNote,
+    keyFob,
+    keypad,
+    interactables,
     update(progress, state, dt, reduced) {
-      // The chair moves only after the player has passed it and begun returning.
-      // Because retreating keeps the camera facing forward, the change happens
-      // behind the player's back. Preserve smooth interpolation and reduced motion.
-      const changedBehindBack = state.hasBacktracked && progress < 0.62;
-      const chairTarget = changedBehindBack ? chairIn : chairOut;
-      changedChair.position.x = follow(changedChair.position.x, chairTarget.x, dt, reduced);
-      changedChair.position.z = follow(changedChair.position.z, chairTarget.z, dt, reduced);
-      changedChair.rotation.y = follow(changedChair.rotation.y, chairTarget.yaw, dt, reduced);
-      const doorAngle = state.serviceDoorOpen ? -1.46 : 0;
+      const doorAngle = (state.keypadUnlocked || state.serviceDoorOpen) ? -1.46 : 0;
       serviceDoor.rotation.y = follow(serviceDoor.rotation.y, doorAngle, dt, reduced);
       // The original far-end door never opens. The new side passage is the exit.
     },
     reset() {
-      changedChair.position.set(chairOut.x, 0, chairOut.z);
-      changedChair.rotation.y = chairOut.yaw;
       recordsLeft.position.x = recordsRight.position.x = 0;
       serviceDoor.rotation.y = 0;
+      stickyNote.visible = true;
+      if (stickyNote.userData) stickyNote.userData.taken = false;
     },
     dispose() {
       batchesToDispose.forEach(mesh => mesh.dispose());
@@ -441,6 +577,10 @@ export function createOffice(scene) {
       label.geometry.dispose();
       labelTexture.dispose();
       labelMaterial.dispose();
+      lighterHit.material.dispose();
+      stickyHit.material.dispose();
+      fobHit.material.dispose();
+      keypadHit.material.dispose();
       separateGeometries.forEach(geometry => geometry.dispose());
       Object.values(materials).forEach(material => material.dispose());
       scene.remove(ambient);

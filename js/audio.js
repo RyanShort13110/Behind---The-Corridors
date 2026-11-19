@@ -468,6 +468,38 @@ export function createAudioDirector() {
       playTone({ freq: 220, duration: 0.16, level: 0.012, type: 'sine', pan: -0.15 });
       return;
     }
+    if (id === 'office-lighter') {
+      // Plastic shell tap — dry, close, no flame.
+      playNoiseBurst({ duration: 0.09, band: 900, q: 1.1, level: 0.02, pan: 0.3 });
+      playTone({ freq: 310, duration: 0.08, level: 0.012, type: 'triangle', pan: 0.28 });
+      return;
+    }
+    if (id === 'sticky-note' || id === 'office-sticky-note') {
+      playNoiseBurst({ duration: 0.07, band: 700, q: 0.8, level: 0.014, pan: 0.2 });
+      return;
+    }
+    if (id === 'office-key-fob') {
+      playTone({ freq: 520, duration: 0.07, level: 0.014, type: 'triangle', pan: 0.22 });
+      playNoiseBurst({ duration: 0.06, band: 1200, q: 1.1, level: 0.012, pan: 0.22 });
+      return;
+    }
+    if (id === 'office-keypad') {
+      playTone({ freq: 440, duration: 0.06, level: 0.012, type: 'square', pan: 0.35 });
+      return;
+    }
+    if (id === 'keypad-digit') {
+      playTone({ freq: 680, duration: 0.045, level: 0.014, type: 'square', pan: 0 });
+      return;
+    }
+    if (id === 'keypad-clear') {
+      playTone({ freq: 280, duration: 0.05, level: 0.01, type: 'triangle', pan: 0 });
+      return;
+    }
+    if (id === 'keypad-wrong') {
+      playTone({ freq: 160, freq2: 110, duration: 0.18, level: 0.02, type: 'sawtooth', pan: 0 });
+      playNoiseBurst({ duration: 0.12, band: 400, q: 0.6, level: 0.016, pan: 0 });
+      return;
+    }
     if (id === 'locked-doorknob') {
       // Deadbolt / handle rattle — short metallic clicks.
       playTone({ freq: 920, freq2: 1380, duration: 0.09, level: 0.028, type: 'triangle', pan: 0.35 });
@@ -931,33 +963,12 @@ export function createAudioDirector() {
   // Quiet, directional double-component latch sound, synthesized locally.
   // One call per office story event; it never loops and has no file dependency.
   function playOfficeLatch() {
+    // Soft distant keypad chirp — invites investigation without opening the door.
     if (!enabled || !ctx || ctx.state !== 'running') return;
-    const now = ctx.currentTime;
-    const length = Math.ceil(ctx.sampleRate * 0.14);
-    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-    const samples = buffer.getChannelData(0);
-    for (let i = 0; i < length; i++) {
-      const t = i / ctx.sampleRate;
-      const attack = Math.min(1, t / 0.004);
-      const decay = Math.exp(-t * 43);
-      samples[i] = (Math.random() * 2 - 1) * attack * decay;
-    }
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass'; filter.frequency.value = 950; filter.Q.value = 0.82;
-    const clickGain = ctx.createGain();
-    clickGain.gain.value = 0.05;
-    const pan = ctx.createStereoPanner?.();
-    if (pan) {
-      pan.pan.value = 0.43; // Right-hand passage, ahead of the listener.
-      noise.connect(filter).connect(clickGain).connect(pan).connect(ctx.destination);
-    } else {
-      noise.connect(filter).connect(clickGain).connect(ctx.destination);
-    }
-    noise.start(now);
-    noise.stop(now + 0.14);
-    noise.onended = () => { noise.disconnect(); filter.disconnect(); clickGain.disconnect(); pan?.disconnect(); };
+    playTone({ freq: 880, duration: 0.07, level: 0.016, type: 'square', pan: 0.42 });
+    window.setTimeout(() => {
+      playTone({ freq: 660, duration: 0.09, level: 0.012, type: 'square', pan: 0.4 });
+    }, 90);
   }
 
   function enterRecords() {

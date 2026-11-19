@@ -84,8 +84,7 @@ export function createNightShift(scene) {
   world.add(cup);
   ownedGeometry.push(cup.geometry);
 
-  // A break table, with exactly one chair pushed back. Ordinary familiarity,
-  // not the changed-chair trick from the preceding office chapter.
+  // A break table, with exactly one chair pushed back — ordinary clutter.
   add(2.2, 0.11, 1.26, 3.47, 0.86, -20.5, mat.wood);
   for (const x of [2.54, 4.4]) for (const z of [-21, -20]) {
     add(0.07, 0.80, 0.07, x, 0.39, z, mat.metal);

@@ -48,7 +48,7 @@ function makeMeshOutlines(meshes) {
 
 export function createInteractionSystem({
   camera, canvas, panel, titleEl, bodyEl, closeEl, actionEl,
-  inventory, onInspect, onTake, onUse,
+  inventory, onInspect, onTake, onUse, onKeypad,
 }) {
   const entries = [];
   const raycaster = new THREE.Raycaster();
@@ -119,14 +119,18 @@ export function createInteractionSystem({
       }
     }
     refreshAction();
-    if (becameOpen) onInspect?.(entry.id);
+    if (becameOpen) {
+      entry.inspected = true;
+      onInspect?.(entry.id);
+    }
   }
 
   function register(spec) {
     const {
       id, object, title, body, radius = 3.4, tooltip = null,
-      onlyAfterBacktrack = false, takeable = false, itemId = null, itemLabel = null,
-      previewColor = null,
+      onlyAfterBacktrack = false, onlyAfterSecondApproach = false,
+      takeable = false, itemId = null, itemLabel = null,
+      previewColor = null, kind = 'inspect',
       requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
       sceneRoot, pickMeshes,
     } = spec;
@@ -134,10 +138,10 @@ export function createInteractionSystem({
     const meshes = pickMeshes || collectMeshes(object);
     const { lines, material } = makeMeshOutlines(meshes);
     const entry = {
-      id, object, title, body, tooltip, radius,
-      onlyAfterBacktrack, takeable, itemId, itemLabel, previewColor,
+      id, object, title, body, tooltip, radius, kind,
+      onlyAfterBacktrack, onlyAfterSecondApproach, takeable, itemId, itemLabel, previewColor,
       requiresItem, requiresItemLabel, lockedBody, unlockedBody,
-      taken: false, unlocked: false,
+      taken: false, unlocked: false, inspected: false,
       lines, material, opacity: 0,
       pickMeshes: meshes,
       worldCenter: new THREE.Vector3(),
@@ -150,9 +154,28 @@ export function createInteractionSystem({
   function isAvailable(entry, story) {
     if (entry.taken) return false;
     if (entry.onlyAfterBacktrack && !story?.hasBacktracked) return false;
+    // Office keypad: stay inert until the player turns around and walks forward again.
+    if (entry.onlyAfterSecondApproach && !story?.secondApproachStarted) return false;
     // Used key-doors drop out entirely — open leaves show through walls if outlined.
     if (entry.requiresItem && entry.unlocked) return false;
+    // Keypad stays until the service door unlocks.
+    if (entry.kind === 'keypad' && story?.keypadUnlocked) return false;
+    // Inspect-only props: one look clears the highlight (lighter, plaques, etc.).
+    if (entry.kind !== 'keypad' && entry.inspected && !entry.takeable
+        && !(entry.requiresItem && !entry.unlocked)) {
+      return false;
+    }
     return true;
+  }
+
+  function wantsOutline(entry) {
+    if (!entry._available) return false;
+    // Pickups keep an outline until taken; use-targets while the item is held.
+    if (entry.takeable && !entry.taken) return entry === nearest;
+    if (entry._usable) return entry._inReach || entry === nearest;
+    if (entry.kind === 'keypad') return entry === nearest;
+    if (entry.inspected) return false;
+    return entry === nearest;
   }
 
   function clear() {
@@ -217,8 +240,7 @@ export function createInteractionSystem({
 
     const fade = Math.min(1, dt * FADE_RATE);
     for (const entry of entries) {
-      // Outline use-targets whenever in reach with the right item — not only when nearest.
-      const want = (entry === nearest || (entry._usable && entry._inReach)) ? 1 : 0;
+      const want = wantsOutline(entry) ? 1 : 0;
       entry.opacity += (want - entry.opacity) * fade;
       const pulse = want
         ? 0.72 + Math.sin(performance.now() * (entry._usable ? 0.005 : 0.0036)) * 0.28
@@ -324,6 +346,11 @@ export function createInteractionSystem({
     const hit = pickFromEvent(event);
     if (hit) {
       event.preventDefault();
+      if (hit.kind === 'keypad') {
+        hit.inspected = true;
+        onKeypad?.(hit);
+        return;
+      }
       setPanel(true, hit);
     }
   }

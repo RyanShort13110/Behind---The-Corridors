@@ -79,3 +79,19 @@ body.debug-performance .perf-hud{display:block}
 .item-detail-close:hover,.item-detail-close:focus-visible{color:#fff}
 @media(max-width:650px){.inventory{bottom:110px;right:3vw}.item-detail{bottom:160px;right:3vw}}
 @media(prefers-reduced-motion:reduce){.inventory,.item-detail{transition:none}}
+
+/* Office service keypad — utilitarian, no glowing cyber chrome. */
+.keypad{position:absolute;z-index:8;left:50%;bottom:12vh;width:min(280px,84vw);transform:translate(-50%,10px);padding:22px 20px 16px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.3);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
+.keypad.is-open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
+.keypad-title{margin:0 0 14px;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.28em;color:#c98982;text-transform:uppercase}
+.keypad-display{margin:0 0 16px;padding:12px 10px;text-align:center;font:700 22px/1 'Courier New',monospace;letter-spacing:.42em;color:#dce8e6;background:rgba(0,0,0,.45);border:1px solid rgba(150,170,166,.22)}
+.keypad-display.is-wrong{color:#d4a09a;border-color:rgba(180,110,100,.45)}
+.keypad-display.is-ok{color:#b7d4c4;border-color:rgba(130,170,150,.5)}
+.keypad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.keypad__key{border:1px solid rgba(150,170,166,.35);background:rgba(8,16,18,.8);color:#dce8e6;font:12px/1 'Courier New',monospace;letter-spacing:.14em;padding:14px 0;cursor:pointer}
+.keypad__key:hover,.keypad__key:focus-visible{border-color:#c5d8d2;color:#fff}
+.keypad__key--muted{color:#9aada8;letter-spacing:.08em;font-size:10px}
+.keypad-hint{margin:14px 0 0;font:10px/1 'Courier New',monospace;letter-spacing:.14em;color:#7f908c}
+.keypad-close{position:absolute;top:12px;right:14px;border:0;background:transparent;color:#9aada8;font:10px/1 'Courier New',monospace;letter-spacing:.14em;padding:6px}
+.keypad-close:hover,.keypad-close:focus-visible{color:#fff}
+@media(prefers-reduced-motion:reduce){.keypad{transition:none}}
