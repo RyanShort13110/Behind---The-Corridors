@@ -35,6 +35,18 @@ body.debug-performance .perf-hud{display:block}
 .dev-chapters__checkpoint label{font-size:9px;letter-spacing:.12em;color:#9dbab0}
 .dev-chapters__checkpoint select{width:100%}
 
+/* Level 01 inspect panel — sparse, cold, no collectible UI energy. */
+.inspect{position:absolute;z-index:6;left:50%;bottom:14vh;width:min(420px,86vw);transform:translate(-50%,12px);padding:22px 24px 18px;background:rgba(4,9,11,.88);border:1px solid rgba(150,170,166,.28);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
+.inspect.is-open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
+.inspect-title{margin:0 0 12px;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.28em;color:#c98982;text-transform:uppercase}
+.inspect-body{margin:0;font:300 clamp(16px,2.4vw,22px)/1.35 Arial,Helvetica,sans-serif;letter-spacing:-.02em;color:#dce8e6;text-shadow:0 2px 18px #000}
+.inspect-hint{margin:16px 0 0;font:10px/1 'Courier New',monospace;letter-spacing:.16em;color:#7f908c}
+.inspect-close{position:absolute;top:12px;right:14px;border:0;background:transparent;color:#9aada8;font:10px/1 'Courier New',monospace;letter-spacing:.14em;padding:6px}
+.inspect-close:hover,.inspect-close:focus-visible{color:#fff}
+/* pan-y keeps vertical walk-scroll; horizontal strokes are claimed by look.js */
+#viewport canvas{touch-action:pan-y}
+@media(prefers-reduced-motion:reduce){.inspect{transition:none}}
+
 /* Prototype 006.3: a legible, brief cue when the Level 06 dragging starts. */
 .unseen-retreat-prompt{position:absolute;z-index:4;top:25%;left:50%;display:flex;flex-direction:column;align-items:center;gap:9px;transform:translate(-50%,7px);min-width:190px;max-width:90vw;padding:15px 24px;background:rgba(4,9,11,.82);border:1px solid rgba(188,206,204,.43);box-shadow:0 12px 48px rgba(0,0,0,.50);color:#edf4f0;text-shadow:0 2px 12px #000;text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .22s,transform .22s,visibility .22s}
 .unseen-retreat-prompt.is-visible{opacity:1;visibility:visible;transform:translate(-50%,0)}

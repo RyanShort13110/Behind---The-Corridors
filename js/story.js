@@ -5,6 +5,16 @@
 export const START_PROGRESS = 0.09; // Reserve space to back into the rear elevator.
 export const DEAD_END_PROGRESS = 0.965;
 
+/**
+ * Progress floor for Level 01. Until the return pass begins, the visitor cannot
+ * scroll behind the starting mark into empty space. After backtracking, the
+ * floor drops to 0 so they can enter the rear elevator.
+ * Future chapters should expose the same kind of minProgress(state) helper.
+ */
+export function corridorMinProgress(state) {
+  return state.hasBacktracked ? 0 : START_PROGRESS;
+}
+
 export function createStory() {
   const state = {
     hasBacktracked: false,

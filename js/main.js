@@ -2,9 +2,11 @@ import * as THREE from 'three';
 import { createCorridor } from './scene.js';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
-import { createStory, START_PROGRESS, DEAD_END_PROGRESS } from './story.js';
+import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js';
 import { createAudioDirector } from './audio.js';
 import { createPerformanceMonitor } from './performance.js';
+import { createInteractionSystem } from './interaction.js';
+import { createLookControls } from './look.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
 import { createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z, RECORDS_PHOTO_LOOK_START, RECORDS_PHOTO_LOOK_END } from './levels/records-story.js';
@@ -31,6 +33,8 @@ const el = {
   veil: $('chapter-veil'), location: $('location'),
   continue: $('continue'), endingEyebrow: $('ending-eyebrow'),
   endingTitle: $('ending-title'), endingCopy: $('ending-copy'),
+  inspect: $('inspect'), inspectTitle: $('inspect-title'),
+  inspectBody: $('inspect-body'), inspectClose: $('inspect-close'),
 };
 
 // Mapping 0 => camera inside the rear cabin, .09 => original corridor start,
@@ -56,7 +60,7 @@ let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let activeBeat = -1;
 let ended = false;
-let renderer, camera, scene, director, monitor;
+let renderer, camera, scene, director, monitor, interaction, look;
 let lastTime = performance.now();
 let scrollTrigger = null;
 let chapterId = 'corridor';
@@ -101,10 +105,25 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 
+/**
+ * Per-chapter walk bounds. min blocks scrolling into void behind the start;
+ * max is used for hard barriers (e.g. The Unseen). New levels should plug in
+ * here (or via a story helper like corridorMinProgress).
+ */
+function progressBounds() {
+  if (chapterId === 'corridor') {
+    return { min: corridorMinProgress(story.state), max: 1 };
+  }
+  if (chapterId === 'unseen') {
+    return { min: 0, max: UNSEEN_BARRIER_PROGRESS };
+  }
+  return { min: 0, max: 1 };
+}
+
 function setProgress(requested) {
-  requested = clamp(requested);
-  // The service corridor is physically BLOCKED. Retreat is the only route.
-  if (chapterId === 'unseen') requested = Math.min(requested, UNSEEN_BARRIER_PROGRESS);
+  const raw = clamp(requested);
+  const { min, max } = progressBounds();
+  const bounded = THREE.MathUtils.clamp(raw, min, max);
   const meters = chapterId === 'corridor' ? CORRIDOR_METERS
     : chapterId === 'office' ? OFFICE_METERS
     : chapterId === 'records' ? RECORDS_METERS
@@ -112,14 +131,15 @@ function setProgress(requested) {
       : chapterId === 'threshold' ? THRESHOLD_METERS : UNSEEN_METERS;
   const lead = MAX_WALK_SPEED * SCROLL_LEAD_SECONDS / meters;
   const limited = THREE.MathUtils.clamp(
-    requested,
+    bounded,
     clamp(displayed - lead),
     clamp(displayed + lead)
   );
-  progress = limited;
-  if (Math.abs(requested - limited) > 0.0005) {
-    // Discard excessive scroll momentum, don't queue it for a delayed sprint.
-    window.scrollTo({ top: scrollYFor(limited), behavior: 'instant' });
+  const next = THREE.MathUtils.clamp(limited, min, max);
+  progress = next;
+  if (Math.abs(raw - next) > 0.0005) {
+    // Discard excessive scroll momentum / void overscroll.
+    window.scrollTo({ top: scrollYFor(next), behavior: 'instant' });
   }
 }
 
@@ -136,6 +156,16 @@ try {
   director.add('corridor', createCorridor(scene));
   director.add('elevator', createElevator(scene));
   director.activate('corridor');
+  interaction = createInteractionSystem({
+    camera,
+    canvas: renderer.domElement,
+    panel: el.inspect,
+    titleEl: el.inspectTitle,
+    bodyEl: el.inspectBody,
+    closeEl: el.inspectClose,
+  });
+  look = createLookControls({ canvas: renderer.domElement });
+  bindCorridorInteractables();
   monitor = createPerformanceMonitor(renderer, resize, () => quality, el.perf);
   resize();
   window.addEventListener('resize', resize, { passive: true });
@@ -144,6 +174,17 @@ try {
   el.fallback.hidden = false;
   el.fallback.textContent = `Unable to start the 3D experience. ${err.message || 'See console for details.'}`;
   el.begin.disabled = true;
+}
+
+function bindCorridorInteractables() {
+  interaction?.clear();
+  if (!director || !scene) return;
+  const modules = [director.get('corridor'), director.get('elevator')];
+  for (const module of modules) {
+    for (const spec of module?.interactables || []) {
+      interaction.register({ ...spec, sceneRoot: scene });
+    }
+  }
 }
 
 function start() {
@@ -236,6 +277,8 @@ function reset() {
   } else {
     director?.reset();
   }
+  bindCorridorInteractables();
+  look?.reset();
   story.reset();
   officeStory.reset();
   recordsStory.reset();
@@ -266,6 +309,8 @@ async function enterOffice() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
     const { createOffice } = await import('./levels/office.js');
+    interaction?.clear();
+    look?.reset();
     director.dispose();
     director = createSceneDirector();
     director.add('office', createOffice(scene));
@@ -499,6 +544,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     // Construct the next floor before disposing the currently working one.
     // Only one world is actively rendered and retained after the swap.
     next = createSceneDirector();
+    interaction?.clear();
+    look?.reset();
     if (target === 'corridor') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
@@ -523,6 +570,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     director = next;
     next = null; // Ownership was transferred to the active director.
     chapterId = target;
+    if (target === 'corridor') bindCorridorInteractables();
 
     // Fresh chapter means no artificially unlocked doors, footsteps, or clues.
     story.reset();
@@ -671,7 +719,11 @@ function updateNarrative(p) {
     el.chapter.textContent = narrative.chapter;
   }
   if (el.line.textContent !== narrative.line) el.line.textContent = narrative.line;
-  if (el.instruction.textContent !== narrative.instruction) el.instruction.textContent = narrative.instruction;
+  let instruction = narrative.instruction;
+  if (inCorridor && interaction?.nearest && !interaction.isOpen && !ended) {
+    instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
+  }
+  if (el.instruction.textContent !== instruction) el.instruction.textContent = instruction;
   const show = inCorridor
     ? (p > 0.055 && p < 0.955) || (state.reachedDeadEnd && p > 0.955) || (state.rearElevatorUnlocked && p <= 0.055)
     : inOffice
@@ -742,6 +794,8 @@ function frame(now) {
       displayed <= RECORDS_PHOTO_LOOK_END + 0.01;
     const step = (viewingPhoto ? 4.95 : MAX_WALK_SPEED) * dt / meters;
     displayed = clamp(displayed + THREE.MathUtils.clamp(eased, -step, step));
+    const bounds = progressBounds();
+    displayed = THREE.MathUtils.clamp(displayed, bounds.min, bounds.max);
     const p = displayed;
     if (chapterId === 'corridor') story.observe(previousDisplayed, p);
     else if (chapterId === 'office') {
@@ -797,6 +851,11 @@ function frame(now) {
       camera.rotation.x += route.pitch;
     }
 
+    const canInteract = chapterId === 'corridor' && !ended && !transitioning;
+    look?.setEnabled(canInteract && !interaction?.isOpen);
+    camera.rotation.y += look?.update(dt, reduced) ?? 0;
+    interaction?.update(dt, canInteract && !interaction?.isOpen);
+
     if (chapterId === 'corridor') {
       director.update(p, story.state, dt, reduced);
       audio.update(p, reduced, story.state);
@@ -827,6 +886,8 @@ requestAnimationFrame(frame);
 window.addEventListener('pagehide', () => {
   scrollTrigger?.kill();
   audio.dispose();
+  interaction?.dispose();
+  look?.dispose();
   director?.dispose();
   renderer?.dispose();
 }, { once: true });

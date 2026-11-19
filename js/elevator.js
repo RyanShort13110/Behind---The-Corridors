@@ -43,6 +43,20 @@ export function createElevator(scene) {
   add(0.37, 0.19, 0.045, 0, 3.45, FAR_Z + 0.09, mats.dark);
   add(0.12, 0.06, 0.055, 0, 3.45, FAR_Z + 0.12, mats.signal);
 
+  // Call plate — separate mesh so Level 01 can highlight / inspect it.
+  const callPlate = add(0.22, 0.38, 0.04, 1.28, 1.45, FAR_Z + 0.08, mats.frame);
+  callPlate.name = 'far-call-plate';
+  const callButton = add(0.06, 0.06, 0.03, 1.28, 1.52, FAR_Z + 0.12, mats.signal);
+  callButton.name = 'far-call-button';
+  const callGroup = new THREE.Group();
+  callGroup.name = 'far-elevator-call';
+  callGroup.position.set(1.28, 1.48, FAR_Z + 0.1);
+  group.add(callGroup);
+  // Re-parent for a stable inspect bounds around the controls.
+  callPlate.position.set(0, -0.03, -0.02);
+  callButton.position.set(0, 0.04, 0.02);
+  callGroup.add(callPlate, callButton);
+
   // The actual elevator is behind the start position, past the corridor's
   // positive-Z end. At 0% progress the camera is at Z = 6.0, facing -Z.
   // The entry plane at Z=3.15 is therefore IN FRONT of the camera when it closes.
@@ -90,9 +104,20 @@ export function createElevator(scene) {
     cabinLight.intensity = 0.95 * (0.30 + opening * 0.70);
   }
 
+  const interactables = [
+    {
+      id: 'far-elevator-call',
+      object: callGroup,
+      radius: 3.8,
+      title: 'CALL BUTTON',
+      body: 'The panel is dead. Whatever it was waiting for already left.',
+    },
+  ];
+
   return {
     get closureProgress() { return closure; },
     get openAmount() { return opening; },
+    interactables,
     update(progress, story, dt, reduced) {
       // On the FIRST pass the rear elevator remains closed and unseen.
       // Only once the far elevator refuses the visitor will it quietly open

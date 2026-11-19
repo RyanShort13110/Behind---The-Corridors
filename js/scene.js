@@ -117,7 +117,18 @@ export function createCorridor(scene) {
   const signMat = new THREE.MeshBasicMaterial({ map: exitTexture });
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 0.36), signMat);
   sign.position.set(0, 3.31, -37);
+  sign.name = 'exit-sign';
   world.add(sign);
+
+  // Dedicated inspectable nameplate (non-instanced) so proximity / raycast can target it.
+  const plaqueGeo = new THREE.BoxGeometry(0.42, 0.16, 0.03);
+  const plaqueMat = new THREE.MeshStandardMaterial({
+    color: 0x1a2423, metalness: 0.55, roughness: 0.4,
+  });
+  const plaque = new THREE.Mesh(plaqueGeo, plaqueMat);
+  plaque.position.set(-2.48, 1.92, -11.35);
+  plaque.name = 'door-plaque';
+  world.add(plaque);
 
   // Commit one InstancedMesh per material.
   for (const [material, matrices] of matricesByMaterial) {
@@ -146,8 +157,32 @@ export function createCorridor(scene) {
   scene.background = new THREE.Color(0x060b0d);
   scene.fog = new THREE.FogExp2(0x060b0d, 0.065);
 
+  const interactables = [
+    {
+      id: 'exit-sign',
+      object: sign,
+      radius: 4.2,
+      title: 'EXIT',
+      body: 'The letters are still lit. The corridor ahead does not lead outside.',
+    },
+    {
+      id: 'door-plaque',
+      object: plaque,
+      radius: 2.8,
+      title: '13-B',
+      body: 'The plate is warm. No one answers when you listen.',
+    },
+    {
+      id: 'altered-door',
+      object: changedDoor,
+      radius: 3.6,
+      title: 'UNMARKED DOOR',
+      body: 'It was closed when you passed it. You are sure of that.',
+    },
+  ];
+
   return {
-    lights, redLight, changedDoor, mats,
+    lights, redLight, changedDoor, mats, interactables,
     update(progress, story, dt, reduced) {
       const fault = !reduced && progress > 0.46 && progress < 0.7;
       lights.forEach((light, i) => {
@@ -168,6 +203,8 @@ export function createCorridor(scene) {
       sign.geometry.dispose();
       exitTexture.dispose();
       signMat.dispose();
+      plaqueGeo.dispose();
+      plaqueMat.dispose();
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);
       scene.remove(world);
