@@ -107,23 +107,17 @@ export function createCorridor(scene) {
         peekFigure = new THREE.Group();
         peekFigure.name = 'door-peek';
         peekFigure.visible = false;
-        peekFigure.renderOrder = 12;
         peekFigure.position.set(2.72, 0, doorZ);
         world.add(peekFigure);
         const peekBody = new THREE.MeshBasicMaterial({
           color: 0x080a09,
           fog: false,
-          depthTest: false,
-          depthWrite: false,
         });
         peekMats.push(peekBody);
         add(0.32, 1.7, 0.2, 0, 1.2, 0, peekBody, peekFigure);
         add(0.24, 0.3, 0.22, 0, 2.18, 0.02, peekBody, peekFigure);
         peekFigure.traverse(obj => {
-          if (obj.isMesh) {
-            obj.userData.noInspect = true;
-            obj.renderOrder = 12;
-          }
+          if (obj.isMesh) obj.userData.noInspect = true;
         });
       } else if (i === lockedBay && side === 1) {
         // Lockable bay: frame + swingable door + room are built below.
