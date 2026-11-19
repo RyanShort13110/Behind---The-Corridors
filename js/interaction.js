@@ -150,6 +150,8 @@ export function createInteractionSystem({
   function isAvailable(entry, story) {
     if (entry.taken) return false;
     if (entry.onlyAfterBacktrack && !story?.hasBacktracked) return false;
+    // Used key-doors drop out entirely — open leaves show through walls if outlined.
+    if (entry.requiresItem && entry.unlocked) return false;
     return true;
   }
 
