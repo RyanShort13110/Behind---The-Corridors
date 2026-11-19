@@ -112,10 +112,23 @@ export function createCorridor(scene) {
         const peekBody = new THREE.MeshBasicMaterial({
           color: 0x080a09,
           fog: false,
+          transparent: true,
+          opacity: 0.42,
+          depthWrite: false,
         });
-        peekMats.push(peekBody);
+        // Slightly larger, softer shell so the silhouette reads fuzzy at the edges.
+        const peekHalo = new THREE.MeshBasicMaterial({
+          color: 0x050706,
+          fog: false,
+          transparent: true,
+          opacity: 0.18,
+          depthWrite: false,
+        });
+        peekMats.push(peekBody, peekHalo);
         add(0.32, 1.7, 0.2, 0, 1.2, 0, peekBody, peekFigure);
         add(0.24, 0.3, 0.22, 0, 2.18, 0.02, peekBody, peekFigure);
+        add(0.4, 1.82, 0.28, 0, 1.2, -0.02, peekHalo, peekFigure);
+        add(0.3, 0.36, 0.28, 0, 2.18, 0, peekHalo, peekFigure);
         peekFigure.traverse(obj => {
           if (obj.isMesh) obj.userData.noInspect = true;
         });
