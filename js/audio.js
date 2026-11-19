@@ -54,15 +54,17 @@ export function createAudioDirector() {
     gain.gain.value = 0;
     osc.connect(filter).connect(gain).connect(ctx.destination);
     osc.start();
+    gain._osc = osc;
+    gain._filter = filter;
     return gain;
   };
 
   function init() {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // Two subtle, different pitches avoid an obvious synthetic soundtrack.
-    humGain = createVoice(52, 'sawtooth', 170);
-    buzzGain = createVoice(118, 'triangle', 540);
+    // ~120 Hz triangle reads as ballast / fluorescent hum (not a sub drone).
+    humGain = createVoice(120, 'triangle', 420);
+    buzzGain = createVoice(240, 'triangle', 900);
     motorGain = createVoice(37, 'triangle', 120);
     // Analogue-style double ring, deliberately much quieter than dialogue.
     phoneHigh = createVoice(430, 'sine', 850);
@@ -487,8 +489,10 @@ export function createAudioDirector() {
     const returnHollow = returning ? 0.72 : 1;
     const breathZone = !returning && progress >= 0.72 && progress <= 0.86;
 
-    // Trace of building tone under the score — no longer the main bed.
-    setGain(humGain, 0.004 * CORRIDOR_GAIN * quietFactor, 0.35);
+    // Fluorescent ballast hum — higher, thinner than the psychological pad.
+    humGain._osc?.frequency.setTargetAtTime(120 + Math.sin(t * 0.19) * 1.2, t, 0.4);
+    humGain._filter?.frequency.setTargetAtTime(380 + depth * 90, t, 0.45);
+    setGain(humGain, 0.0075 * CORRIDOR_GAIN * quietFactor, 0.3);
 
     // Room air — opens a little as the hall deepens.
     const airSwell = 0.88 + 0.12 * Math.sin(t * 0.11);
@@ -535,7 +539,9 @@ export function createAudioDirector() {
     // Brief fluorescent buzz only during the lighting fault — punctuation, not bed.
     const faulty = !reduced && progress > 0.46 && progress < 0.70;
     const buzzPulse = faulty && Math.sin(progress * 29) > 0.48;
-    setGain(buzzGain, (buzzPulse ? 0.012 : 0.0009 * quietFactor) * CORRIDOR_GAIN, 0.085);
+    // Fault adds a 240 Hz harmonic buzz on top of the ballast hum.
+    buzzGain._osc?.frequency.setTargetAtTime(240, t, 0.2);
+    setGain(buzzGain, (buzzPulse ? 0.01 : 0.0011 * quietFactor) * CORRIDOR_GAIN, 0.085);
 
     // The far-end elevator is silent and sealed. Only the one BEHIND you
     // produces a motor sound as you walk back toward the beginning.

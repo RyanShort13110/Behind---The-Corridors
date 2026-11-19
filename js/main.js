@@ -70,23 +70,18 @@ let devChapterUI = null;
 const memory = { chaptersCompleted: [], lighterEncountered: false, photographPassed: false, extraStepHeard: false, keyPassed: false };
 const ORIGINAL_LOCATION_HTML = 'NORTH WING <span class="separator">/</span> LEVEL 13';
 
-// First-pass dialogue establishes ordinary details before anything changes.
+// Sparse forward thoughts — ordinary, then wrong, then the breathing.
+// Fewer lines leave space for the corridor to do the work.
 const beats = [
-  { to: 0.19, ch: '01 — THE CORRIDOR', line: 'Someone left the lights on.' },
-  { to: 0.42, ch: '02 — AFTER HOURS', line: 'The building should be empty.' },
-  { to: 0.66, ch: '03 — ELECTRICAL FAULT', line: 'Something is wrong with the lights.' },
-  { to: 0.87, ch: '04 — THE LAST DOOR', line: 'You hear breathing on the other side.' },
-  { to: 1.01, ch: '05 — THE DEAD END', line: 'The elevator does not respond.' },
+  { to: 0.40, ch: '01 — THE CORRIDOR', line: 'The building should be empty.' },
+  { to: 0.74, ch: '01 — THE CORRIDOR', line: 'Further than you meant to go.' },
+  { to: 1.01, ch: '01 — THE CORRIDOR', line: 'Breathing. Close.' },
 ];
 
-// On the return, familiar locations get different thoughts. Thresholds descend
-// because the visitor is moving backward through the corridor. Keep every
-// claim grounded in things the player can actually experience or notice.
+// Return pass: only what changes. Thresholds descend with the backtrack.
 const returnBeats = [
-  { min: 0.66, line: 'The breathing has stopped.' },
-  { min: 0.44, line: 'The lights stop flickering when I stop.' },
-  { min: 0.32, line: 'How many doors did I pass without looking?' },
-  { min: 0.16, line: 'That one was closed. I know it was.' },
+  { min: 0.55, line: 'The breathing stopped.' },
+  { min: 0.20, line: 'That door was closed.' },
 ];
 
 function maxScroll() { return Math.max(0, document.documentElement.scrollHeight - innerHeight); }
@@ -680,18 +675,17 @@ function narrativeFor(p, state) {
 
   // Dead-end prompt: the first elevator stays shut and teaches backtracking.
   if (state.reachedDeadEnd && p > 0.85) {
-    chapter = '05 — NO WAY THROUGH';
-    line = 'The elevator won’t open. Maybe you missed something.';
+    chapter = '01 — DEAD END';
+    line = 'Sealed. There’s nothing ahead.';
     instruction = 'SCROLL DOWN TO RETRACE YOUR STEPS ↓';
   } else if (state.rearElevatorUnlocked && p <= 0.16) {
     // Preserve the surprise elevator behind the original starting position.
-    chapter = '07 — BEHIND YOU';
-    if (p > START_PROGRESS) line = 'You hear a mechanism somewhere behind you.';
-    else if (p > 0.035) line = 'There was no elevator behind you.';
-    else line = 'The doors are closing in front of you.';
+    chapter = '01 — BEHIND YOU';
+    if (p > START_PROGRESS) line = 'Something opens behind you.';
+    else line = 'The doors close in front of you.';
     instruction = 'KEEP SCROLLING DOWN ↓';
   } else if (state.hasBacktracked) {
-    chapter = '06 — THE RETURN';
+    chapter = '01 — THE RETURN';
     const returnBeat = returnBeats.find(item => p >= item.min);
     if (returnBeat) line = returnBeat.line;
     instruction = p < 0.32 ? 'KEEP SCROLLING DOWN ↓' : 'SCROLL DOWN TO RETURN ↓';
