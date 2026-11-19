@@ -62,3 +62,20 @@ body.debug-performance .perf-hud{display:block}
   .narrative{top:64px;left:7vw;right:7vw;max-width:none}
   .narrative p{font-size:clamp(16px,4.2vw,24px)}
 }
+
+.inspect-action{display:inline-block;margin-top:14px;border:1px solid rgba(150,170,166,.45);background:rgba(8,16,18,.75);color:#dce8e6;font:10px/1 'Courier New',monospace;letter-spacing:.2em;padding:10px 16px}
+.inspect-action:hover,.inspect-action:focus-visible{border-color:#c5d8d2;color:#fff}
+.inspect-action[hidden]{display:none}
+.inventory{position:absolute;z-index:6;right:4vw;bottom:78px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .28s,visibility .28s}
+.inventory.is-visible{opacity:1;visibility:visible;pointer-events:auto}
+.inventory__item{font:10px/1.4 'Courier New',monospace;letter-spacing:.18em;color:#c5d4cf;background:rgba(4,9,11,.78);border:1px solid rgba(150,170,166,.28);padding:8px 12px;text-shadow:0 2px 12px #000;cursor:pointer}
+.inventory__item:hover,.inventory__item:focus-visible{border-color:#d2c39a;color:#f0e6c8}
+.item-detail{position:absolute;z-index:7;right:4vw;bottom:130px;width:min(240px,78vw);padding:18px 18px 16px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.32);box-shadow:0 16px 48px rgba(0,0,0,.55);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px);transition:opacity .25s,transform .25s,visibility .25s}
+.item-detail.is-open{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0)}
+.item-detail-canvas{display:block;width:100%;height:auto;margin:4px 0 12px;background:radial-gradient(ellipse at center,rgba(40,36,28,.55),rgba(4,9,11,.2));border:1px solid rgba(150,170,166,.18)}
+.item-detail-title{margin:0 0 8px;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.24em;color:#d4b56a}
+.item-detail-body{margin:0;font:300 14px/1.4 Arial,Helvetica,sans-serif;color:#dce8e6;letter-spacing:-.01em}
+.item-detail-close{position:absolute;top:10px;right:12px;border:0;background:transparent;color:#9aada8;font:10px/1 'Courier New',monospace;letter-spacing:.14em;padding:6px}
+.item-detail-close:hover,.item-detail-close:focus-visible{color:#fff}
+@media(max-width:650px){.inventory{bottom:110px;right:3vw}.item-detail{bottom:160px;right:3vw}}
+@media(prefers-reduced-motion:reduce){.inventory,.item-detail{transition:none}}

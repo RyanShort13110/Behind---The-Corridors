@@ -154,6 +154,34 @@ export function createCorridor(scene) {
   lockedKnob.add(knobRose, knobLever, knobHit);
   world.add(lockedKnob);
 
+  // Brass key on the corridor floor at the unmarked doorway (return pass only).
+  // Keep it inside the walkable hall (x < ~2.4) so it isn't buried in the recess.
+  const brassKey = new THREE.Group();
+  brassKey.name = 'brass-key';
+  // Out in the hall floor in front of the doorway — not under the swinging door.
+  brassKey.position.set(1.35, 0.1, -11.9);
+  brassKey.rotation.set(1.45, 0.55, 0.25);
+  brassKey.visible = false;
+  brassKey.userData.taken = false;
+  const keyMat = new THREE.MeshStandardMaterial({
+    color: 0xc4a05a, metalness: 0.7, roughness: 0.28,
+    emissive: 0x3a2a10, emissiveIntensity: 0.35,
+  });
+  const keyShaftGeo = new THREE.BoxGeometry(0.055, 0.055, 0.32);
+  const keyBowGeo = new THREE.BoxGeometry(0.16, 0.18, 0.05);
+  const keyBitGeo = new THREE.BoxGeometry(0.09, 0.11, 0.045);
+  const keyShaft = new THREE.Mesh(keyShaftGeo, keyMat);
+  const keyBow = new THREE.Mesh(keyBowGeo, keyMat);
+  keyBow.position.set(0, 0.02, 0.2);
+  const keyBit = new THREE.Mesh(keyBitGeo, keyMat);
+  keyBit.position.set(0.03, -0.05, -0.14);
+  const keyHitGeo = new THREE.BoxGeometry(0.4, 0.35, 0.5);
+  const keyHitMat = new THREE.MeshBasicMaterial({ visible: false });
+  const keyHit = new THREE.Mesh(keyHitGeo, keyHitMat);
+  keyHit.userData.inspectHitOnly = true;
+  brassKey.add(keyShaft, keyBow, keyBit, keyHit);
+  world.add(brassKey);
+
   // Commit one InstancedMesh per material.
   for (const [material, matrices] of matricesByMaterial) {
     const batch = new THREE.InstancedMesh(cube, material, matrices.length);
@@ -185,10 +213,24 @@ export function createCorridor(scene) {
     {
       id: 'locked-doorknob',
       object: lockedKnob,
-      // Large enough to light up while the door is still ahead in forward view.
       radius: 9.5,
       title: 'DOOR HANDLE',
       body: 'Locked.',
+      lockedBody: 'Locked.',
+      unlockedBody: 'The lock turns. Dust, and a room that was never used.',
+      requiresItem: 'brass-key',
+    },
+    {
+      id: 'brass-key',
+      object: brassKey,
+      radius: 4.2,
+      onlyAfterBacktrack: true,
+      takeable: true,
+      itemId: 'brass-key',
+      itemLabel: 'BRASS KEY',
+      title: 'BRASS KEY',
+      body: 'Left on the threshold. Still faintly warm.',
+      tooltip: 'Fits an ordinary lock. Something in this hall still closes.',
     },
     {
       id: 'exit-sign',
@@ -208,13 +250,15 @@ export function createCorridor(scene) {
       id: 'altered-door',
       object: changedDoor,
       radius: 3.6,
+      // First pass stays unmarked — outline only after the return begins.
+      onlyAfterBacktrack: true,
       title: 'UNMARKED DOOR',
       body: 'It was closed when you passed it. You are sure of that.',
     },
   ];
 
   return {
-    lights, redLight, changedDoor, mats, interactables,
+    lights, redLight, changedDoor, brassKey, mats, interactables,
     update(progress, story, dt, reduced) {
       const fault = !reduced && progress > 0.46 && progress < 0.7;
       lights.forEach((light, i) => {
@@ -227,8 +271,14 @@ export function createCorridor(scene) {
       const target = story.hasBacktracked ? 1.12 : 0;
       const follow = reduced ? 1 : 1 - Math.exp(-dt * 4);
       changedDoor.rotation.y += (target - changedDoor.rotation.y) * follow;
+      // Key only after return begins, and only until taken.
+      brassKey.visible = Boolean(story.hasBacktracked) && !brassKey.userData.taken;
     },
-    reset() { changedDoor.rotation.y = 0; },
+    reset() {
+      changedDoor.rotation.y = 0;
+      brassKey.userData.taken = false;
+      brassKey.visible = false;
+    },
     dispose() {
       batchesToDispose.forEach(batch => batch.dispose());
       cube.dispose();
@@ -241,6 +291,12 @@ export function createCorridor(scene) {
       knobLeverGeo.dispose();
       knobHitGeo.dispose();
       knobHitMat.dispose();
+      keyShaftGeo.dispose();
+      keyBowGeo.dispose();
+      keyBitGeo.dispose();
+      keyHitGeo.dispose();
+      keyMat.dispose();
+      keyHitMat.dispose();
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);
       scene.remove(world);

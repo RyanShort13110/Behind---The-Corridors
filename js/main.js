@@ -7,6 +7,7 @@ import { createAudioDirector } from './audio.js';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
 import { createLookControls } from './look.js';
+import { createInventory } from './inventory.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
 import { createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z, RECORDS_PHOTO_LOOK_START, RECORDS_PHOTO_LOOK_END } from './levels/records-story.js';
@@ -35,6 +36,10 @@ const el = {
   endingTitle: $('ending-title'), endingCopy: $('ending-copy'),
   inspect: $('inspect'), inspectTitle: $('inspect-title'),
   inspectBody: $('inspect-body'), inspectClose: $('inspect-close'),
+  inspectAction: $('inspect-action'), inventory: $('inventory'),
+  itemDetail: $('item-detail'), itemDetailClose: $('item-detail-close'),
+  itemDetailCanvas: $('item-detail-canvas'), itemDetailTitle: $('item-detail-title'),
+  itemDetailBody: $('item-detail-body'),
 };
 
 // Mapping 0 => camera inside the rear cabin, .09 => original corridor start,
@@ -60,11 +65,14 @@ let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let activeBeat = -1;
 let ended = false;
-let renderer, camera, scene, director, monitor, interaction, look;
+let renderer, camera, scene, director, monitor, interaction, look, inventory;
 let lastTime = performance.now();
 let scrollTrigger = null;
 let chapterId = 'corridor';
 let transitioning = false;
+// Own walk-key state so Up/W can keep moving while Left/Right look
+// (browser key-repeat only fires the last key, which kills native scroll).
+const walkKeys = { forward: false, back: false };
 let devChapterUI = null;
 // Chapter memory persists across scene disposal (proximity != confirmed observation).
 const memory = { chaptersCompleted: [], lighterEncountered: false, photographPassed: false, extraStepHeard: false, keyPassed: false };
@@ -74,7 +82,7 @@ const ORIGINAL_LOCATION_HTML = 'NORTH WING <span class="separator">/</span> LEVE
 // Fewer lines leave space for the corridor to do the work.
 const beats = [
   { to: 0.40, ch: '01 — THE CORRIDOR', line: 'The building should be empty.' },
-  { to: 0.74, ch: '01 — THE CORRIDOR', line: 'Further than you meant to go.' },
+  { to: 0.74, ch: '01 — THE CORRIDOR', line: 'Too quiet for a place this big.' },
   { to: 1.01, ch: '01 — THE CORRIDOR', line: 'Breathing. Close.' },
 ];
 
@@ -151,6 +159,9 @@ try {
   director.add('corridor', createCorridor(scene));
   director.add('elevator', createElevator(scene));
   director.activate('corridor');
+  inventory = createInventory({
+    onChange: items => renderInventory(items),
+  });
   interaction = createInteractionSystem({
     camera,
     canvas: renderer.domElement,
@@ -158,7 +169,13 @@ try {
     titleEl: el.inspectTitle,
     bodyEl: el.inspectBody,
     closeEl: el.inspectClose,
+    actionEl: el.inspectAction,
+    inventory,
     onInspect: id => audio.playInteract(id),
+    onTake: () => audio.playInteract('brass-key'),
+    onUse: (_itemId, targetId) => {
+      if (targetId === 'locked-doorknob') audio.playUnlock();
+    },
   });
   look = createLookControls({ canvas: renderer.domElement });
   bindCorridorInteractables();
@@ -181,6 +198,68 @@ function bindCorridorInteractables() {
       interaction.register({ ...spec, sceneRoot: scene });
     }
   }
+}
+
+function drawBrassKeyPreview(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(w * 0.5, h * 0.55);
+  ctx.rotate(-0.35);
+  // Soft glow
+  ctx.shadowColor = 'rgba(196,160,90,0.45)';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = '#c4a05a';
+  ctx.strokeStyle = '#8a6a32';
+  ctx.lineWidth = 2;
+  // Bow
+  ctx.beginPath();
+  ctx.arc(-48, 0, 22, 0, Math.PI * 2);
+  ctx.arc(-48, 0, 11, 0, Math.PI * 2, true);
+  ctx.fill('evenodd');
+  ctx.stroke();
+  // Shaft
+  ctx.fillRect(-28, -5, 78, 10);
+  ctx.strokeRect(-28, -5, 78, 10);
+  // Bits
+  ctx.fillRect(42, 5, 8, 16);
+  ctx.fillRect(54, 5, 8, 22);
+  ctx.restore();
+}
+
+function closeItemDetail() {
+  if (!el.itemDetail) return;
+  el.itemDetail.classList.remove('is-open');
+  el.itemDetail.setAttribute('aria-hidden', 'true');
+}
+
+function openItemDetail(item) {
+  if (!el.itemDetail || !item) return;
+  el.itemDetailTitle.textContent = item.label || item.id;
+  el.itemDetailBody.textContent = item.tooltip
+    || 'An item you are carrying.';
+  if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
+  else {
+    const ctx = el.itemDetailCanvas?.getContext('2d');
+    ctx?.clearRect(0, 0, el.itemDetailCanvas.width, el.itemDetailCanvas.height);
+  }
+  el.itemDetail.classList.add('is-open');
+  el.itemDetail.setAttribute('aria-hidden', 'false');
+}
+
+function renderInventory(items) {
+  if (!el.inventory) return;
+  const list = items || inventory?.list() || [];
+  el.inventory.innerHTML = list.map(item =>
+    `<button type="button" class="inventory__item" data-item-id="${item.id}">${item.label || item.id}</button>`
+  ).join('');
+  const show = list.length > 0 && started && !ended;
+  el.inventory.classList.toggle('is-visible', show);
+  el.inventory.setAttribute('aria-hidden', String(!show));
+  if (!show) closeItemDetail();
 }
 
 function start() {
@@ -250,12 +329,14 @@ function showEndCard(which) {
   setEndCard(which);
   el.ending.classList.add('is-visible');
   el.ending.setAttribute('aria-hidden', 'false');
+  renderInventory();
 }
 
 function hideEndCard() {
   ended = false;
   el.ending.classList.remove('is-visible');
   el.ending.setAttribute('aria-hidden', 'true');
+  renderInventory();
 }
 
 function reset() {
@@ -275,6 +356,9 @@ function reset() {
   }
   bindCorridorInteractables();
   look?.reset();
+  inventory?.clear();
+  renderInventory([]);
+  closeItemDetail();
   story.reset();
   officeStory.reset();
   recordsStory.reset();
@@ -307,6 +391,8 @@ async function enterOffice() {
     const { createOffice } = await import('./levels/office.js');
     interaction?.clear();
     look?.reset();
+    inventory?.clear();
+    renderInventory([]);
     director.dispose();
     director = createSceneDirector();
     director.add('office', createOffice(scene));
@@ -542,6 +628,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     next = createSceneDirector();
     interaction?.clear();
     look?.reset();
+    inventory?.clear();
+    renderInventory([]);
     if (target === 'corridor') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
@@ -646,6 +734,36 @@ if (DEBUG_MODE) {
 el.begin.addEventListener('click', start);
 el.restart.addEventListener('click', reset);
 el.continue.addEventListener('click', continueChapter);
+el.itemDetailClose?.addEventListener('click', closeItemDetail);
+el.inventory?.addEventListener('click', event => {
+  const btn = event.target.closest('[data-item-id]');
+  if (!btn) return;
+  const item = inventory?.get(btn.dataset.itemId);
+  if (item) openItemDetail({ id: btn.dataset.itemId, ...item });
+});
+function onWalkKeyDown(event) {
+  if (event.key === 'Escape') closeItemDetail();
+  if (!started || transitioning || ended) return;
+  if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+  if (event.code === 'ArrowUp' || event.code === 'KeyW') {
+    walkKeys.forward = true;
+    event.preventDefault();
+  } else if (event.code === 'ArrowDown' || event.code === 'KeyS') {
+    walkKeys.back = true;
+    event.preventDefault();
+  }
+}
+
+function onWalkKeyUp(event) {
+  if (event.code === 'ArrowUp' || event.code === 'KeyW') walkKeys.forward = false;
+  else if (event.code === 'ArrowDown' || event.code === 'KeyS') walkKeys.back = false;
+}
+
+window.addEventListener('keydown', onWalkKeyDown, { passive: false });
+window.addEventListener('keyup', onWalkKeyUp);
+window.addEventListener('blur', () => {
+  walkKeys.forward = walkKeys.back = false;
+});
 el.quality.addEventListener('click', () => {
   quality = quality === 'auto' ? 'low' : quality === 'low' ? 'high' : 'auto';
   el.quality.textContent = `QUALITY: ${quality.toUpperCase()}`;
@@ -716,7 +834,10 @@ function updateNarrative(p) {
   if (el.line.textContent !== narrative.line) el.line.textContent = narrative.line;
   let instruction = narrative.instruction;
   if (inCorridor && interaction?.nearest && !interaction.isOpen && !ended) {
-    instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
+    const near = interaction.nearest;
+    if (near._usable) instruction = 'USE BRASS KEY · CLICK TO INSPECT';
+    else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
+    else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
   }
   if (el.instruction.textContent !== instruction) el.instruction.textContent = instruction;
   const show = inCorridor
@@ -769,14 +890,21 @@ function frame(now) {
   if (document.hidden) return;
 
   if (started && !transitioning && !(ended && chapterId === 'office')) {
-    setProgress(nativeProgress());
-    const previousDisplayed = displayed;
-    const eased = (progress - displayed) * (reduced ? 1 : 1 - Math.exp(-dt * 5));
     const meters = chapterId === 'corridor' ? CORRIDOR_METERS
       : chapterId === 'office' ? OFFICE_METERS
         : chapterId === 'records' ? RECORDS_METERS
           : chapterId === 'night' ? NIGHT_METERS
             : chapterId === 'threshold' ? THRESHOLD_METERS : UNSEEN_METERS;
+    // Apply held walk keys before reading scroll so look keys can't cancel motion.
+    const walkDir = (walkKeys.forward ? 1 : 0) + (walkKeys.back ? -1 : 0);
+    if (walkDir !== 0 && !interaction?.isOpen) {
+      const keyStep = MAX_WALK_SPEED * dt / meters;
+      const next = progress + walkDir * keyStep;
+      window.scrollTo({ top: scrollYFor(THREE.MathUtils.clamp(next, 0, 1)), behavior: 'instant' });
+    }
+    setProgress(nativeProgress());
+    const previousDisplayed = displayed;
+    const eased = (progress - displayed) * (reduced ? 1 : 1 - Math.exp(-dt * 5));
     const startZ = chapterId === 'corridor' ? REAR_CABIN_CAMERA_Z
       : chapterId === 'office' ? OFFICE_START_Z
         : chapterId === 'records' ? RECORDS_START_Z
@@ -850,7 +978,11 @@ function frame(now) {
     look?.noteWalk(p - previousDisplayed);
     look?.setEnabled(canInteract && !interaction?.isOpen);
     camera.rotation.y += look?.update(dt, reduced) ?? 0;
-    interaction?.update(dt, canInteract && !interaction?.isOpen);
+    interaction?.update(
+      dt,
+      canInteract && !interaction?.isOpen,
+      chapterId === 'corridor' ? story.state : null
+    );
 
     if (chapterId === 'corridor') {
       director.update(p, story.state, dt, reduced);

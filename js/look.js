@@ -159,8 +159,10 @@ export function createLookControls({ canvas }) {
       drag = null;
       stroke = null;
     },
-    /** Call when the player walks; releases held look so the camera recenters. */
+    /** Call when the player walks; releases held look so the camera recenters.
+     *  Skip while look keys/drag are active so walk + turn work together. */
     noteWalk(progressDelta) {
+      if (keys.left || keys.right || drag) return;
       if (Math.abs(progressDelta) >= WALK_RELEASE) sticky = false;
     },
     update(dt, reduced) {

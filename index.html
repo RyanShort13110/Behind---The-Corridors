@@ -31,7 +31,15 @@
       <button type="button" id="inspect-close" class="inspect-close" aria-label="Close inspection">CLOSE</button>
       <p id="inspect-title" class="inspect-title"></p>
       <p id="inspect-body" class="inspect-body"></p>
+      <button type="button" id="inspect-action" class="inspect-action" hidden>TAKE</button>
       <p class="inspect-hint">ESC TO CLOSE</p>
+    </aside>
+    <aside id="inventory" class="inventory" aria-label="Inventory" aria-hidden="true"></aside>
+    <aside id="item-detail" class="item-detail" aria-hidden="true" role="dialog" aria-labelledby="item-detail-title">
+      <button type="button" id="item-detail-close" class="item-detail-close" aria-label="Close item">CLOSE</button>
+      <canvas id="item-detail-canvas" class="item-detail-canvas" width="200" height="130" aria-hidden="true"></canvas>
+      <p id="item-detail-title" class="item-detail-title"></p>
+      <p id="item-detail-body" class="item-detail-body"></p>
     </aside>
     <div id="chapter-veil" aria-hidden="true"></div>
     <div id="perf" class="perf-hud" aria-hidden="true"></div>
