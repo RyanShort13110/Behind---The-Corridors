@@ -422,6 +422,39 @@ export function createAudioDirector() {
     }, 140);
   }
 
+  function playHallDoorCascade() {
+    if (!enabled || !ctx) return;
+    // Distant hallway doors answering the elevator seal — staggered, soft, uneven.
+    const beats = [
+      { at: 140, pan: 0.35, level: 0.016 },
+      { at: 520, pan: -0.4, level: 0.014 },
+      { at: 880, pan: 0.55, level: 0.018 },
+      { at: 1280, pan: -0.25, level: 0.012 },
+      { at: 1700, pan: 0.2, level: 0.015 },
+      { at: 2100, pan: -0.5, level: 0.013 },
+    ];
+    for (const beat of beats) {
+      window.setTimeout(() => {
+        if (!enabled || !ctx) return;
+        playNoiseBurst({
+          duration: 0.45 + beat.level * 4,
+          band: 220 + beat.pan * 40,
+          q: 0.4,
+          level: beat.level,
+          pan: beat.pan,
+        });
+        playTone({
+          freq: 70 + Math.abs(beat.pan) * 30,
+          freq2: 42,
+          duration: 0.55,
+          level: beat.level * 0.7,
+          type: 'triangle',
+          pan: beat.pan,
+        });
+      }, beat.at);
+    }
+  }
+
   function playInteract(id) {
     if (!enabled || !ctx) return;
     if (id === 'brass-key') {
@@ -1200,7 +1233,8 @@ export function createAudioDirector() {
   return {
     toggle, update, updateOffice, updateRecords, updateNight, updateThreshold, updateUnseen,
     enterOffice, enterRecords, enterNight, enterThreshold, enterUnseen,
-    playOfficeLatch, playNightStep, playInteract, playUnlock, reset, suspend, resume, dispose,
+    playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
+    reset, suspend, resume, dispose,
     get enabled() { return enabled; },
   };
 }

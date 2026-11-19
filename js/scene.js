@@ -84,6 +84,21 @@ export function createCorridor(scene) {
   const ajarProgress = (6 - alteredZ) / 50;
   // Hide while still close to the door; peek only after clearing this.
   const peekClearProgress = ajarProgress - 0.025;
+
+  // End-of-level cascade: ordinary doors that swing open while the elevator seals.
+  // Skip the unmarked ajar bay and the keyed bay — those beats stay singular.
+  const endSwingSpecs = [
+    { bay: 0, side: 1, delay: 0.12, duration: 1.7, maxYaw: 1.05 },
+    { bay: 1, side: -1, delay: 0.55, duration: 2.35, maxYaw: -0.92 },
+    { bay: 4, side: 1, delay: 0.28, duration: 2.05, maxYaw: 1.18 },
+    { bay: 5, side: -1, delay: 0.9, duration: 1.55, maxYaw: -1.1 },
+    { bay: 7, side: 1, delay: 1.15, duration: 2.5, maxYaw: 0.88 },
+    { bay: 8, side: -1, delay: 0.7, duration: 1.9, maxYaw: -1.02 },
+  ];
+  const endSwingDoors = [];
+  let hallCascadeT = -1;
+  let hallCascadeStarted = false;
+
   for (let i = 0; i < 10; i++) {
     const z = -2 - i * 4.5;
     const doorZ = z - 1.75;
@@ -135,10 +150,21 @@ export function createCorridor(scene) {
       } else if (i === lockedBay && side === 1) {
         // Lockable bay: frame + swingable door + room are built below.
       } else {
+        const swing = endSwingSpecs.find(spec => spec.bay === i && spec.side === side);
         add(0.09, 2.42, 1.25, side * 2.55, 1.36, doorZ, mats.trim);
-        add(0.12, 2.28, 1.04, side * 2.5, 1.36, doorZ, mats.door);
-        // Handles sit on the latch edge (deeper / -Z), opposite the hinge side.
-        add(0.19, 0.055, 0.08, side * 2.39, 1.25, z - 2.02, mats.metal);
+        if (swing) {
+          const group = new THREE.Group();
+          group.name = `end-swing-${i}-${side > 0 ? 'R' : 'L'}`;
+          group.position.set(side * 2.5, 0, doorZ + 0.52);
+          world.add(group);
+          add(0.12, 2.28, 1.04, 0, 1.36, -0.52, mats.door, group);
+          add(0.19, 0.055, 0.08, -side * 0.11, 1.25, -0.79, mats.metal, group);
+          endSwingDoors.push({ group, ...swing });
+        } else {
+          add(0.12, 2.28, 1.04, side * 2.5, 1.36, doorZ, mats.door);
+          // Handles sit on the latch edge (deeper / -Z), opposite the hinge side.
+          add(0.19, 0.055, 0.08, side * 2.39, 1.25, z - 2.02, mats.metal);
+        }
       }
       add(0.035, 0.46, 0.31, side * 2.38, 2.56, doorZ, mats.metal);
     }
@@ -385,6 +411,28 @@ export function createCorridor(scene) {
           alteredZ - 0.05
         );
       }
+
+      // Start the cascade as the cabin seal begins so opens read while doors close.
+      if (story.enteredRearElevator && progress <= 0.02 && hallCascadeT < 0) {
+        hallCascadeT = 0;
+        hallCascadeStarted = true;
+      }
+      if (hallCascadeT >= 0) {
+        hallCascadeT += dt;
+        for (const door of endSwingDoors) {
+          const u = Math.max(0, Math.min(1, (hallCascadeT - door.delay) / door.duration));
+          const s = u * u * (3 - 2 * u);
+          const yawTarget = door.maxYaw * s;
+          const yawFollow = reduced ? 1 : 1 - Math.exp(-dt * 4.2);
+          door.group.rotation.y += (yawTarget - door.group.rotation.y) * yawFollow;
+        }
+      }
+    },
+    /** True once when the end hallway cascade begins (for one-shot SFX). */
+    consumeHallCascadeStarted() {
+      if (!hallCascadeStarted) return false;
+      hallCascadeStarted = false;
+      return true;
     },
     reset() {
       changedDoor.rotation.y = 0;
@@ -397,6 +445,9 @@ export function createCorridor(scene) {
       peekWantShow = false;
       unlockProgress = null;
       peekPrevProgress = null;
+      hallCascadeT = -1;
+      hallCascadeStarted = false;
+      for (const door of endSwingDoors) door.group.rotation.y = 0;
       if (peekFigure) {
         peekFigure.visible = false;
         peekFigure.position.set(2.72, 0, alteredZ);

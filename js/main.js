@@ -116,7 +116,9 @@ function resize() {
  */
 function progressBounds() {
   if (chapterId === 'corridor') {
-    return { min: corridorMinProgress(story.state), max: 1 };
+    // Once sealed in the rear cabin, block walking back into the hall.
+    const max = story.state.enteredRearElevator ? 0.022 : 1;
+    return { min: corridorMinProgress(story.state), max };
   }
   if (chapterId === 'unseen') {
     return { min: 0, max: UNSEEN_BARRIER_PROGRESS };
@@ -995,6 +997,9 @@ function frame(now) {
 
     if (chapterId === 'corridor') {
       director.update(p, story.state, dt, reduced);
+      if (director.get('corridor')?.consumeHallCascadeStarted?.()) {
+        audio.playHallDoorCascade();
+      }
       const elev = director.get('elevator');
       audio.update(p, reduced, story.state, {
         openAmount: elev?.openAmount ?? 0,

@@ -125,7 +125,8 @@ export function createElevator(scene) {
       const unlocked = story.rearElevatorUnlocked;
       const inside = unlocked && progress <= 0.018;
       const target = unlocked && !inside ? 1 : 0;
-      opening = follow(opening, target, dt, inside ? 2.5 : 3.5, reduced);
+      // Close slowly so the hallway door cascade reads through the narrowing gap.
+      opening = follow(opening, target, dt, inside ? 0.85 : 3.2, reduced);
       opening = clamp(opening);
       closure = inside ? 1 - opening : 0;
       applyDoors();
