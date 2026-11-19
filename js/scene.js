@@ -241,6 +241,47 @@ export function createCorridor(scene) {
   lockedKnob.add(knobRose, knobLever, knobHit);
   lockedDoor.add(lockedKnob);
 
+  // --- TEMP preview: low-poly stuffed dragons (remove after eyeballing) ---
+  const dragonPreviewMats = [];
+  const makeStuffedDragon = (hex, name) => {
+    const mat = new THREE.MeshStandardMaterial({
+      color: hex, roughness: 0.94, metalness: 0,
+    });
+    dragonPreviewMats.push(mat);
+    const group = new THREE.Group();
+    group.name = name;
+    const part = (w, h, d, x, y, z, rx = 0, ry = 0, rz = 0) => {
+      const mesh = new THREE.Mesh(cube, mat);
+      mesh.position.set(x, y, z);
+      mesh.rotation.set(rx, ry, rz);
+      mesh.scale.set(w, h, d);
+      group.add(mesh);
+    };
+    // Chunky plush silhouette — readable at a glance, not anatomical.
+    part(0.22, 0.18, 0.28, 0, 0.16, 0);           // body
+    part(0.16, 0.15, 0.16, 0, 0.28, 0.16);         // head
+    part(0.1, 0.08, 0.12, 0, 0.24, 0.28);          // snout
+    part(0.035, 0.1, 0.035, -0.05, 0.38, 0.14);    // horn L
+    part(0.035, 0.1, 0.035, 0.05, 0.38, 0.14);     // horn R
+    part(0.02, 0.12, 0.18, -0.14, 0.22, 0, 0, 0, 0.45); // wing L
+    part(0.02, 0.12, 0.18, 0.14, 0.22, 0, 0, 0, -0.45); // wing R
+    part(0.06, 0.1, 0.06, -0.07, 0.06, 0.08);      // leg FL
+    part(0.06, 0.1, 0.06, 0.07, 0.06, 0.08);       // leg FR
+    part(0.06, 0.1, 0.06, -0.07, 0.06, -0.08);     // leg BL
+    part(0.06, 0.1, 0.06, 0.07, 0.06, -0.08);      // leg BR
+    part(0.07, 0.07, 0.2, 0, 0.14, -0.22, 0.35, 0, 0); // tail
+    return group;
+  };
+  const dragonWhite = makeStuffedDragon(0xf2f0ea, 'preview-dragon-white');
+  dragonWhite.position.set(-1.15, 0, -6.2);
+  dragonWhite.rotation.y = 0.55;
+  world.add(dragonWhite);
+  const dragonBlack = makeStuffedDragon(0x0c0d0d, 'preview-dragon-black');
+  dragonBlack.position.set(-0.55, 0, -6.55);
+  dragonBlack.rotation.y = -0.35;
+  world.add(dragonBlack);
+  // --- end TEMP preview ---
+
   // Brass key on the corridor floor at the unmarked doorway (return pass only).
   // Keep it inside the walkable hall (x < ~2.4) so it isn't buried in the recess.
   const brassKey = new THREE.Group();
@@ -472,6 +513,7 @@ export function createCorridor(scene) {
       keyMat.dispose();
       keyHitMat.dispose();
       peekMats.forEach(mat => mat.dispose());
+      dragonPreviewMats.forEach(mat => mat.dispose());
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);
       scene.remove(world);
