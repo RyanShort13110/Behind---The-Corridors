@@ -74,16 +74,32 @@ export function createInteractionSystem({
     return null;
   }
 
+  /** Resolve a display name for whatever item an interactable needs. */
+  function requiredItemLabel(entry) {
+    if (!entry?.requiresItem) return 'ITEM';
+    const held = inventory?.get(entry.requiresItem);
+    if (held?.label) return held.label;
+    if (entry.requiresItemLabel) return entry.requiresItemLabel;
+    return String(entry.requiresItem).replace(/-/g, ' ').toUpperCase();
+  }
+
+  function actionLabel(entry) {
+    const mode = actionMode(entry);
+    if (mode === 'take') return 'TAKE';
+    if (mode === 'use') return `USE ${requiredItemLabel(entry)}`;
+    return '';
+  }
+
   function refreshAction() {
     if (!actionEl) return;
-    const mode = actionMode(openEntry);
-    if (!mode) {
+    const label = actionLabel(openEntry);
+    if (!label) {
       actionEl.hidden = true;
       actionEl.textContent = '';
       return;
     }
     actionEl.hidden = false;
-    actionEl.textContent = mode === 'take' ? 'TAKE' : 'USE';
+    actionEl.textContent = label;
   }
 
   function setPanel(open, entry = null) {
@@ -110,7 +126,7 @@ export function createInteractionSystem({
     const {
       id, object, title, body, radius = 3.4, tooltip = null,
       onlyAfterBacktrack = false, takeable = false, itemId = null, itemLabel = null,
-      requiresItem = null, lockedBody = null, unlockedBody = null,
+      requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
       sceneRoot, pickMeshes,
     } = spec;
     void sceneRoot;
@@ -119,7 +135,7 @@ export function createInteractionSystem({
     const entry = {
       id, object, title, body, tooltip, radius,
       onlyAfterBacktrack, takeable, itemId, itemLabel,
-      requiresItem, lockedBody, unlockedBody,
+      requiresItem, requiresItemLabel, lockedBody, unlockedBody,
       taken: false, unlocked: false,
       lines, material, opacity: 0,
       pickMeshes: meshes,
@@ -333,6 +349,8 @@ export function createInteractionSystem({
     update,
     close: () => setPanel(false),
     refreshAction,
+    requiredItemLabel,
+    actionLabel,
     get nearest() { return nearest; },
     get isOpen() { return Boolean(openId); },
     get openId() { return openId; },

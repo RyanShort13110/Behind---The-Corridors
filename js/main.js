@@ -842,8 +842,10 @@ function updateNarrative(p) {
   let instruction = narrative.instruction;
   if (inCorridor && interaction?.nearest && !interaction.isOpen && !ended) {
     const near = interaction.nearest;
-    if (near._usable) instruction = 'USE BRASS KEY · CLICK TO INSPECT';
-    else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
+    if (near._usable) {
+      const useLabel = interaction?.actionLabel?.(near) || `USE ${interaction?.requiredItemLabel?.(near) || 'ITEM'}`;
+      instruction = `${useLabel} · CLICK TO INSPECT`;
+    } else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
     else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
   }
   if (el.instruction.textContent !== instruction) el.instruction.textContent = instruction;

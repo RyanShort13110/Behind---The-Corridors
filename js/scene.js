@@ -280,6 +280,7 @@ export function createCorridor(scene) {
       lockedBody: 'Locked.',
       unlockedBody: 'It opens. Too dark to see anything.',
       requiresItem: 'brass-key',
+      requiresItemLabel: 'BRASS KEY',
     },
     {
       id: 'brass-key',
