@@ -158,6 +158,7 @@ try {
     titleEl: el.inspectTitle,
     bodyEl: el.inspectBody,
     closeEl: el.inspectClose,
+    onInspect: id => audio.playInteract(id),
   });
   look = createLookControls({ canvas: renderer.domElement });
   bindCorridorInteractables();
@@ -853,7 +854,11 @@ function frame(now) {
 
     if (chapterId === 'corridor') {
       director.update(p, story.state, dt, reduced);
-      audio.update(p, reduced, story.state);
+      const elev = director.get('elevator');
+      audio.update(p, reduced, story.state, {
+        openAmount: elev?.openAmount ?? 0,
+        closureProgress: elev?.closureProgress ?? 0,
+      });
     } else if (chapterId === 'office') {
       director.update(p, officeStory.state, dt, reduced);
       audio.updateOffice(p, officeStory.state);

@@ -45,7 +45,7 @@ function makeMeshOutlines(meshes) {
   return { lines, material: mat };
 }
 
-export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl, closeEl }) {
+export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl, closeEl, onInspect }) {
   const entries = [];
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -58,6 +58,7 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
   let tap = null;
 
   function setPanel(open, entry = null) {
+    const becameOpen = open && entry && entry.id !== openId;
     openId = open && entry ? entry.id : null;
     panel.classList.toggle('is-open', Boolean(openId));
     panel.setAttribute('aria-hidden', String(!openId));
@@ -65,6 +66,7 @@ export function createInteractionSystem({ camera, canvas, panel, titleEl, bodyEl
       titleEl.textContent = entry.title;
       bodyEl.textContent = entry.body;
     }
+    if (becameOpen) onInspect?.(entry.id);
   }
 
   function register({ id, object, title, body, radius = 3.4, sceneRoot, pickMeshes }) {

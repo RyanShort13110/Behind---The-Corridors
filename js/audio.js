@@ -8,7 +8,13 @@ const BREATH_FILE = './assets/breathing-scared.m4a';
 const BREATH_DURATION = 5;
 const BREATH_VOLUME = 0.07;
 // Scales the Level 01 psychological bed + corridor accents (breathing uses BREATH_VOLUME separately).
-const CORRIDOR_GAIN = 4.6;
+const CORRIDOR_GAIN = 5.4; // ambient bed / SFX scale
+const HUM_GAIN = 0.0018; // fluorescent ballast — faint under the bed
+const HUM_FREQ = 180; // thinner than 120 Hz mains thump
+const MUSIC_NOTE_PEAK = 0.014; // audible under the bed, not competing with SFX
+const MUSIC_NOTE_DUR = 5.2; // long release so notes bloom into each other
+const MUSIC_REVERB_WET = 0.78;
+const MUSIC_REVERB_DRY = 0.42;
 
 export function createAudioDirector() {
   let ctx = null;
@@ -24,6 +30,21 @@ export function createAudioDirector() {
   let scorePadLow = null, scorePadHigh = null, scorePadGain = null;
   let scoreTension = null, scoreTensionGain = null;
   let scoreAnxiety = null, scoreAnxietyGain = null;
+  // Sparse musical motif — ducks under breathing, SFX, and elevator events.
+  let musicGain = null;
+  let musicDryGain = null;
+  let musicWetGain = null;
+  let musicConvolver = null;
+  let musicNextNote = 0;
+  let musicNoteIndex = 0;
+  let sfxBusyUntil = 0;
+  let elevWasUnlocked = false;
+  let elevOpenPrev = 0;
+  let elevOpenSfxPlayed = false;
+  let elevCloseSfxPlayed = false;
+  // D harmonic minor, mostly descending — mournful, with the raised 7th for dread.
+  // D3 F3 A3 Bb3 C4 C#4 E4 G3 (ordered for falling phrases, not a cheerful arpeggio).
+  const MUSIC_NOTES = [220, 196, 174.61, 146.83, 233.08, 164.81, 138.59, 277.18, 130.81, 174.61];
   let nightStepBuffer = null;
   let nightStepBus = null;
   let nightStepIndex = 0;
@@ -62,8 +83,8 @@ export function createAudioDirector() {
   function init() {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // ~120 Hz triangle reads as ballast / fluorescent hum (not a sub drone).
-    humGain = createVoice(120, 'triangle', 420);
+    // Higher triangle ballast — thin fluorescent buzz, not a sub drone.
+    humGain = createVoice(HUM_FREQ, 'triangle', 560);
     buzzGain = createVoice(240, 'triangle', 900);
     motorGain = createVoice(37, 'triangle', 120);
     // Analogue-style double ring, deliberately much quieter than dialogue.
@@ -206,6 +227,30 @@ export function createAudioDirector() {
     scoreAnxiety.frequency.value = 1860;
     scoreAnxiety.connect(anxietyFilter).connect(scoreAnxietyGain).connect(ctx.destination);
     scoreAnxiety.start();
+
+    musicGain = ctx.createGain();
+    musicGain.gain.value = 0;
+    musicDryGain = ctx.createGain();
+    musicDryGain.gain.value = MUSIC_REVERB_DRY;
+    musicWetGain = ctx.createGain();
+    musicWetGain.gain.value = MUSIC_REVERB_WET;
+    // Synthetic IR — long dark hall, no asset download.
+    const revSec = 4.2;
+    const revLen = Math.ceil(ctx.sampleRate * revSec);
+    const impulse = ctx.createBuffer(2, revLen, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = impulse.getChannelData(ch);
+      for (let i = 0; i < revLen; i++) {
+        const t = i / revLen;
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3.4) * (ch ? 0.92 : 1);
+      }
+    }
+    musicConvolver = ctx.createConvolver();
+    musicConvolver.buffer = impulse;
+    musicGain.connect(musicDryGain).connect(ctx.destination);
+    musicGain.connect(musicConvolver).connect(musicWetGain).connect(ctx.destination);
+    musicNextNote = ctx.currentTime + 1.4;
+    musicNoteIndex = 0;
   }
 
   function silenceHorrorScore(seconds = 0.2) {
@@ -213,6 +258,208 @@ export function createAudioDirector() {
     setGain(scorePadGain, 0, seconds);
     setGain(scoreTensionGain, 0, seconds);
     setGain(scoreAnxietyGain, 0, seconds);
+    setGain(musicGain, 0, seconds);
+  }
+
+  function markSfx(seconds = 0.45) {
+    if (!ctx) return;
+    sfxBusyUntil = Math.max(sfxBusyUntil, ctx.currentTime + seconds);
+  }
+
+  /** Soft sine/triangle motif notes — long release into reverb, not a pop loop. */
+  function scheduleMusicNote(freq, when, dur = MUSIC_NOTE_DUR) {
+    if (!ctx || !musicGain) return;
+    const osc = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const amp = ctx.createGain();
+    osc.type = 'sine';
+    osc2.type = 'sine';
+    osc.frequency.value = freq;
+    // Soft minor-third partial — hollower/sadder than a bright octave shimmer.
+    osc2.frequency.value = freq * 1.189;
+    filter.type = 'lowpass';
+    filter.frequency.value = 620;
+    amp.gain.value = 0;
+    const amp2 = ctx.createGain();
+    amp2.gain.value = 0.38;
+    osc.connect(filter);
+    osc2.connect(amp2).connect(filter);
+    filter.connect(amp).connect(musicGain);
+    const peak = MUSIC_NOTE_PEAK * CORRIDOR_GAIN;
+    const attack = 0.85;
+    const sustainEnd = when + Math.min(1.8, dur * 0.35);
+    amp.gain.setValueAtTime(0, when);
+    amp.gain.linearRampToValueAtTime(peak, when + attack);
+    amp.gain.linearRampToValueAtTime(peak * 0.72, sustainEnd);
+    // Long exponential release — drones into the reverb tail.
+    amp.gain.exponentialRampToValueAtTime(0.0008, when + dur);
+    osc.start(when);
+    osc2.start(when);
+    osc.stop(when + dur + 0.08);
+    osc2.stop(when + dur + 0.08);
+    osc.onended = () => {
+      try {
+        osc.disconnect(); osc2.disconnect(); amp2.disconnect();
+        filter.disconnect(); amp.disconnect();
+      } catch (_) { /* ignore */ }
+    };
+  }
+
+  function advanceMusic(duck) {
+    if (!ctx || !musicGain) return;
+    const t = ctx.currentTime;
+    const target = duck ? 0.08 : 1;
+    setGain(musicGain, target, duck ? 0.12 : 0.55);
+    // Keep a small lookahead of sparse notes while the bed is audible.
+    if (duck) return;
+    if (musicNextNote < t - 0.05) musicNextNote = t + 0.5;
+    const horizon = t + 0.35;
+    while (musicNextNote < horizon + 3.2) {
+      const freq = MUSIC_NOTES[musicNoteIndex % MUSIC_NOTES.length];
+      const dur = MUSIC_NOTE_DUR + (musicNoteIndex % 3) * 0.45;
+      scheduleMusicNote(freq, Math.max(musicNextNote, t + 0.02), dur);
+      // Spacing shorter than release so notes overlap into a pad-like drone.
+      musicNextNote += 2.15 + (musicNoteIndex % 4) * 0.4;
+      musicNoteIndex += 1;
+    }
+  }
+
+  function playNoiseBurst({ duration = 0.2, band = 800, q = 0.8, level = 0.04, pan = 0 }) {
+    if (!enabled || !ctx) return;
+    const length = Math.ceil(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      const env = Math.exp(-i / ctx.sampleRate * (4 / duration));
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = band;
+    filter.Q.value = q;
+    const gain = ctx.createGain();
+    gain.gain.value = level * CORRIDOR_GAIN;
+    const spatial = ctx.createStereoPanner?.();
+    if (spatial) {
+      spatial.pan.value = pan;
+      source.connect(filter).connect(gain).connect(spatial).connect(ctx.destination);
+    } else {
+      source.connect(filter).connect(gain).connect(ctx.destination);
+    }
+    source.start();
+    source.onended = () => {
+      source.disconnect(); filter.disconnect(); gain.disconnect(); spatial?.disconnect();
+    };
+    markSfx(duration + 0.15);
+  }
+
+  function playTone({ freq = 440, freq2 = 0, duration = 0.3, level = 0.05, type = 'sine', pan = 0 }) {
+    if (!enabled || !ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const amp = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    amp.gain.value = 0;
+    const spatial = ctx.createStereoPanner?.();
+    if (spatial) {
+      spatial.pan.value = pan;
+      osc.connect(amp).connect(spatial).connect(ctx.destination);
+    } else {
+      osc.connect(amp).connect(ctx.destination);
+    }
+    const peak = level * CORRIDOR_GAIN;
+    amp.gain.setValueAtTime(0, t);
+    amp.gain.linearRampToValueAtTime(peak, t + 0.012);
+    amp.gain.exponentialRampToValueAtTime(0.0008, t + duration);
+    osc.start(t);
+    osc.stop(t + duration + 0.02);
+    if (freq2 > 0) {
+      const oscB = ctx.createOscillator();
+      const ampB = ctx.createGain();
+      oscB.type = type;
+      oscB.frequency.value = freq2;
+      ampB.gain.value = 0;
+      if (spatial) oscB.connect(ampB).connect(spatial);
+      else oscB.connect(ampB).connect(ctx.destination);
+      ampB.gain.setValueAtTime(0, t);
+      ampB.gain.linearRampToValueAtTime(peak * 0.65, t + 0.018);
+      ampB.gain.exponentialRampToValueAtTime(0.0008, t + duration * 1.05);
+      oscB.start(t);
+      oscB.stop(t + duration + 0.03);
+      oscB.onended = () => { oscB.disconnect(); ampB.disconnect(); };
+    }
+    osc.onended = () => { osc.disconnect(); amp.disconnect(); spatial?.disconnect(); };
+    markSfx(duration + 0.1);
+  }
+
+  function playInteract(id) {
+    if (!enabled || !ctx) return;
+    if (id === 'locked-doorknob') {
+      // Deadbolt / handle rattle — short metallic clicks.
+      playTone({ freq: 920, freq2: 1380, duration: 0.09, level: 0.028, type: 'triangle', pan: 0.35 });
+      playNoiseBurst({ duration: 0.12, band: 1400, q: 1.4, level: 0.022, pan: 0.35 });
+      window.setTimeout(() => {
+        playTone({ freq: 640, duration: 0.07, level: 0.016, type: 'square', pan: 0.32 });
+      }, 55);
+      return;
+    }
+    if (id === 'far-elevator-call') {
+      // Dead call button — dull plastic tap, no chime of life.
+      playNoiseBurst({ duration: 0.08, band: 520, q: 0.7, level: 0.03, pan: 0.05 });
+      playTone({ freq: 180, duration: 0.11, level: 0.02, type: 'triangle', pan: 0.05 });
+      return;
+    }
+    if (id === 'altered-door' || id === 'door-plaque' || id === 'exit-sign') {
+      playTone({ freq: 410, duration: 0.08, level: 0.012, type: 'sine', pan: 0 });
+      playNoiseBurst({ duration: 0.06, band: 900, q: 0.9, level: 0.01, pan: 0 });
+    }
+  }
+
+  function playElevatorDing() {
+    // Soft arrival/departure chime — two partials, short decay.
+    playTone({ freq: 784, freq2: 1175, duration: 0.85, level: 0.038, type: 'sine', pan: -0.15 });
+  }
+
+  function playElevatorDoors(opening) {
+    if (opening) {
+      playNoiseBurst({ duration: 0.55, band: 420, q: 0.55, level: 0.028, pan: -0.2 });
+      playTone({ freq: 95, duration: 0.45, level: 0.018, type: 'triangle', pan: -0.2 });
+    } else {
+      playNoiseBurst({ duration: 0.48, band: 360, q: 0.6, level: 0.03, pan: -0.15 });
+      playTone({ freq: 110, freq2: 70, duration: 0.35, level: 0.02, type: 'triangle', pan: -0.15 });
+    }
+  }
+
+  function syncElevatorAudio(story, elev = {}) {
+    if (!enabled || !ctx) return;
+    const unlocked = Boolean(story?.rearElevatorUnlocked);
+    const openAmount = elev.openAmount ?? 0;
+    const closure = elev.closureProgress ?? 0;
+
+    if (unlocked && !elevWasUnlocked) {
+      // No arrival ding on unlock — chime only after the doors close behind you.
+      elevOpenSfxPlayed = false;
+      elevCloseSfxPlayed = false;
+    }
+    elevWasUnlocked = unlocked;
+
+    if (unlocked && openAmount > 0.18 && elevOpenPrev <= 0.18 && !elevOpenSfxPlayed) {
+      playElevatorDoors(true);
+      elevOpenSfxPlayed = true;
+    }
+    if (unlocked && (closure > 0.15 || (openAmount < 0.85 && elevOpenPrev >= 0.85 && story.enteredRearElevator))) {
+      if (!elevCloseSfxPlayed && (closure > 0.12 || openAmount < elevOpenPrev - 0.04)) {
+        playElevatorDoors(false);
+        elevCloseSfxPlayed = true;
+        // Second soft ding as the car commits to moving.
+        window.setTimeout(() => playElevatorDing(), 280);
+      }
+    }
+    elevOpenPrev = openAmount;
   }
 
   // Level 04 / The Night Shift. Nothing plays until the FIRST footstep.
@@ -454,6 +701,7 @@ export function createAudioDirector() {
       setGain(phoneHigh, 0);
       setGain(phoneLow, 0);
       silenceHorrorScore(0.08);
+      musicNextNote = 0;
       setGain(nightAirGain, 0, 0.035);
       setGain(nightDroneGain, 0, 0.035);
       setGain(unseenNoiseGain, 0, 0.06);
@@ -475,7 +723,7 @@ export function createAudioDirector() {
     }
   }
 
-  function update(progress, reduced, story) {
+  function update(progress, reduced, story, elev = {}) {
     if (!enabled || !ctx || ctx.state !== 'running') return;
     ensureHorrorScore();
     const t = ctx.currentTime;
@@ -489,10 +737,12 @@ export function createAudioDirector() {
     const returnHollow = returning ? 0.72 : 1;
     const breathZone = !returning && progress >= 0.72 && progress <= 0.86;
 
+    syncElevatorAudio(story, elev);
+
     // Fluorescent ballast hum — higher, thinner than the psychological pad.
-    humGain._osc?.frequency.setTargetAtTime(120 + Math.sin(t * 0.19) * 1.2, t, 0.4);
-    humGain._filter?.frequency.setTargetAtTime(380 + depth * 90, t, 0.45);
-    setGain(humGain, 0.0075 * CORRIDOR_GAIN * quietFactor, 0.3);
+    humGain._osc?.frequency.setTargetAtTime(HUM_FREQ + Math.sin(t * 0.19) * 2.2, t, 0.4);
+    humGain._filter?.frequency.setTargetAtTime(520 + depth * 100, t, 0.45);
+    setGain(humGain, HUM_GAIN * CORRIDOR_GAIN * quietFactor, 0.3);
 
     // Room air — opens a little as the hall deepens.
     const airSwell = 0.88 + 0.12 * Math.sin(t * 0.11);
@@ -565,6 +815,7 @@ export function createAudioDirector() {
         console.warn('[Behind.] Breathing playback failed:', err);
       }
     }
+    let breathAudible = false;
     if (breathing && !breathing.paused) {
       const elapsed = breathing.currentTime;
       if (elapsed >= BREATH_DURATION) {
@@ -576,8 +827,14 @@ export function createAudioDirector() {
         const doorMuffle = 1 - Math.max(0, Math.min(1, (progress - 0.88) / 0.07));
         const level = BREATH_VOLUME * Math.min(fadeIn, fadeOut) * doorMuffle;
         setGain(breathingGain, Math.max(0, level), 0.04);
+        breathAudible = level > 0.002;
       }
     }
+
+    // Musical motif fades under accents so SFX / breathing stay clear.
+    const duckMusic = breathAudible || buzzPulse || rearMotor > 0.05 || t < sfxBusyUntil
+      || atDeadEnd || inRearCabin;
+    advanceMusic(duckMusic);
   }
 
   function enterOffice() {
@@ -883,6 +1140,13 @@ export function createAudioDirector() {
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
     silenceHorrorScore(0.08);
+    elevWasUnlocked = false;
+    elevOpenPrev = 0;
+    elevOpenSfxPlayed = false;
+    elevCloseSfxPlayed = false;
+    musicNoteIndex = 0;
+    musicNextNote = ctx ? ctx.currentTime + 1.2 : 0;
+    sfxBusyUntil = 0;
     setGain(nightAirGain, 0, 0.025);
     setGain(nightDroneGain, 0, 0.025);
     setGain(unseenNoiseGain, 0, 0.05);
@@ -909,7 +1173,7 @@ export function createAudioDirector() {
   return {
     toggle, update, updateOffice, updateRecords, updateNight, updateThreshold, updateUnseen,
     enterOffice, enterRecords, enterNight, enterThreshold, enterUnseen,
-    playOfficeLatch, playNightStep, reset, suspend, resume, dispose,
+    playOfficeLatch, playNightStep, playInteract, reset, suspend, resume, dispose,
     get enabled() { return enabled; },
   };
 }
