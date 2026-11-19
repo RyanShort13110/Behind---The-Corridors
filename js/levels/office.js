@@ -294,7 +294,7 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
 
   // Round orange employee key fob — inspect only; used later in Records.
   const keyFob = new THREE.Group();
-  keyFob.name = 'Orange employee key fob / inspect only';
+  keyFob.name = 'Orange employee key fob';
   keyFob.position.set(1.08, 1.118, -22.15);
   keyFob.rotation.x = -Math.PI / 2;
   keyFob.rotation.z = 0.55;
@@ -539,6 +539,10 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       radius: 5.0,
       title: 'KEY FOB',
       body: 'This key fob looks familiar… did I work here?',
+      tooltip: 'Round orange fob. Familiar weight on the ring.',
+      takeable: true,
+      itemId: 'key-fob',
+      itemLabel: 'KEY FOB',
     },
     {
       id: 'office-keypad',
@@ -567,6 +571,8 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       serviceDoor.rotation.y = 0;
       stickyNote.visible = true;
       if (stickyNote.userData) stickyNote.userData.taken = false;
+      keyFob.visible = true;
+      if (keyFob.userData) keyFob.userData.taken = false;
     },
     dispose() {
       batchesToDispose.forEach(mesh => mesh.dispose());

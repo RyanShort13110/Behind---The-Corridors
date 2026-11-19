@@ -198,6 +198,10 @@ try {
     onTake: (itemId, entryId) => {
       audio.playInteract(itemId);
       if (entryId === 'office-sticky-note') officeStory.state.stickyTaken = true;
+      if (entryId === 'office-key-fob') {
+        officeStory.state.keyFobInspected = true;
+        memory.keyFobEncountered = true;
+      }
     },
     onUse: (_itemId, targetId) => {
       if (targetId !== 'locked-doorknob') return;
@@ -303,6 +307,30 @@ function drawStickyNotePreview(canvas, code = '0000') {
   ctx.fillText(String(code).split('').join(' '), w * 0.5, h * 0.52);
 }
 
+function drawKeyFobPreview(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const cx = w * 0.46;
+  const cy = h * 0.52;
+  const r = Math.min(w, h) * 0.22;
+  ctx.fillStyle = '#d45a28';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.25, cy - r * 0.28, r * 0.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#8a9490';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.95, cy - r * 0.15, r * 0.28, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
 function closeItemDetail() {
   if (!el.itemDetail) return;
   el.itemDetail.classList.remove('is-open');
@@ -317,6 +345,8 @@ function openItemDetail(item) {
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
   else if (item.id === 'sticky-note') {
     drawStickyNotePreview(el.itemDetailCanvas, officeStory.state.keypadCode);
+  } else if (item.id === 'key-fob') {
+    drawKeyFobPreview(el.itemDetailCanvas);
   }
   else if (String(item.id).startsWith('stuffed-dragon')) {
     drawStuffedDragonPreview(el.itemDetailCanvas, item.previewColor ?? 0xf2f0ea);

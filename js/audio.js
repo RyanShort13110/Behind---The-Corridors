@@ -606,7 +606,7 @@ export function createAudioDirector() {
       playNoiseBurst({ duration: 0.07, band: 700, q: 0.8, level: 0.014, pan: 0.2 });
       return;
     }
-    if (id === 'office-key-fob') {
+    if (id === 'office-key-fob' || id === 'key-fob') {
       playTone({ freq: 520, duration: 0.07, level: 0.014, type: 'triangle', pan: 0.22 });
       playNoiseBurst({ duration: 0.06, band: 1200, q: 1.1, level: 0.012, pan: 0.22 });
       return;
