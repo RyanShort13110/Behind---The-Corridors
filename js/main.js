@@ -18,6 +18,12 @@ import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_EN
 import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js';
 import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js';
 import { unseenCameraPose } from './levels/unseen-route.js';
+import {
+  createMemoryWhiteStory, createMemoryBlackStory,
+  memoryHomeNarrative,
+  MEMORY_STAGING_METERS, MEMORY_STAGING_START_Z, MEMORY_ROOM_METERS,
+} from './levels/memory-home-story.js';
+import { memoryHomeCameraPose } from './levels/memory-home-route.js';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -61,6 +67,8 @@ const recordsStory = createRecordsStory();
 const nightStory = createNightStory();
 const thresholdStory = createThresholdStory();
 const unseenStory = createUnseenStory();
+const memoryWhiteStory = createMemoryWhiteStory();
+const memoryBlackStory = createMemoryBlackStory();
 const audio = createAudioDirector();
 let reduced = reduceQuery.matches;
 let quality = 'auto';
@@ -70,10 +78,23 @@ let displayed = START_PROGRESS;
 let activeBeat = -1;
 let ended = false;
 let renderer, camera, scene, director, monitor, interaction, look, inventory, keypad;
+let memoryEnterTimer = 0;
 let lastTime = performance.now();
 let scrollTrigger = null;
 let chapterId = 'corridor';
 let transitioning = false;
+
+const isMemoryChapter = (id = chapterId) => id === 'memory-white' || id === 'memory-black';
+const memoryStoryFor = (id = chapterId) =>
+  (id === 'memory-black' ? memoryBlackStory : memoryWhiteStory);
+const memoryDragonId = (id = chapterId) =>
+  (id === 'memory-black' ? 'memory-black-dragon' : 'memory-white-dragon');
+const memoryItemId = (id = chapterId) =>
+  (id === 'memory-black' ? 'stuffed-dragon-black' : 'stuffed-dragon-white');
+const memoryItemLabel = (id = chapterId) =>
+  (id === 'memory-black' ? 'BLACK DRAGON' : 'WHITE DRAGON');
+const memoryPreviewColor = (id = chapterId) =>
+  (id === 'memory-black' ? 0x0a0c0a : 0xf2f0ea);
 // Own walk-key state so Up/W can keep moving while Left/Right look
 // (browser key-repeat only fires the last key, which kills native scroll).
 const walkKeys = { forward: false, back: false };
@@ -136,15 +157,26 @@ function progressBounds() {
   return { min: 0, max: 1 };
 }
 
+/** Active rail length for walk-speed / scroll-lead. Bedroom uses its own meters. */
+function chapterMeters() {
+  if (chapterId === 'corridor') return CORRIDOR_METERS;
+  if (chapterId === 'office') return OFFICE_METERS;
+  if (chapterId === 'records') return RECORDS_METERS;
+  if (chapterId === 'night') return NIGHT_METERS;
+  if (chapterId === 'threshold') return THRESHOLD_METERS;
+  if (isMemoryChapter()) {
+    return memoryStoryFor().state.phase === 'memory'
+      ? MEMORY_ROOM_METERS
+      : MEMORY_STAGING_METERS;
+  }
+  return UNSEEN_METERS;
+}
+
 function setProgress(requested) {
   const raw = clamp(requested);
   const { min, max } = progressBounds();
   const bounded = THREE.MathUtils.clamp(raw, min, max);
-  const meters = chapterId === 'corridor' ? CORRIDOR_METERS
-    : chapterId === 'office' ? OFFICE_METERS
-    : chapterId === 'records' ? RECORDS_METERS
-    : chapterId === 'night' ? NIGHT_METERS
-      : chapterId === 'threshold' ? THRESHOLD_METERS : UNSEEN_METERS;
+  const meters = chapterMeters();
   const lead = MAX_WALK_SPEED * SCROLL_LEAD_SECONDS / meters;
   const limited = THREE.MathUtils.clamp(
     bounded,
@@ -192,6 +224,14 @@ try {
       } else if (id === 'office-key-fob') {
         officeStory.state.keyFobInspected = true;
         memory.keyFobEncountered = true;
+      } else       if (id === 'memory-mugs' && isMemoryChapter()) {
+        memoryStoryFor().markMugsInspected();
+      } else if (id === 'memory-front-door' && chapterId === 'memory-white'
+          && memoryWhiteStory.state.exitReady) {
+        void exitMemoryChapter();
+      } else if (id === 'memory-window' && chapterId === 'memory-black'
+          && memoryBlackStory.state.exitReady) {
+        void exitMemoryChapter();
       }
     },
     onTake: (itemId, entryId) => {
@@ -200,6 +240,12 @@ try {
       if (entryId === 'office-key-fob') {
         officeStory.state.keyFobInspected = true;
         memory.keyFobEncountered = true;
+      }
+      if (entryId === 'memory-white-dragon' || entryId === 'memory-black-dragon') {
+        memoryStoryFor().takeDragon();
+        // Soft recollection beat, then fade into the living room.
+        window.clearTimeout(memoryEnterTimer);
+        memoryEnterTimer = window.setTimeout(() => { void enterMemoryChapter(); }, 2100);
       }
     },
     onUse: (_itemId, targetId) => {
@@ -249,14 +295,94 @@ function bindChapterInteractables() {
     ? [director.get('corridor'), director.get('elevator')]
     : [director.get(chapterId)];
   const corridor = director.get('corridor');
+  const memStory = isMemoryChapter() ? memoryStoryFor() : null;
+  const dragonId = memoryDragonId();
   for (const module of modules) {
     for (const spec of module?.interactables || []) {
+      // Staging-only dragon; room props only while inside memory.
+      if (isMemoryChapter() && memStory) {
+        const inMem = memStory.state.phase === 'memory';
+        if (spec.id === dragonId && inMem) continue;
+        if (spec.id !== dragonId && !inMem) continue;
+        if (spec.id === dragonId && memStory.state.dragonTaken) continue;
+        // Black: front door never becomes an exit target.
+        if (chapterId === 'memory-black' && spec.id === 'memory-front-door') {
+          // Keep inspectable; exit is via window once ready.
+        }
+      }
       const entry = interaction.register({ ...spec, sceneRoot: scene });
       if (spec.id === 'locked-doorknob' && corridor?.isLockedDoorOpen?.()) {
         entry.unlocked = true;
       }
+      if (spec.id === dragonId && memStory?.state.dragonTaken) {
+        entry.taken = true;
+      }
+      // Exit unlock flags for door (white) / window (black).
+      if (spec.id === 'memory-front-door' && chapterId === 'memory-white') {
+        entry.unlocked = Boolean(memStory?.state.exitReady);
+      }
+      if (spec.id === 'memory-window' && chapterId === 'memory-black') {
+        entry.unlocked = Boolean(memStory?.state.exitReady);
+      }
+      if (spec.id === 'memory-window' && chapterId === 'memory-white') {
+        entry.unlocked = false;
+      }
+      if (spec.id === 'memory-front-door' && chapterId === 'memory-black') {
+        entry.unlocked = false;
+      }
     }
   }
+}
+
+async function enterMemoryChapter() {
+  if (!isMemoryChapter() || memoryStoryFor().state.phase === 'memory') return;
+  if (transitioning) return;
+  transitioning = true;
+  interaction?.close();
+  closeItemDetail();
+  el.veil.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 780));
+  memoryStoryFor().enterMemory();
+  look?.reset();
+  look?.setMaxYaw(1.25); // wide enough to face the side window
+  progress = displayed = 0;
+  bindChapterInteractables();
+  director.get(chapterId)?.syncPhase(memoryStoryFor().state);
+  const pose = memoryHomeCameraPose(0, 'memory');
+  camera.position.set(pose.x, 1.55, pose.z);
+  camera.rotation.set(pose.pitch, pose.yaw, 0);
+  window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
+  scrollTrigger?.update();
+  if (chapterId === 'memory-black') audio.enterMemoryBlack();
+  else audio.enterMemoryWhite();
+  renderer.render(scene, camera);
+  transitioning = false;
+  el.veil.classList.remove('is-active');
+}
+
+async function exitMemoryChapter() {
+  if (!isMemoryChapter()) return;
+  if (!memoryStoryFor().beginExit()) return;
+  transitioning = true;
+  interaction?.close();
+  closeItemDetail();
+  el.veil.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 780));
+  memoryStoryFor().finishExit();
+  look?.setMaxYaw();
+  look?.reset();
+  bindChapterInteractables();
+  director.get(chapterId)?.syncPhase(memoryStoryFor().state);
+  progress = displayed = 0.62;
+  camera.position.set(0, 1.7, MEMORY_STAGING_START_Z - progress * MEMORY_STAGING_METERS);
+  camera.rotation.set(0, 0, 0);
+  window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
+  scrollTrigger?.update();
+  if (chapterId === 'memory-black') audio.exitMemoryBlack();
+  else audio.exitMemoryWhite();
+  renderer.render(scene, camera);
+  transitioning = false;
+  el.veil.classList.remove('is-active');
 }
 
 function drawBrassKeyPreview(canvas) {
@@ -344,10 +470,10 @@ function openItemDetail(item) {
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
   else if (item.id === 'sticky-note') {
     drawStickyNotePreview(el.itemDetailCanvas, officeStory.state.keypadCode);
-  } else if (item.id === 'key-fob') {
+  }   else if (item.id === 'key-fob') {
     drawKeyFobPreview(el.itemDetailCanvas);
-  }
-  else if (String(item.id).startsWith('stuffed-dragon')) {
+  } else if (item.id === 'stuffed-dragon-white'
+      || String(item.id).startsWith('stuffed-dragon')) {
     drawStuffedDragonPreview(el.itemDetailCanvas, item.previewColor ?? 0xf2f0ea);
   } else {
     const ctx = el.itemDetailCanvas?.getContext('2d');
@@ -719,6 +845,8 @@ const DEV_CHAPTER_CONFIG = {
   night:     { start: 0, z: NIGHT_START_Z, location: 'SOUTH WING / NIGHT STAFF' },
   threshold: { start: 0, z: THRESHOLD_START_Z, location: 'SOUTH WING / THE THRESHOLD' },
   unseen:    { start: 0, z: UNSEEN_START_Z, location: 'SERVICE LEVEL / MAINTENANCE' },
+  'memory-white': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / WHITE DRAGON (DEV)' },
+  'memory-black': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / BLACK DRAGON (DEV)' },
 };
 
 async function debugJumpToChapter(target, checkpoint = 'start') {
@@ -756,6 +884,14 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     } else if (target === 'threshold') {
       const { createThreshold } = await import('./levels/threshold.js');
       next.add('threshold', createThreshold(scene));
+    } else if (target === 'memory-white') {
+      const { createMemoryWhite } = await import('./levels/memory-white.js');
+      memoryWhiteStory.reset();
+      next.add('memory-white', createMemoryWhite(scene));
+    } else if (target === 'memory-black') {
+      const { createMemoryBlack } = await import('./levels/memory-black.js');
+      memoryBlackStory.reset();
+      next.add('memory-black', createMemoryBlack(scene));
     } else {
       const { createUnseen } = await import('./levels/unseen.js');
       next.add('unseen', createUnseen(scene));
@@ -765,7 +901,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     director = next;
     next = null; // Ownership was transferred to the active director.
     chapterId = target;
-    bindChapterInteractables();
+    look?.setMaxYaw();
 
     // Fresh chapter means no artificially unlocked doors, footsteps, or clues.
     // Office already rolled its keypad code before createOffice above.
@@ -775,6 +911,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     nightStory.reset();
     thresholdStory.reset();
     unseenStory.reset();
+    if (target !== 'memory-white') memoryWhiteStory.reset();
+    if (target !== 'memory-black') memoryBlackStory.reset();
     memory.chaptersCompleted.length = 0;
     memory.lighterEncountered = false;
     memory.keyFobEncountered = false;
@@ -788,6 +926,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     else if (target === 'night') audio.enterNight();
     else if (target === 'threshold') audio.enterThreshold();
     else if (target === 'unseen') audio.enterUnseen();
+    else if (isMemoryChapter(target)) audio.enterMemoryStaging();
 
     hideEndCard();
     activeBeat = -1;
@@ -802,6 +941,31 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       camera.position.set(pose.x, 1.7, pose.z);
       camera.rotation.set(pose.pitch, pose.yaw, 0);
     }
+    if (isMemoryChapter(target)) {
+      const mem = memoryStoryFor(target);
+      const seek = mem.seekCheckpoint(checkpoint);
+      director.get(target)?.syncPhase(mem.state);
+      progress = displayed = seek.progress ?? 0;
+      if (seek.phase === 'memory') {
+        look?.setMaxYaw(1.25); // wide enough to face the side window
+        const pose = memoryHomeCameraPose(progress, 'memory');
+        camera.position.set(pose.x, 1.55, pose.z);
+        camera.rotation.set(pose.pitch, pose.yaw, 0);
+        inventory?.add(memoryItemId(target), {
+          label: memoryItemLabel(target),
+          tooltip: target === 'memory-black'
+            ? 'A black stuffed dragon.'
+            : 'A white stuffed dragon.',
+          previewColor: memoryPreviewColor(target),
+        });
+        renderInventory();
+        if (target === 'memory-black') audio.enterMemoryBlack();
+        else audio.enterMemoryWhite();
+      } else {
+        camera.position.set(0, 1.7, MEMORY_STAGING_START_Z - progress * MEMORY_STAGING_METERS);
+      }
+    }
+    bindChapterInteractables();
     window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
     scrollTrigger?.update();
     lastTime = performance.now();
@@ -809,7 +973,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     director.update(progress,
       target === 'corridor' ? story.state : target === 'office' ? officeStory.state
         : target === 'records' ? recordsStory.state : target === 'night' ? nightStory.state
-          : target === 'threshold' ? thresholdStory.state : unseenStory.state, 0, true);
+          : target === 'threshold' ? thresholdStory.state
+            : isMemoryChapter(target) ? memoryStoryFor(target).state : unseenStory.state, 0, true);
     updateNarrative(progress);
     renderer.render(scene, camera);
     console.info(`[Behind. DEV] Jumped to ${target}. Chapter state reset; normal controls retained.`);
@@ -932,15 +1097,18 @@ function updateNarrative(p) {
   const inRecords = chapterId === 'records';
   const inNight = chapterId === 'night';
   const inThreshold = chapterId === 'threshold';
+  const inMemory = isMemoryChapter();
   const state = inCorridor ? story.state
     : inOffice ? officeStory.state : inRecords ? recordsStory.state
       : inNight ? nightStory.state
-        : inThreshold ? thresholdStory.state : unseenStory.state;
+        : inThreshold ? thresholdStory.state
+          : inMemory ? memoryStoryFor().state : unseenStory.state;
   const narrative = inCorridor ? narrativeFor(p, state)
     : inOffice ? officeNarrative(p, state)
       : inRecords ? recordsNarrative(p, state)
         : inNight ? nightNarrative(p, state)
-          : inThreshold ? thresholdNarrative(p, state) : unseenNarrative(p, state);
+          : inThreshold ? thresholdNarrative(p, state)
+            : inMemory ? memoryHomeNarrative(p, state) : unseenNarrative(p, state);
   if (narrative.chapter !== el.chapter.textContent || (inCorridor && narrative.beatIndex !== activeBeat)) {
     activeBeat = narrative.beatIndex ?? -1;
     el.chapter.textContent = narrative.chapter;
@@ -959,13 +1127,19 @@ function updateNarrative(p) {
     if (near.kind === 'keypad') instruction = 'CLICK TO ENTER CODE · A / D OR SWIPE TO LOOK';
     else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
     else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
+  } else if (inMemory && interaction?.nearest && !interaction.isOpen && !ended) {
+    const near = interaction.nearest;
+    if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
+    else instruction = narrative.instruction;
   }
   if (el.instruction.textContent !== instruction) el.instruction.textContent = instruction;
   const show = inCorridor
     ? (p > 0.055 && p < 0.955) || (state.reachedDeadEnd && p > 0.955) || (state.rearElevatorUnlocked && p <= 0.055)
-    : inOffice
-      ? Boolean(narrative.line.trim()) && p > 0.045 && p < 0.994
-      : Boolean(narrative.line.trim()) && p > 0.045 && p < 0.999;
+    : inMemory
+      ? Boolean(narrative.line.trim())
+      : inOffice
+        ? Boolean(narrative.line.trim()) && p > 0.045 && p < 0.994
+        : Boolean(narrative.line.trim()) && p > 0.045 && p < 0.999;
   el.narrative.classList.toggle('active', show && !ended);
   // At the first sustained drag, cue the mandatory reverse control clearly.
   // The one-shot instruction vanishes once retreat begins; it cannot pop back
@@ -1012,11 +1186,7 @@ function frame(now) {
   if (document.hidden) return;
 
   if (started && !transitioning && !(ended && chapterId === 'office')) {
-    const meters = chapterId === 'corridor' ? CORRIDOR_METERS
-      : chapterId === 'office' ? OFFICE_METERS
-        : chapterId === 'records' ? RECORDS_METERS
-          : chapterId === 'night' ? NIGHT_METERS
-            : chapterId === 'threshold' ? THRESHOLD_METERS : UNSEEN_METERS;
+    const meters = chapterMeters();
     // Apply held walk keys before reading scroll so look keys can't cancel motion.
     const walkDir = (walkKeys.forward ? 1 : 0) + (walkKeys.back ? -1 : 0);
     if (walkDir !== 0 && !interaction?.isOpen && !keypad?.isOpen) {
@@ -1031,7 +1201,8 @@ function frame(now) {
       : chapterId === 'office' ? OFFICE_START_Z
         : chapterId === 'records' ? RECORDS_START_Z
           : chapterId === 'night' ? NIGHT_START_Z
-            : chapterId === 'threshold' ? THRESHOLD_START_Z : UNSEEN_START_Z;
+            : chapterId === 'threshold' ? THRESHOLD_START_Z
+              : isMemoryChapter() ? MEMORY_STAGING_START_Z : UNSEEN_START_Z;
     // The camera arcs toward the photo briefly. Ease physical walking speed
     // through this bend so combined X/Z travel does not exceed 5.5 m/s.
     const viewingPhoto = chapterId === 'records' &&
@@ -1063,11 +1234,21 @@ function frame(now) {
       }
     } else if (chapterId === 'threshold') {
       thresholdStory.observe(previousDisplayed, p);
+    } else if (isMemoryChapter()) {
+      const mem = memoryStoryFor();
+      const wasExitReady = mem.state.exitReady;
+      if (mem.state.phase === 'staging') {
+        mem.observeStaging(previousDisplayed, p);
+      } else if (mem.state.phase === 'memory') {
+        mem.observeMemory(previousDisplayed, p, dt);
+        if (mem.consumeDoorSound?.()) audio.playMemoryDoorLeave();
+      }
+      if (!wasExitReady && mem.state.exitReady) bindChapterInteractables();
     } else {
       unseenStory.observe(previousDisplayed, p, dt);
     }
 
-    // Always face down the corridor. During the return, positive Z motion
+    // Always face down the corridor / rail. During return, positive Z motion
     // backs the camera through the rear elevator entrance without a turn.
     camera.position.z = startZ - p * meters;
     camera.position.x = reduced ? 0 : Math.sin(p * 26) * 0.025;
@@ -1098,16 +1279,22 @@ function frame(now) {
       camera.position.z = route.z;
       camera.rotation.y += route.yaw;
       camera.rotation.x += route.pitch;
+    } else if (isMemoryChapter() && memoryStoryFor().state.phase === 'memory') {
+      const route = memoryHomeCameraPose(p, 'memory');
+      camera.position.set(route.x, 1.55, route.z);
+      camera.rotation.set(route.pitch, route.yaw, 0);
     }
 
-    const canInteract = (chapterId === 'corridor' || chapterId === 'office')
-      && !ended && !transitioning;
     const uiBlocking = interaction?.isOpen || keypad?.isOpen;
+    const canInteract = (chapterId === 'corridor' || chapterId === 'office'
+      || isMemoryChapter())
+      && !ended && !transitioning;
     look?.noteWalk(p - previousDisplayed);
     look?.setEnabled(canInteract && !uiBlocking);
     camera.rotation.y += look?.update(dt, reduced) ?? 0;
     const interactStory = chapterId === 'corridor' ? story.state
-      : chapterId === 'office' ? officeStory.state : null;
+      : chapterId === 'office' ? officeStory.state
+        : isMemoryChapter() ? memoryStoryFor().state : null;
     interaction?.update(
       dt,
       canInteract && !uiBlocking,
@@ -1136,6 +1323,10 @@ function frame(now) {
     } else if (chapterId === 'threshold') {
       director.update(p, thresholdStory.state, dt, reduced);
       audio.updateThreshold(p, thresholdStory.state);
+    } else if (isMemoryChapter()) {
+      director.update(p, memoryStoryFor().state, dt, reduced);
+      if (chapterId === 'memory-black') audio.updateMemoryBlack(p, memoryBlackStory.state);
+      else audio.updateMemoryWhite(p, memoryWhiteStory.state);
     } else {
       director.update(p, unseenStory.state, dt, reduced);
       audio.updateUnseen(p, unseenStory.state, camera);

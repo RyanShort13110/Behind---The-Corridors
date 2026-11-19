@@ -3,22 +3,24 @@
  * Desktop: A/D, arrows, or right-drag.
  * Touch / pen: horizontal drag peeks; vertical drag keeps page scroll (walk).
  *
- * Pointer and keyboard look both hold after release so you can inspect.
- * Walking releases the hold and recenters.
+ * Pointer and keyboard look both hold after release so you can inspect
+ * and keep walking while facing something beside the rail. Recenter by
+ * looking back toward center with A/D (or reset on chapter transitions).
  */
-const MAX_YAW = 0.48; // ~27°
+const DEFAULT_MAX_YAW = 0.48; // ~27°
 const KEY_RATE = 1.85;
 const RETURN_RATE = 2.6;
 const DRAG_SENS = 0.0032;
 const AXIS_DEADZONE = 12; // px before committing to look vs scroll
 const AXIS_RATIO = 1.2; // |dx| must beat |dy| by this factor to steal the gesture
-const WALK_RELEASE = 0.004; // progress delta that drops sticky look
+const RECENTER_EPS = 0.03; // near-zero yaw counts as facing forward again
 
 export function createLookControls({ canvas }) {
   const keys = { left: false, right: false };
   let yaw = 0;
+  let maxYaw = DEFAULT_MAX_YAW;
   let enabled = true;
-  // After touch / pen / right-drag look, keep facing until walk or keys.
+  // After look input, keep facing until the player looks back to center.
   let sticky = false;
 
   // Active look drag (right-mouse, or touch/pen after horizontal lock).
@@ -49,7 +51,7 @@ export function createLookControls({ canvas }) {
   }
 
   function applyLookDelta(dx) {
-    yaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, yaw - dx * DRAG_SENS));
+    yaw = Math.max(-maxYaw, Math.min(maxYaw, yaw - dx * DRAG_SENS));
     sticky = true;
   }
 
@@ -159,11 +161,9 @@ export function createLookControls({ canvas }) {
       drag = null;
       stroke = null;
     },
-    /** Call when the player walks; releases held look so the camera recenters.
-     *  Skip while look keys/drag are active so walk + turn work together. */
-    noteWalk(progressDelta) {
-      if (keys.left || keys.right || drag) return;
-      if (Math.abs(progressDelta) >= WALK_RELEASE) sticky = false;
+    /** Kept for callers; walking no longer clears sticky look. */
+    noteWalk(_progressDelta) {
+      // Intentionally empty — scroll/walk must not snap facing back to center.
     },
     update(dt, reduced) {
       if (!enabled || reduced) {
@@ -176,11 +176,20 @@ export function createLookControls({ canvas }) {
       if (keys.right) input -= 1;
       if (input !== 0) {
         sticky = true;
-        yaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, yaw + input * KEY_RATE * dt));
+        yaw = Math.max(-maxYaw, Math.min(maxYaw, yaw + input * KEY_RATE * dt));
+        // Looking back through center clears the hold so facing can rest forward.
+        if (Math.abs(yaw) <= RECENTER_EPS) {
+          yaw = 0;
+          sticky = false;
+        }
       } else if (!drag && !sticky) {
         yaw += (0 - yaw) * Math.min(1, dt * RETURN_RATE);
       }
       return yaw;
+    },
+    setMaxYaw(value = DEFAULT_MAX_YAW) {
+      maxYaw = value;
+      yaw = Math.max(-maxYaw, Math.min(maxYaw, yaw));
     },
     dispose() {
       window.removeEventListener('keydown', onKeyDown);

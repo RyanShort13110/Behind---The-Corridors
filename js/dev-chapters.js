@@ -9,7 +9,11 @@ const OPTIONS = [
   ['night', '04 — The Night Shift', '04'],
   ['threshold', '05 — The Threshold', '05'],
   ['unseen', '06 — The Unseen', '06'],
+  ['memory-white', 'DEV — White Memory', 'memory-white'],
+  ['memory-black', 'DEV — Black Memory', 'memory-black'],
 ];
+
+const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 
 export function mountDevChapters(jump, getCurrentChapter) {
   const panel = document.createElement('aside');
@@ -25,7 +29,7 @@ export function mountDevChapters(jump, getCurrentChapter) {
       <button id="dev-chapter-go" type="button">LOAD</button>
     </div>
     <div class="dev-chapters__checkpoint" id="dev-checkpoint-row" hidden>
-      <label for="dev-checkpoint-choice">LEVEL 06 CHECKPOINT</label>
+      <label for="dev-checkpoint-choice">CHECKPOINT</label>
       <select id="dev-checkpoint-choice">
         <option value="start">START / PLASTIC SHEETING</option>
         <option value="approach">APPROACH / SEALED END</option>
@@ -42,6 +46,17 @@ export function mountDevChapters(jump, getCurrentChapter) {
         <option value="exit">EXIT / FINAL CLICK + SIDE PASSAGE</option>
       </select>
     </div>
+    <div class="dev-chapters__checkpoint" id="dev-memory-checkpoint-row" hidden>
+      <label for="dev-memory-checkpoint-choice">MEMORY CHECKPOINT</label>
+      <select id="dev-memory-checkpoint-choice">
+        <option value="before">BEFORE / STAGING</option>
+        <option value="enter">ARRIVAL / INSIDE MEMORY</option>
+        <option value="mid">MID / LIVING ROOM</option>
+        <option value="changed">DISCREPANCY / CHANGED DETAIL</option>
+        <option value="hallway">HALLWAY / FRONT DOOR</option>
+        <option value="exit">EXIT / READY TO LEAVE</option>
+      </select>
+    </div>
     <p class="dev-chapters__status" aria-live="polite">Current: 01 — The Corridor</p>
   `;
   document.body.appendChild(panel);
@@ -50,8 +65,11 @@ export function mountDevChapters(jump, getCurrentChapter) {
   const status = panel.querySelector('.dev-chapters__status');
   const checkpointRow = panel.querySelector('#dev-checkpoint-row');
   const checkpointPicker = panel.querySelector('#dev-checkpoint-choice');
+  const memoryCheckpointRow = panel.querySelector('#dev-memory-checkpoint-row');
+  const memoryCheckpointPicker = panel.querySelector('#dev-memory-checkpoint-choice');
   const updateCheckpointPicker = () => {
     checkpointRow.hidden = picker.value !== 'unseen';
+    memoryCheckpointRow.hidden = !MEMORY_CHAPTERS.has(picker.value);
   };
   picker.addEventListener('change', updateCheckpointPicker);
   let shown = '';
@@ -70,17 +88,23 @@ export function mountDevChapters(jump, getCurrentChapter) {
     busy = true;
     picker.disabled = true;
     checkpointPicker.disabled = true;
+    memoryCheckpointPicker.disabled = true;
     go.disabled = true;
     status.textContent = 'Loading chapter…';
     try {
-      const checkpoint = picker.value === 'unseen' ? checkpointPicker.value : 'start';
+      const checkpoint = picker.value === 'unseen'
+        ? checkpointPicker.value
+        : MEMORY_CHAPTERS.has(picker.value)
+          ? memoryCheckpointPicker.value
+          : 'start';
       const ok = await jump(picker.value, checkpoint);
       if (ok) {
         shown = ''; // Force status refresh even when restarting current chapter.
         const url = new URL(window.location.href);
         const choice = OPTIONS.find(([id]) => id === picker.value);
         url.searchParams.set('level', choice?.[2] ?? '01');
-        if (picker.value === 'unseen' && checkpoint !== 'start') {
+        if ((picker.value === 'unseen' || MEMORY_CHAPTERS.has(picker.value))
+            && checkpoint !== 'start' && checkpoint !== 'before') {
           url.searchParams.set('checkpoint', checkpoint);
         } else {
           url.searchParams.delete('checkpoint');
@@ -97,6 +121,7 @@ export function mountDevChapters(jump, getCurrentChapter) {
       busy = false;
       picker.disabled = false;
       checkpointPicker.disabled = false;
+      memoryCheckpointPicker.disabled = false;
       go.disabled = false;
     }
   }
@@ -111,6 +136,9 @@ export function mountDevChapters(jump, getCurrentChapter) {
   const checkpoint = params.get('checkpoint');
   if (Array.from(checkpointPicker.options).some(option => option.value === checkpoint)) {
     checkpointPicker.value = checkpoint;
+  }
+  if (Array.from(memoryCheckpointPicker.options).some(option => option.value === checkpoint)) {
+    memoryCheckpointPicker.value = checkpoint;
   }
   updateCheckpointPicker();
   sync(getCurrentChapter());

@@ -1390,9 +1390,23 @@ export function createAudioDirector() {
 
   function suspend() { if (ctx?.state === 'running') ctx.suspend().catch(() => {}); }
   function resume() { if (enabled && ctx?.state === 'suspended') ctx.resume().catch(() => {}); }
+  let memoryRainSource = null;
+  let memoryRainGain = null;
+  let memoryRainFilter = null;
+
+  function stopMemoryRain(seconds = 0.4) {
+    if (!memoryRainGain) return;
+    setGain(memoryRainGain, 0, seconds);
+  }
+
   function dispose() {
     stopUnseenRoars();
     stopBreathing();
+    stopMemoryRain(0.02);
+    try { memoryRainSource?.stop(); } catch (_) { /* already stopped */ }
+    memoryRainSource = null;
+    memoryRainGain = null;
+    memoryRainFilter = null;
     silenceHorrorScore(0.02);
     try { scoreAirSource?.stop(); scorePadLow?.stop(); scorePadHigh?.stop(); } catch (_) { /* already stopped */ }
     try { scoreTension?.stop(); scoreAnxiety?.stop(); } catch (_) { /* already stopped */ }
@@ -1402,9 +1416,161 @@ export function createAudioDirector() {
     ctx?.close().catch(() => {});
   }
 
+  function ensureMemoryRain() {
+    if (!ctx || memoryRainSource) return;
+    const count = Math.ceil(ctx.sampleRate * 2.4);
+    const buffer = ctx.createBuffer(1, count, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < count; i += 1) data[i] = (Math.random() * 2 - 1) * 0.55;
+    memoryRainSource = ctx.createBufferSource();
+    memoryRainSource.buffer = buffer;
+    memoryRainSource.loop = true;
+    memoryRainFilter = ctx.createBiquadFilter();
+    memoryRainFilter.type = 'bandpass';
+    memoryRainFilter.frequency.value = 1800;
+    memoryRainFilter.Q.value = 0.55;
+    memoryRainGain = ctx.createGain();
+    memoryRainGain.gain.value = 0;
+    memoryRainSource.connect(memoryRainFilter);
+    memoryRainFilter.connect(memoryRainGain);
+    memoryRainGain.connect(ctx.destination);
+    try { memoryRainSource.start(); } catch (_) { /* already started */ }
+  }
+
+  function enterMemoryStaging() {
+    stopBreathing();
+    stopMemoryRain(0.3);
+    officeMusicActive = false;
+    silenceHorrorScore(0.35);
+    setGain(phoneHigh, 0);
+    setGain(phoneLow, 0);
+    setGain(buzzGain, 0);
+    setGain(motorGain, 0);
+    setGain(humGain, 0.004, 0.4);
+  }
+
+  function enterMemoryWhite() {
+    stopMemoryRain(0.5);
+    officeMusicActive = false;
+    silenceHorrorScore(0.5);
+    setGain(humGain, 0.0006, 0.8);
+    setGain(buzzGain, 0, 0.4);
+    // Soft warm bed — somewhere you might stay awhile.
+    ensureHorrorScore();
+    setGain(musicGain, 0.22, 1.6);
+    setGain(musicDryGain, 0.55, 0.01);
+    setGain(musicWetGain, 0.5, 0.01);
+  }
+
+  function enterMemoryBlack() {
+    officeMusicActive = false;
+    silenceHorrorScore(0.55);
+    setGain(humGain, 0.0008, 0.6);
+    setGain(buzzGain, 0, 0.4);
+    ensureHorrorScore();
+    setGain(musicGain, 0.14, 1.4);
+    setGain(musicDryGain, 0.28, 0.01);
+    setGain(musicWetGain, 0.82, 0.01);
+    ensureMemoryRain();
+    setGain(memoryRainGain, 0.045, 1.8);
+  }
+
+  function updateMemoryHome(_progress, state) {
+    if (!enabled || !ctx || ctx.state !== 'running') return;
+    setGain(phoneHigh, 0, 0.1);
+    setGain(phoneLow, 0, 0.1);
+    setGain(buzzGain, 0, 0.2);
+    setGain(motorGain, 0, 0.2);
+    const black = state?.variant === 'black';
+    if (state?.phase === 'memory') {
+      setGain(humGain, black ? 0.0006 : 0.0005, 0.5);
+      setGain(musicGain, black ? 0.16 : 0.24, 0.9);
+      if (black) {
+        ensureMemoryRain();
+        setGain(memoryRainGain, 0.05, 0.8);
+      } else {
+        stopMemoryRain(0.6);
+      }
+    } else {
+      setGain(humGain, 0.004, 0.4);
+      setGain(musicGain, 0.06, 0.5);
+      stopMemoryRain(0.5);
+    }
+  }
+
+  function updateMemoryWhite(progress, state) {
+    updateMemoryHome(progress, state);
+  }
+
+  function updateMemoryBlack(progress, state) {
+    updateMemoryHome(progress, state);
+  }
+
+  function exitMemoryWhite() {
+    stopMemoryRain(0.5);
+    silenceHorrorScore(0.45);
+    setGain(musicDryGain, MUSIC_REVERB_DRY, 0.01);
+    setGain(musicWetGain, MUSIC_REVERB_WET, 0.01);
+    setGain(humGain, 0.004, 0.4);
+  }
+
+  const exitMemoryBlack = exitMemoryWhite;
+
+  /** Keys lift + door open/close — ordinary, not horror. Once per visit via story latch. */
+  function playMemoryDoorLeave() {
+    if (!enabled || !ctx) return;
+    resume();
+    const t = ctx.currentTime;
+    // Soft key jingle
+    for (let i = 0; i < 3; i += 1) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      const f = ctx.createBiquadFilter();
+      osc.type = 'triangle';
+      osc.frequency.value = 1800 + i * 420 + Math.random() * 80;
+      f.type = 'bandpass';
+      f.frequency.value = 2400;
+      f.Q.value = 4;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.012, t + 0.02 + i * 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18 + i * 0.05);
+      osc.connect(f);
+      f.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t + i * 0.05);
+      osc.stop(t + 0.25 + i * 0.05);
+    }
+    // Door open then close (filtered noise bursts)
+    const mkDoor = (at, peak, dur) => {
+      const count = Math.ceil(ctx.sampleRate * dur);
+      const buffer = ctx.createBuffer(1, count, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < count; i += 1) data[i] = (Math.random() * 2 - 1) * 0.7;
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 900;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(peak, at + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      src.connect(filter);
+      filter.connect(g);
+      g.connect(ctx.destination);
+      src.start(at);
+      src.stop(at + dur + 0.02);
+    };
+    mkDoor(t + 0.35, 0.035, 0.45);
+    mkDoor(t + 1.05, 0.05, 0.55);
+  }
+
   return {
     toggle, update, updateOffice, updateRecords, updateNight, updateThreshold, updateUnseen,
+    updateMemoryWhite, updateMemoryBlack, updateMemoryHome,
     enterOffice, enterRecords, enterNight, enterThreshold, enterUnseen,
+    enterMemoryStaging, enterMemoryWhite, enterMemoryBlack, exitMemoryWhite, exitMemoryBlack,
+    playMemoryDoorLeave,
     playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
     reset, suspend, resume, dispose,
     get enabled() { return enabled; },

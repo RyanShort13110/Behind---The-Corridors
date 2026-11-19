@@ -79,33 +79,73 @@ The specific number of floors and chapter names can change if pacing requires it
 
 ### White Stuffed Dragon
 
-**OPEN / PROVISIONAL — PLANNED:** Not yet introduced. Solid white collectible.
+**ESTABLISHED CANON:** Solid white plush. Associated with comforting, accessible recollection — not “good.” Collectible. Can open a memory environment.
 
-- **Proposed symbolism (provisional, not confirmed canon):** Conscious memory, recollection, emotional familiarity.
-- **Intended effect:** Trigger a fragment of memory in the protagonist.
-- Ownership, discovery location, exact significance, and the memory content remain undecided.
+**IMPLEMENTED (dev prototype only):** `?debug=1&level=memory-white` — staging pickup → warm afternoon living room on a scroll rail → subtle discrepancy → unfinished thought near the hallway → exit via front door. Not in ordinary L01–L06 progression.
+
+**OPEN / PROVISIONAL:** Final Act II placement undecided.
 
 ### Black Stuffed Dragon
 
-**OPEN / PROVISIONAL — PLANNED:** Not yet introduced. Solid black collectible.
+**ESTABLISHED CANON:** Solid black plush. Associated with avoided or painful recollection — not “evil.” Collectible. Opens a related memory of the **same home**.
 
-- **Proposed symbolism (provisional, not confirmed canon):** Deliberately suppressed or avoided memory.
-- **Intended effect:** Trigger an emotional or psychological response tied to something the protagonist does not want to remember.
-- Ownership, discovery location, exact significance, and the associated memory remain undecided.
+**IMPLEMENTED (dev prototype only):** `?debug=1&level=memory-black` — same living-room geometry and rail at night / rain; quieter discrepancies; one-shot door-leave sound; unfinished “I should’ve just...”; front door remains inaccessible; exit via window after a short dwell. Not in ordinary progression.
 
 ### Stuffed dragons — shared narrative direction
 
-**OPEN / PROVISIONAL**
+**ESTABLISHED CANON**
 
-- Neither dragon inherently represents good or evil.
+- Neither dragon represents good versus evil.
 - Contrasting colors reflect different relationships with memory, not morality.
-- Their memories may eventually connect, contrast, or contradict each other.
-- Do not invent ownership, backstory, or concrete memory content until developed.
-- Possible techniques (not canon): fragmented recollection, sudden unexplained emotion, memories that seem unrelated at first, subtle links between the two objects.
+- Both memories share recognizable architecture so recognition precedes difference.
+- White memory may omit uncomfortable details without being entirely false.
+- Black memory is not automatically objective truth.
 
-**Technical (IMPLEMENTED separately from narrative placement):** `js/props/stuffed-dragon.js` provides a reusable low-poly prop (white/black color variants), inventory preview drawing, and take SFX hooks. Inventory UI can render `stuffed-dragon*` previews. Dragons are **not** placed in any current playable level (preview placement was removed from Level 01).
+**Technical:** `js/props/stuffed-dragon.js` reusable prop. Shared home modules: `memory-home.js`, `memory-home-story.js`, `memory-home-route.js`. Neither dragon appears in L01–L06 story progression yet.
 
 Objects should appear ordinary until repetition gives them emotional weight.
+
+---
+
+## Established emotional canon
+
+**ESTABLISHED CANON**
+
+- The story centers on **grief**.
+- Guilt and memory suppression are secondary but interconnected themes.
+- The protagonist’s loss includes both a loved person and their former shared life.
+- Memories may be incomplete, selective, or contradictory.
+- Memory exploration is an integral storytelling mechanic (scroll-rail recollection spaces).
+- The protagonist’s guilt does **not** establish actual responsibility for any off-screen tragedy.
+
+### Narrative restraint (formal writing principles)
+
+1. Emotional significance comes from experience, not explanation.
+2. Ordinary objects should remain believable.
+3. Silence is intentional.
+4. Memories may omit important context without being wholly fabricated.
+5. Do not depict any absent person solely as a device for the protagonist’s suffering.
+6. Avoid reducing grief to a puzzle that can be solved.
+7. Never force explicit confession of relationship, accident, argument, or gift-giving in player-facing text.
+
+**Writer-only spoiler backstory** (partner, argument, accident, dragons-as-gifts) is kept **out of this public bible**. Maintain it in a local, unpublished writer reference only (`docs/writer-only/` is gitignored). Do not put spoilers in a “private” file on a public remote.
+
+---
+
+## Memory environments (system)
+
+**ESTABLISHED CANON (design principle):** Collectibles can open recollection spaces that stay on the **same scroll-rail locomotion** as the rest of *Behind.* “Fully explorable” means meaningful inspection and revisiting along a guided path — not free walking. Memory is unreliable: subtle one-way discrepancies replace jumpscares. Exit is earned through discovery, not a timer.
+
+**IMPLEMENTED (prototype — remembered living room):**
+
+- Shared modules: `js/levels/memory-home.js`, `memory-home-story.js`, `memory-home-route.js` (thin `memory-white*` / `memory-black*` re-exports).
+- Warm modest living room: couch, blanket, coffee table with two mugs, television, bookshelf, window light, hallway to a front door.
+- **White:** afternoon; soft domestic bed; “Oh...”; optional mug inspect; remote snaps from table to bookshelf bottom shelf after leaving camera view; “We used to...” near hallway; exit via front door when ready.
+- **Black:** night + rain; TV off; blanket folded; one mug displaced; same rail; keys/door leave sound once; “I should’ve just...” once; door stays closed; exit via window after dwell.
+- Debug: `?debug=1&level=memory-white` or `memory-black` with checkpoints `before` / `enter` / `mid` / `changed` / `hallway` / `exit`.
+- No free-walk. Inventory preserved inside the prototype chapter. Not wired into main progression.
+
+**OPEN / PROVISIONAL:** Act II insertion point; whether staging exists in-fiction or only as a test harness.
 
 ---
 
@@ -311,9 +351,28 @@ Environmental horror operates in descending backward-scroll beats: first taps, a
 
 ---
 
+## Chapter restructuring review (planning only — not applied)
+
+**OPEN / PROVISIONAL.** Existing chapters stay in the build until creative decisions land.
+
+| Chapter | Narrative purpose | Unique mechanic | Emotional contribution | Provisional recommendation |
+|---|---|---|---|---|
+| 01 Corridor | Orientation; first sensory doubt; “behind you” reveal | Scroll corridor + return changes + rear elevator seal / hall cascade | Vulnerability, spatial dread | **Retain** as Act I opener; keep sparse dialogue. |
+| 02 Office | Occupied absence; rationalizing emptiness; first inventory puzzles | Phone + keypad code exit; collectibles | Unease without recognition claims | **Retain**; may later feed Act II memory setup after Records. |
+| 03 Records | Avoidance; photograph as unreadable personal pressure | Optional backtrack; “Leave it.” | Intimacy without disclosure | **Retain**; candidate beat *before* white-dragon memory (Act II). Fob unlock still missing. |
+| 04 Night Shift | Unseen companion suggestion | Pace-following footsteps | Paranoia without proof | **Condense or redesign** if Act II memories carry companion themes; else keep as palate cleanser. |
+| 05 Threshold | Overt reality rupture | Progressive corridor corruption; uncollected house key | Dread from visible wrongness | **Retain** late-game; ensure it doesn’t undercut quieter memory horror. |
+| 06 Unseen | Proximity fear; forced retreat | Barrier + spatial scrape + side exit | Panic with empty evidence | **Retain / polish**; evaluate whether it should follow Threshold or a memory beat. |
+
+Do not delete or reorder chapters in code based on this table alone.
+
+---
+
 ## Narrative revision history
 
 | Date | Change |
 |---|---|
 | 2026-10 | Prototype 003.0 office / records construction notes; later Night / Threshold / Unseen passes. |
-| 2026-11 | **Dialogue Revision 001** for Levels 01–02: sparse internal monologue; L02 keypad exit + collectibles; story bible synchronized to build. Chair move beat removed from canon. Key fob collectible documented; Records unlock still pending implementation. Stuffed dragons added as planned unresolved objects. |
+| 2026-11 | **Dialogue Revision 001** for Levels 01–02; story bible sync; key fob collectible; stuffed dragons planned. |
+| 2026-11 | **Memory Environments:** white-dragon bedroom prototype (dev-only); unreliable-memory principle; restructuring review table added. |
+| 2026-11 | **Memory Level Narrative Overhaul:** shared remembered living room (white afternoon / black night); grief-centered emotional canon; writer-only spoilers kept out of public bible; rail locomotion preserved; black memory prototype built. |
