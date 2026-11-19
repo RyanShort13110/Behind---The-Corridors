@@ -80,59 +80,58 @@ export function createOfficeStory() {
 }
 
 const firstPass = [
-  { to: 0.12, line: 'The lights are still on.' },
-  { to: 0.29, line: 'These desks were being used.' },
-  { to: 0.43, line: 'Someone left a lighter beside their coffee.' },
-  { to: 0.59, line: '' },
-  { to: 0.76, line: 'A phone keeps ringing.' },
-  { to: 0.91, line: 'The meeting room is empty.' },
+  { to: 0.12, line: '' },
+  { to: 0.35, line: 'It’s like everyone just left.' },
+  { to: 0.52, line: 'How long has this place been empty?' },
+  { to: 0.65, line: '' },
+  { to: 0.82, line: 'Why isn’t anyone answering?' },
+  { to: 0.95, line: '' },
   { to: 1.01, line: '' },
 ];
 
 const retreat = [
   { min: 0.89, line: '' },
   { min: 0.76, line: '' },
-  { min: 0.66, line: 'The phone has stopped.' },
+  { min: 0.66, line: 'It stopped.' },
   { min: 0.52, line: '' },
-  { min: 0.425, line: 'I passed this desk already.' },
+  { min: 0.425, line: '' },
   { min: 0, line: '' },
 ];
 
 const investigation = [
-  { to: 0.54, line: 'That came from farther down the office.' },
+  { to: 0.54, line: '' },
   { to: 0.68, line: '' },
   { to: 0.765, line: '' },
-  { to: 0.825, line: 'There’s a keypad beside the meeting room.' },
-  { to: 1.01, line: 'Four digits. Then it opens.' },
+  { to: 0.825, line: 'There’s a door beside the glass.' },
+  { to: 1.01, line: 'A code.' },
 ];
 
 export function officeNarrative(progress, state) {
   const base = { chapter: '02 — THE OFFICE' };
   if (state.completed) {
-    return { ...base, line: 'It leads through.', instruction: ' ' };
+    return { ...base, line: '', instruction: ' ' };
   }
   if (state.secondApproachStarted) {
     const unlocked = state.keypadUnlocked;
     return {
       chapter: '02 — THE INVESTIGATION',
       line: unlocked
-        ? (progress < 0.825 ? 'The door is open.' : 'I didn’t notice that before.')
+        ? (progress < OFFICE_BRANCH_START ? 'Okay. Go.' : '')
         : investigation.find(beat => progress < beat.to)?.line ?? '',
       instruction: unlocked
-        ? (progress < OFFICE_BRANCH_START
-          ? 'SCROLL UP TO ENTER THE PASSAGE ↑' : 'SCROLL UP TO ENTER THE PASSAGE ↑')
+        ? 'SCROLL UP TO ENTER THE PASSAGE ↑'
         : (progress < OFFICE_BRANCH_START
           ? 'SCROLL UP TO INVESTIGATE ↑' : 'ENTER THE CODE ON THE KEYPAD'),
     };
   }
   if (state.soundTriggered) {
-    // A text cue conveys the same event when audio is switched off.
+    // Accessibility cue for sound-off players; same event as the latch chirp.
     const firstMoment = state.soundElapsed < 1.55;
     return {
       chapter: '02 — THE RETURN',
       line: firstMoment
-        ? 'A soft beep from somewhere ahead.'
-        : 'That came from near the meeting room.',
+        ? 'Was that a latch?'
+        : 'From up ahead.',
       instruction: 'SCROLL UP TO INVESTIGATE ↑',
     };
   }
@@ -146,7 +145,7 @@ export function officeNarrative(progress, state) {
   if (state.reachedFarDoor && progress > 0.84) {
     return {
       chapter: '02 — THE FAR DOOR',
-      line: 'Locked. I need to go back and retrace my steps.',
+      line: 'Locked. Of course.',
       instruction: 'SCROLL DOWN TO RETRACE YOUR STEPS ↓',
     };
   }

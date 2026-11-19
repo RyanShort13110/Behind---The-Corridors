@@ -110,7 +110,7 @@ export function createElevator(scene) {
       object: callGroup,
       radius: 3.8,
       title: 'CALL BUTTON',
-      body: 'The panel is dead. Whatever it was waiting for already left.',
+      body: 'The panel is dead.',
     },
   ];
 

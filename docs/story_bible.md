@@ -1,17 +1,42 @@
 # BEHIND. — Living Story Bible
 
-**Status:** Working draft / Prototype 003.0, 24 October 2026  
+**Status:** Working draft / synchronized with playable Levels 01–02, November 2026  
 **Genre:** Interactive first-person psychological horror web film  
 **Target:** Approximately 10 chapters, 45–60+ minutes in its eventual complete form  
 **Creative rule:** *The building doesn't chase you. It waits for you to look away.*
 
+### Status labels (use throughout)
+
+| Label | Meaning |
+|---|---|
+| **ESTABLISHED CANON** | Deliberate, accepted story decisions. Treat as locked unless consciously revised. |
+| **IMPLEMENTED** | Mechanics, events, and dialogue verified in the current build. |
+| **OPEN / PROVISIONAL** | Ideas or intentions not finalized; do not treat as lore. |
+
 ## The creative promise
+
+**ESTABLISHED CANON**
 
 The player may notice an emotional connection before the protagonist can put it into words. The experience should never resolve every ambiguity for them. Early chapters are grounded in missing people, mundane belongings, and discrepancies that could almost be explained away. The building is not presented as a character with dialogue or a collection of supernatural puzzles.
 
 **No jumpscares or overt creatures in Chapters 01–03.** Avoid prophetic warnings, sinister computer messages, blood, sudden faces, or overexplained memory sequences. Let lighting, location, sound, and changed objects do the work.
 
+### Protagonist characterization (Levels 01–02)
+
+**ESTABLISHED CANON**
+
+- Ordinary human reactions to uncertainty first; rationalizing comes before panic.
+- Gradual distrust of memory and observation, understated rather than theatrical.
+- Spontaneous internal thought — not narration directed at the player.
+- Does not narrate everything the player can already see.
+- Background, occupation, and relationship to the building remain unknown.
+- Silence is intentional storytelling, not missing content.
+
+Gameplay instructions (scroll prompts, USE/TAKE cues) are separate from protagonist dialogue.
+
 ## Story structure (provisional)
+
+**OPEN / PROVISIONAL**
 
 | Act | Chapters | Narrative function | Key restriction |
 |---|---|---|---|
@@ -21,61 +46,164 @@ The player may notice an emotional connection before the protagonist can put it 
 
 The specific number of floors and chapter names can change if pacing requires it. Do not build to a chapter count at the expense of silence and natural discovery.
 
-## Established recurring objects
+## Recurring objects
 
-1. **Worn metal lighter:** Identifiable scratch; begins as a believable personal belonging. It has associations with ritual, closeness, memory, and unfinished moments. FIRST VISIBLE in Chapter 02, uncollected. Do not explain ownership yet.
-2. **House key:** Faded/worn tag; belonging and access. FIRST APPEARANCE PLANNED around Chapter 04 or 05. No inventory collection planned.
-3. **Face-down photograph:** Hidden image must *stay hidden*. FIRST APPEARANCE PLANNED in Chapter 03. Use sparingly, never reveal the reverse side casually or in promotional art.
+### Worn lighter
 
-The objects should appear ordinary until repetition gives them emotional weight. They are not game objectives.
+**ESTABLISHED CANON:** Recurring identifying scratch; connection to the protagonist remains unexplained.  
+**IMPLEMENTED (L02):** Desk prop, inspect-only. Copy: “A cheap lighter. One deep scratch down the side.” Not collectible.  
+**OPEN / PROVISIONAL:** Later recognition / ritual associations.
 
-## Existing Chapter 01: The Corridor
+### Sticky note / service code
 
-- Setting: narrow office corridor, sealed elevator at far end, hidden elevator behind the initial start point.
-- Mechanic: scroll up = forward, scroll down = backward, camera keeps facing toward the corridor.
-- The initial far elevator refuses to open. Return reveals quiet changes and a newly open side door.
-- Breath behind an office door plays only on first pass; silent on return.
-- A hidden rear elevator opens after backtracking and closes in front of the retreating camera.
-- Canonical implementation baseline: Prototype 001.8.
-- Maximum forward/backward camera speed: 5.5 m/s; breathing gain: 0.065.
+**IMPLEMENTED (L02):** Collectible. Body/tooltip show the live randomly generated four-digit code (`Four digits in blue ink: X X X X.`). No handwriting-to-protagonist link. Consumed from inventory on successful keypad unlock. Supports the service-passage exit puzzle.
 
-## Chapter 02: The Office — first playable construction pass
+### Orange key fob
 
-**Emotion:** Occupied absence, anxiety, recognition without explanation.  
-**Entry:** After the Chapter 01 elevator has shut, the screen darkens for an ordinary elevator transition. Doors appear open on a wider office floor. No obvious teleport or impossible camera movement is shown.  
-**Traversal:** Same scroll motion and fixed-forward camera through a central aisle; more open architecture around it.  
-**Exit:** A side service passage beside the meeting room, discovered after a subtle latch sound on a *partial* retreat. The far Records door remains locked.
+**ESTABLISHED CANON (intent):** Plain orange plastic fob with a worn metal ring. Collectible without implying the protagonist worked here or owned it. Intended for unlocking a door in the following room (Records).  
+**IMPLEMENTED (L02):** Takeable into inventory (`key-fob`). Inspect: “Orange plastic. The metal ring is worn.” Sets `memory.keyFobEncountered` / `keyFobInspected`. Inventory is **not** cleared on the Office → Records transition in the current `enterRecords` path.  
+**OPEN / PROVISIONAL / gap:** Records currently has **no** fob use-target or locked door unlock. Pickup exists; door-unlocking behavior is **not** implemented yet. Do not document consumption or unlock state as live mechanics until wired.
 
-### Physical anchors
+### Brass key (Level 01)
 
-- Desks with unattended computers; some screens still glowing.
-- Coffee cups and mundane, inconsistent desk arrangements.
-- One handset ringing beyond a partition, then silent after the return begins.
-- One chair initially pulled out, later tucked back under its desk.
-- One scratched lighter on a desk. Its appearance is unmistakably mundane. It never moves or prompts collection.
-- Glass-walled meeting room, empty and without an apparition.
-- An ordinary Records door at the far end, which remains locked. A pre-existing, unremarkable service door beside the meeting room opens after a quiet metal latch releases.
+**IMPLEMENTED:** Appears on return pass; takeable; unlocks the keyed door. Inspect: “A plain brass key. No label.” Consumed on successful use.
 
-### Order of discovery
+### House key
 
-1. Doors open. The office lights and monitors are still on.
-2. The protagonist notices ordinary signs of recent occupancy, no explanation.
-3. A faint phone rings. The scratched lighter is visible on a desk.
-4. The far Records door refuses to open. The player backs down the office aisle.
-5. The telephone has stopped. The previously displaced chair is now tucked beneath its desk; the protagonist comments only on the return.
-6. Around the mid-office lighter station, a quiet metallic latch clicks from farther ahead and to the right. Sound-off players receive a matching text cue. The player is *invited*, never forced, to scroll up and investigate.
-7. Approaching the glass meeting room again, the camera follows a slight rightward turn into a pre-existing service passage. This bypasses the original locked door and connects to Level 03. No full-length return to the elevator and no third pass to the far end.
+**OPEN / PROVISIONAL:** Faded/worn tag; belonging and access. Planned around Chapter 04 or 05. No inventory collection planned. Visible but uncollected in Threshold as currently designed.
 
-### Caption discipline
+### Face-down photograph
 
-First approach: observational, no flashbacks.  
-Return: uncertainty grounded in an audible change.  
-Second approach: simple recognition of the objects still present or no longer as they were.  
-No caption claiming the protagonist definitely worked there. The phrase “I know that mark” is reserved for a later chapter if it still feels earned.
+**ESTABLISHED CANON:** Hidden image must *stay hidden*.  
+**IMPLEMENTED (L03 intent/build):** Present on the Records sorting surface; camera never reveals the reverse. Protagonist: “Leave it.” Proximity may set `photoPassed` without proving notice.
 
-### Emotional subtext
+### White Stuffed Dragon
 
-The protagonist is distressed by the possibility of remembering incorrectly. The player may infer more than the spoken text reveals. The lighter is left unexplained intentionally.
+**OPEN / PROVISIONAL — PLANNED:** Not yet introduced. Solid white collectible.
+
+- **Proposed symbolism (provisional, not confirmed canon):** Conscious memory, recollection, emotional familiarity.
+- **Intended effect:** Trigger a fragment of memory in the protagonist.
+- Ownership, discovery location, exact significance, and the memory content remain undecided.
+
+### Black Stuffed Dragon
+
+**OPEN / PROVISIONAL — PLANNED:** Not yet introduced. Solid black collectible.
+
+- **Proposed symbolism (provisional, not confirmed canon):** Deliberately suppressed or avoided memory.
+- **Intended effect:** Trigger an emotional or psychological response tied to something the protagonist does not want to remember.
+- Ownership, discovery location, exact significance, and the associated memory remain undecided.
+
+### Stuffed dragons — shared narrative direction
+
+**OPEN / PROVISIONAL**
+
+- Neither dragon inherently represents good or evil.
+- Contrasting colors reflect different relationships with memory, not morality.
+- Their memories may eventually connect, contrast, or contradict each other.
+- Do not invent ownership, backstory, or concrete memory content until developed.
+- Possible techniques (not canon): fragmented recollection, sudden unexplained emotion, memories that seem unrelated at first, subtle links between the two objects.
+
+**Technical (IMPLEMENTED separately from narrative placement):** `js/props/stuffed-dragon.js` provides a reusable low-poly prop (white/black color variants), inventory preview drawing, and take SFX hooks. Inventory UI can render `stuffed-dragon*` previews. Dragons are **not** placed in any current playable level (preview placement was removed from Level 01).
+
+Objects should appear ordinary until repetition gives them emotional weight.
+
+---
+
+## Chapter 01: The Corridor
+
+**IMPLEMENTED** unless noted.
+
+**Setting / mechanic:** Narrow office corridor; sealed far elevator; hidden rear elevator behind the start. Scroll up = forward, scroll down = backward; camera stays facing the corridor. Max walk ~5.5 m/s. Breathing audio volume constant is `0.07` in code (older docs said 0.065).
+
+**First pass dialogue**
+
+| Beat | Line |
+|---|---|
+| Opening corridor | “Hello?” |
+| Further in | “There has to be someone here.” |
+| Breathing window (~0.74+, with audio) | “Wait. What was that?” |
+| Sealed far elevator | “It’s not opening.” |
+
+Instructional UI still teaches backtracking; control text is not protagonist dialogue.
+
+**Return dialogue**
+
+| Beat | Line |
+|---|---|
+| After reverse; breathing gone | “It’s gone quiet.” |
+| Near the previously closed door | “Wait — was that open before?” |
+| Rear elevator opens | “Behind me?” |
+| Doors begin closing | “Wait—” |
+
+**Interact inspect copy (IMPLEMENTED)**
+
+| Object | Text |
+|---|---|
+| Brass key | “A plain brass key. No label.” |
+| Locked door | “Locked.” / unlocked: “It opens. I can’t see inside.” |
+| Unmarked changed door | “That door was shut. I’m sure of it.” |
+| Door plaque | “13-B. No name.” |
+| Exit sign | “Still lit. Doesn’t tell me much.” |
+| Far call panel | “The panel is dead.” |
+
+**Events:** Breath only on first pass. Return reveals the ajar unmarked door and brass key. Rear elevator unlocks after backtrack; hallway door cascade begins on cabin entry while elevator doors are still open; cabin then seals. End card after doors close.
+
+**Narrative intent:** Ordinary seeking → sensory doubt → memory friction at the door → involuntary reaction to the elevator behind them.
+
+---
+
+## Chapter 02: The Office
+
+**Emotion (ESTABLISHED CANON):** Occupied absence; rationalizing emptiness; quiet doubt. No workplace recognition claims.
+
+**Entry / traversal / exit (IMPLEMENTED):** Elevator veil into a wider aisle. Same scroll motion. Far Records door stays locked. Exit is the side service passage after retreat cue + keypad unlock with the sticky-note code.
+
+### Physical anchors (IMPLEMENTED)
+
+- Glowing monitors, cups, mundane desk clutter.
+- Ringing phone, then silence after return begins.
+- One chair permanently in the aisle (not a move/scare beat).
+- Lighter (inspect), sticky note (take), key fob (take), wall keypad (second approach only).
+- Empty glass meeting room.
+- Service door opens only after correct keypad entry.
+
+### Dialogue sequences (IMPLEMENTED)
+
+**First approach**
+
+| Beat | Line |
+|---|---|
+| Entering | *(silence)* |
+| Occupied-looking desks | “It’s like everyone just left.” |
+| Unattended belongings | “How long has this place been empty?” |
+| Phone ringing | “Why isn’t anyone answering?” |
+| Glass meeting room | *(silence)* |
+| Far locked door | “Locked. Of course.” |
+
+**Return**
+
+| Beat | Line |
+|---|---|
+| Phone stops | “It stopped.” |
+| Workstations | *(no extra lines; no invented moved objects)* |
+| Latch cue (also sound-off accessibility) | “Was that a latch?” → “From up ahead.” |
+
+**Investigation / second forward pass**
+
+| Beat | Line |
+|---|---|
+| Start investigating | *(silence)* |
+| Near service passage | “There’s a door beside the glass.” |
+| Keypad | “A code.” |
+| While locked | *(no repeating puzzle dialogue; UI carries “enter code”)* |
+| After correct code | “Okay. Go.” |
+| Entering passage / complete | *(silence)* |
+
+**Object inspect copy (IMPLEMENTED):** lighter / sticky / fob / keypad as listed under Recurring objects. Keypad interaction remains UI-driven; door state follows `keypadUnlocked`.
+
+**Emotional arc:** Rationalize vacancy → unanswered phone → forced retreat → auditory doubt → pragmatic code entry without lore dump.
+
+---
 
 ## Chapter 03: The Records — first playable construction pass
 
@@ -84,7 +212,7 @@ The protagonist is distressed by the possibility of remembering incorrectly. The
 **Architecture:** Lower ceiling, older cabinets with repeating file drawers, receiving counter, a quiet sorting station, box storage, and an already-open passage onward.  
 **Motif:** The face-down photograph rests on the sorting surface around the middle of the level. The camera never turns to see its contents, and no front artwork is created or loaded. The protagonist thinks only: **“Leave it.”**  
 **Environmental memory:** A right-side drawer is visibly ajar on the first pass. After the player passes it, it settles shut out of view. Backtracking may reveal the discrepancy, but is not required.  
-**Exit:** A partially open doorway into another administrative space. Prototype 003.0 ends here; Chapter 04 is not implemented.
+**Exit:** A partially open doorway into another administrative space.
 
 ### Why Level 03 breaks the Level 01–02 return pattern
 
@@ -94,24 +222,33 @@ A third compulsory out-and-back journey would make backward movement feel like a
 
 Do not explain why the protagonist says “Leave it.” Avoid showing a recognizable image, a name, a case number, blood, ghost silhouettes, or a diagnostic report that spells out what happened. Proximity to the photograph is recorded as `photoPassed`, not as proof it was noticed. The faded notices and index labels remain generic/unreadable.
 
+### Verified gap vs L02 inventory
+
+**OPEN / PROVISIONAL:** Key fob is intended to unlock a door here. **Not implemented** in Records yet (no interactable `requiresItem: 'key-fob'`). Document intent separately from build state.
+
 ## Narrative invariants
 
-- Time reads 02:17 AM unless the change becomes narratively meaningful and is agreed upon.
+**ESTABLISHED CANON**
+
+- Time reads 02:17 AM unless a change becomes narratively meaningful and is agreed upon.
 - Camera faces forward even during retreat; shifting architecture remains plausible.
 - Story state is monotonic: once a narrative event happened, moving backward does not undo it.
 - Chapter 01's far elevator remains sealed; Chapter 01's rear elevator closes before Chapter 02 starts.
 - Lighter's scratch should remain recognizable across chapters. Photograph contents stay unseen.
 - Use silence and stillness frequently. No generic industrial horror drone at full volume.
 - Do not force a fast walkthrough for the sake of the target runtime. Future chapters need richer, slower interactions and navigable spaces.
+- The larger personal connection between the protagonist and the building remains unresolved. No new backstory, names, family ties, or supernatural explanations without deliberate canon revision.
 
 ## Current technical decisions
 
+**IMPLEMENTED**
+
 - One renderer and one camera persist across chapters.
 - Scenes expose `update`, `reset`, and `dispose` and are rebuilt only when entered.
-- Current director updates one loaded chapter's modules and disposes them on transition.
-- No localStorage, checkpoint restore, or deep-link chapter selection in Prototype 002.0; add after chapter handoff is verified.
-- Static office cubes share a box geometry and are instanced by material. The displaced chair and hinged side-service door have independent groups. The far Records doors stay shut.
-- Three.js fog/background are reset by each chapter scene factory.
+- Director updates one loaded chapter's modules and disposes them on transition.
+- Debug chapter travel via `?debug=1` (and level/checkpoint query params where supported). Not a player-facing save system.
+- Office: instanced static cubes; static aisle chair; hinged service door after keypad unlock; far Records doors stay shut in L02.
+- Three.js fog/background reset per chapter factory.
 - Do not promise actual 45–60 minute length yet; this is the current long-form target.
 
 ## Open questions for later, deliberately unresolved
@@ -120,7 +257,8 @@ Do not explain why the protagonist says “Leave it.” Avoid showing a recogniz
 - What does the photograph depict? **Never answer by showing its contents.**
 - Is the building distorting memory, or revealing how memory already works?
 - Does the protagonist belong here, or is familiarity the most unsettling aspect of being lost?
-- How should Chapter 03 end without another elevator repetition?
+- When and how should the key fob unlock something in Records without confirming employment?
+- What memories (if any) do the stuffed dragons unlock — and how do the two relate?
 
 ## Chapter 04: The Night Shift — Prototype 004.1 / Act II begins
 
@@ -167,7 +305,15 @@ Do not explain why the protagonist says “Leave it.” Avoid showing a recogniz
 
 **Status:** First functional pass. Timing, spatial audio perceived over headphones, lighting balance, the left-side door's readability, and camera choreography should all receive an in-browser playtest before Level 06 is treated as creatively locked.
 
-
 ### Prototype 006.1 — Level 06 Retreat Pass (2026-10-25)
 
 Environmental horror operates in descending backward-scroll beats: first taps, a right-hand electrical cabinet opening, irregular scraping migrating between walls, ceiling vibration, an advancing blackout, near-absolute silence, and an impossible final click close to the protagonist. The presence is never shown. Player speed modulates scratching; stopping invites one small tap. All changes remain one-way after triggering, not reversible by scrubbing. Developer jump checkpoints preserve each staged state and never play historical sounds.
+
+---
+
+## Narrative revision history
+
+| Date | Change |
+|---|---|
+| 2026-10 | Prototype 003.0 office / records construction notes; later Night / Threshold / Unseen passes. |
+| 2026-11 | **Dialogue Revision 001** for Levels 01–02: sparse internal monologue; L02 keypad exit + collectibles; story bible synchronized to build. Chair move beat removed from canon. Key fob collectible documented; Records unlock still pending implementation. Stuffed dragons added as planned unresolved objects. |

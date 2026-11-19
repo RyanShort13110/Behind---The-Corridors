@@ -88,12 +88,12 @@ export function createCorridor(scene) {
   // End-of-level cascade: ordinary doors that swing open while the elevator seals.
   // Skip the unmarked ajar bay and the keyed bay — those beats stay singular.
   const endSwingSpecs = [
-    { bay: 0, side: 1, delay: 0.12, duration: 1.7, maxYaw: 1.05 },
-    { bay: 1, side: -1, delay: 0.55, duration: 2.35, maxYaw: -0.92 },
-    { bay: 4, side: 1, delay: 0.28, duration: 2.05, maxYaw: 1.18 },
-    { bay: 5, side: -1, delay: 0.9, duration: 1.55, maxYaw: -1.1 },
-    { bay: 7, side: 1, delay: 1.15, duration: 2.5, maxYaw: 0.88 },
-    { bay: 8, side: -1, delay: 0.7, duration: 1.9, maxYaw: -1.02 },
+    { bay: 0, side: 1, delay: 0.0, duration: 1.7, maxYaw: 1.05 },
+    { bay: 1, side: -1, delay: 0.35, duration: 2.35, maxYaw: -0.92 },
+    { bay: 4, side: 1, delay: 0.12, duration: 2.05, maxYaw: 1.18 },
+    { bay: 5, side: -1, delay: 0.7, duration: 1.55, maxYaw: -1.1 },
+    { bay: 7, side: 1, delay: 0.95, duration: 2.5, maxYaw: 0.88 },
+    { bay: 8, side: -1, delay: 0.5, duration: 1.9, maxYaw: -1.02 },
   ];
   const endSwingDoors = [];
   let hallCascadeT = -1;
@@ -304,7 +304,7 @@ export function createCorridor(scene) {
       title: 'DOOR HANDLE',
       body: 'Locked.',
       lockedBody: 'Locked.',
-      unlockedBody: 'It opens. Too dark to see anything.',
+      unlockedBody: 'It opens. I can’t see inside.',
       requiresItem: 'brass-key',
       requiresItemLabel: 'BRASS KEY',
     },
@@ -317,22 +317,22 @@ export function createCorridor(scene) {
       itemId: 'brass-key',
       itemLabel: 'BRASS KEY',
       title: 'BRASS KEY',
-      body: 'Left on the threshold. Still faintly warm.',
-      tooltip: 'Fits an ordinary lock. Something in this hall still closes.',
+      body: 'A plain brass key. No label.',
+      tooltip: 'A plain brass key. No label.',
     },
     {
       id: 'exit-sign',
       object: sign,
       radius: 4.2,
       title: 'EXIT',
-      body: 'The letters are still lit. The corridor ahead does not lead outside.',
+      body: 'Still lit. Doesn’t tell me much.',
     },
     {
       id: 'door-plaque',
       object: plaque,
       radius: 2.8,
       title: '13-B',
-      body: 'The plate is warm. No one answers when you listen.',
+      body: '13-B. No name.',
     },
     {
       id: 'altered-door',
@@ -342,7 +342,7 @@ export function createCorridor(scene) {
       // First pass stays unmarked — outline only after the return begins.
       onlyAfterBacktrack: true,
       title: 'UNMARKED DOOR',
-      body: 'It was closed when you passed it. You are sure of that.',
+      body: 'That door was shut. I’m sure of it.',
     },
   ];
 
@@ -412,8 +412,9 @@ export function createCorridor(scene) {
         );
       }
 
-      // Start the cascade as the cabin seal begins so opens read while doors close.
-      if (story.enteredRearElevator && progress <= 0.02 && hallCascadeT < 0) {
+      // Start as soon as the rear cabin is entered — while elevator doors are
+      // still open — so hallway swings read before the seal occludes the view.
+      if (story.enteredRearElevator && hallCascadeT < 0) {
         hallCascadeT = 0;
         hallCascadeStarted = true;
       }

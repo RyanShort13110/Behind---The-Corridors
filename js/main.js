@@ -89,19 +89,18 @@ const memory = {
 };
 const ORIGINAL_LOCATION_HTML = 'NORTH WING <span class="separator">/</span> LEVEL 13';
 
-// Sparse forward thoughts — ordinary, then wrong, then the breathing.
-// Fewer lines leave space for the corridor to do the work.
+// Sparse forward thoughts. Breathing line aligns with the audio window (~0.74).
 const beats = [
-  { to: 0.40, ch: '01 — THE CORRIDOR', line: 'The building should be empty.' },
-  { to: 0.74, ch: '01 — THE CORRIDOR', line: 'Too quiet for a place this big.' },
-  { to: 1.01, ch: '01 — THE CORRIDOR', line: 'Breathing. Close.' },
+  { to: 0.40, ch: '01 — THE CORRIDOR', line: 'Hello?' },
+  { to: 0.74, ch: '01 — THE CORRIDOR', line: 'There has to be someone here.' },
+  { to: 1.01, ch: '01 — THE CORRIDOR', line: 'Wait. What was that?' },
 ];
 
 // Return pass: only what changes. Thresholds descend with the backtrack.
 // Door line waits until ~the ajar bay (~0.375), not the long approach.
 const returnBeats = [
-  { min: 0.38, line: 'The breathing stopped.' },
-  { min: 0.29, line: 'That door was closed.' },
+  { min: 0.38, line: 'It’s gone quiet.' },
+  { min: 0.29, line: 'Wait — was that open before?' },
 ];
 
 function maxScroll() { return Math.max(0, document.documentElement.scrollHeight - innerHeight); }
@@ -910,13 +909,13 @@ function narrativeFor(p, state) {
   // Dead-end prompt: the first elevator stays shut and teaches backtracking.
   if (state.reachedDeadEnd && p > 0.85) {
     chapter = '01 — DEAD END';
-    line = 'Sealed. There’s nothing ahead.';
+    line = 'It’s not opening.';
     instruction = 'SCROLL DOWN TO RETRACE YOUR STEPS ↓';
   } else if (state.rearElevatorUnlocked && p <= 0.16) {
     // Preserve the surprise elevator behind the original starting position.
     chapter = '01 — BEHIND YOU';
-    if (p > START_PROGRESS) line = 'Something opens behind you.';
-    else line = 'The doors close in front of you.';
+    if (p > START_PROGRESS) line = 'Behind me?';
+    else line = 'Wait—';
     instruction = 'KEEP SCROLLING DOWN ↓';
   } else if (state.hasBacktracked) {
     chapter = '01 — THE RETURN';
