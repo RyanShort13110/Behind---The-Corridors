@@ -415,6 +415,11 @@ export function createAudioDirector() {
     window.setTimeout(() => {
       playTone({ freq: 240, duration: 0.22, level: 0.022, type: 'sine', pan: 0.28 });
     }, 90);
+    // Soft hinge creak as the unused door swings into the room.
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.62, band: 260, q: 0.42, level: 0.022, pan: 0.48 });
+      playTone({ freq: 78, freq2: 48, duration: 0.78, level: 0.018, type: 'triangle', pan: 0.48 });
+    }, 140);
   }
 
   function playInteract(id) {

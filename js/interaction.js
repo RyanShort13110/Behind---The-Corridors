@@ -14,7 +14,10 @@ const TAP_MAX_MS = 500;
 function collectMeshes(root) {
   const meshes = [];
   root.traverse(child => {
-    if (child.isMesh && child.geometry) meshes.push(child);
+    if (!child.isMesh || !child.geometry) return;
+    // Decorative scare meshes — never outline or raycast.
+    if (child.userData.noInspect) return;
+    meshes.push(child);
   });
   return meshes.length ? meshes : [];
 }
@@ -30,7 +33,7 @@ function makeMeshOutlines(meshes) {
   });
   const lines = [];
   for (const mesh of meshes) {
-    if (mesh.userData.inspectHitOnly) continue;
+    if (mesh.userData.inspectHitOnly || mesh.userData.noInspect) continue;
     const edges = new THREE.EdgesGeometry(mesh.geometry, 20);
     const line = new THREE.LineSegments(edges, mat);
     line.scale.setScalar(EDGE_EXPAND);
@@ -181,8 +184,10 @@ export function createInteractionSystem({
       const reach = entry._usable ? entry.radius * 1.4 : entry.radius;
       entry._inReach = entry._available && entry.dist < reach;
       if (enabled && entry._inReach) {
-        // Prefer use-targets when the matching item is held.
-        const score = entry._usable ? entry.dist - 50 : entry.dist;
+        // Prefer pickups, then use-targets, so large props don't steal the key.
+        let score = entry.dist;
+        if (entry._usable) score -= 50;
+        else if (entry.takeable && !entry.taken) score -= 40;
         if (score < bestScore) {
           best = entry;
           bestScore = score;
@@ -210,13 +215,27 @@ export function createInteractionSystem({
   }
 
   function pickFromEvent(event) {
-    if (!enabled || !nearest) return null;
+    if (!enabled) return null;
     const rect = canvas.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObjects(nearest.pickMeshes, true);
-    return hits.length ? nearest : null;
+    // Test every in-reach target. Pickups win over large door meshes underneath.
+    let best = null;
+    let bestScore = Infinity;
+    for (const entry of entries) {
+      if (!entry._inReach || !entry._available) continue;
+      const hits = raycaster.intersectObjects(entry.pickMeshes, true);
+      if (!hits.length) continue;
+      let score = hits[0].distance;
+      if (entry.takeable && !entry.taken) score -= 100;
+      else if (entry._usable) score -= 50;
+      if (score < bestScore) {
+        best = entry;
+        bestScore = score;
+      }
+    }
+    return best;
   }
 
   function takeOpen() {
@@ -245,6 +264,10 @@ export function createInteractionSystem({
     titleEl.textContent = entry.title;
     bodyEl.textContent = entry.unlockedBody || 'It opens.';
     refreshAction();
+    // Clear the panel quickly so the door swing / room peek reads in-world.
+    window.setTimeout(() => {
+      if (openEntry === entry) setPanel(false);
+    }, 680);
   }
 
   function onActionClick() {

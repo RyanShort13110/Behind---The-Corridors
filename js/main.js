@@ -87,9 +87,10 @@ const beats = [
 ];
 
 // Return pass: only what changes. Thresholds descend with the backtrack.
+// Door line waits until ~the ajar bay (~0.375), not the long approach.
 const returnBeats = [
-  { min: 0.55, line: 'The breathing stopped.' },
-  { min: 0.20, line: 'That door was closed.' },
+  { min: 0.38, line: 'The breathing stopped.' },
+  { min: 0.29, line: 'That door was closed.' },
 ];
 
 function maxScroll() { return Math.max(0, document.documentElement.scrollHeight - innerHeight); }
@@ -174,7 +175,9 @@ try {
     onInspect: id => audio.playInteract(id),
     onTake: () => audio.playInteract('brass-key'),
     onUse: (_itemId, targetId) => {
-      if (targetId === 'locked-doorknob') audio.playUnlock();
+      if (targetId !== 'locked-doorknob') return;
+      audio.playUnlock();
+      director.get('corridor')?.openLockedDoor?.();
     },
   });
   look = createLookControls({ canvas: renderer.domElement });
@@ -192,10 +195,14 @@ try {
 function bindCorridorInteractables() {
   interaction?.clear();
   if (!director || !scene) return;
-  const modules = [director.get('corridor'), director.get('elevator')];
+  const corridor = director.get('corridor');
+  const modules = [corridor, director.get('elevator')];
   for (const module of modules) {
     for (const spec of module?.interactables || []) {
-      interaction.register({ ...spec, sceneRoot: scene });
+      const entry = interaction.register({ ...spec, sceneRoot: scene });
+      if (spec.id === 'locked-doorknob' && corridor?.isLockedDoorOpen?.()) {
+        entry.unlocked = true;
+      }
     }
   }
 }

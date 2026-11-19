@@ -49,15 +49,23 @@ export function createCorridor(scene) {
 
   const alteredBay = 2;
   const alteredZ = -2 - alteredBay * 4.5 - 1.75;
+  const lockedBay = 3;
+  const lockedDoorZ = -2 - lockedBay * 4.5 - 1.75;
   const openingHalfWidth = 0.66;
   const wallSection = (nearZ, farZ) => {
-    add(0.18, 4, nearZ - farZ, 2.7, 2, (nearZ + farZ) / 2, mats.wall);
+    const depth = nearZ - farZ;
+    if (depth <= 0.01) return;
+    add(0.18, 4, depth, 2.7, 2, (nearZ + farZ) / 2, mats.wall);
   };
   add(0.18, 4, 49.2, -2.7, 2, -21.4, mats.wall);
+  // Right wall split around the unmarked ajar bay and the lockable room.
   wallSection(3.2, alteredZ + openingHalfWidth);
-  wallSection(alteredZ - openingHalfWidth, -46);
-  add(0.18, 1.3, openingHalfWidth * 2, 2.7, 3.35, alteredZ, mats.wall);
-  add(0.18, 0.14, openingHalfWidth * 2, 2.7, 0.07, alteredZ, mats.wall);
+  wallSection(alteredZ - openingHalfWidth, lockedDoorZ + openingHalfWidth);
+  wallSection(lockedDoorZ - openingHalfWidth, -46);
+  for (const openingZ of [alteredZ, lockedDoorZ]) {
+    add(0.18, 1.3, openingHalfWidth * 2, 2.7, 3.35, openingZ, mats.wall);
+    add(0.18, 0.14, openingHalfWidth * 2, 2.7, 0.07, openingZ, mats.wall);
+  }
 
   for (const side of [-1, 1]) {
     add(0.13, 0.21, 49.2, side * 2.58, 0.2, -21.4, mats.trim);
@@ -65,6 +73,17 @@ export function createCorridor(scene) {
   }
 
   let changedDoor;
+  let peekFigure = null;
+  const peekMats = [];
+  let peekAmount = 0;
+  let peekArmed = false; // true once player leaves the unlocked door
+  let peekWantShow = false; // latched by last walk direction
+  let unlockProgress = null;
+  let peekPrevProgress = null;
+  // Progress at the unmarked ajar bay (camera z = 6 - p*50).
+  const ajarProgress = (6 - alteredZ) / 50;
+  // Hide while still close to the door; peek only after clearing this.
+  const peekClearProgress = ajarProgress - 0.025;
   for (let i = 0; i < 10; i++) {
     const z = -2 - i * 4.5;
     const doorZ = z - 1.75;
@@ -81,14 +100,38 @@ export function createCorridor(scene) {
         changedDoor.position.set(2.5, 0, doorZ + 0.52);
         world.add(changedDoor);
         add(0.12, 2.28, 1.04, 0, 1.36, -0.52, mats.door, changedDoor);
-        add(0.19, 0.055, 0.08, -0.11, 1.25, -0.25, mats.metal, changedDoor);
+        // Latch-side handle (hinge is at local z=0 / corridor-start edge).
+        add(0.19, 0.055, 0.08, -0.11, 1.25, -0.79, mats.metal, changedDoor);
+        // Silhouette in the wall opening (not behind the swung door leaf).
+        // depthTest off so the ajar door / void can't fully eat it.
+        peekFigure = new THREE.Group();
+        peekFigure.name = 'door-peek';
+        peekFigure.visible = false;
+        peekFigure.renderOrder = 12;
+        peekFigure.position.set(2.72, 0, doorZ);
+        world.add(peekFigure);
+        const peekBody = new THREE.MeshBasicMaterial({
+          color: 0x080a09,
+          fog: false,
+          depthTest: false,
+          depthWrite: false,
+        });
+        peekMats.push(peekBody);
+        add(0.32, 1.7, 0.2, 0, 1.2, 0, peekBody, peekFigure);
+        add(0.24, 0.3, 0.22, 0, 2.18, 0.02, peekBody, peekFigure);
+        peekFigure.traverse(obj => {
+          if (obj.isMesh) {
+            obj.userData.noInspect = true;
+            obj.renderOrder = 12;
+          }
+        });
+      } else if (i === lockedBay && side === 1) {
+        // Lockable bay: frame + swingable door + room are built below.
       } else {
         add(0.09, 2.42, 1.25, side * 2.55, 1.36, doorZ, mats.trim);
         add(0.12, 2.28, 1.04, side * 2.5, 1.36, doorZ, mats.door);
-        // Fourth right door gets a dedicated inspectable knob (added below).
-        if (!(i === 3 && side === 1)) {
-          add(0.19, 0.055, 0.08, side * 2.39, 1.25, z - 1.48, mats.metal);
-        }
+        // Handles sit on the latch edge (deeper / -Z), opposite the hinge side.
+        add(0.19, 0.055, 0.08, side * 2.39, 1.25, z - 2.02, mats.metal);
       }
       add(0.035, 0.46, 0.31, side * 2.38, 2.56, doorZ, mats.metal);
     }
@@ -133,13 +176,24 @@ export function createCorridor(scene) {
   plaque.name = 'door-plaque';
   world.add(plaque);
 
-  // Fourth right-door handle — ahead enough that its edge outline reads while
-  // still facing down the corridor, inviting a look + click.
-  const lockedKnobBay = 3;
-  const lockedKnobZ = -2 - lockedKnobBay * 4.5 - 1.48;
+  // Lockable fourth-right bay: swingable door into a black recess — nothing to see.
+  for (const offset of [-0.61, 0.61]) {
+    add(0.30, 2.55, 0.11, 2.60, 1.39, lockedDoorZ + offset, mats.trim);
+  }
+  add(0.30, 0.13, 1.33, 2.60, 2.64, lockedDoorZ, mats.trim);
+  add(0.018, 2.4, 1.16, 3.08, 1.36, lockedDoorZ, mats.void);
+
+  const LOCKED_DOOR_OPEN_YAW = -1.28; // swing into the dark (+X)
+  let lockedDoorOpen = false;
+  const lockedDoor = new THREE.Group();
+  lockedDoor.name = 'locked-door';
+  lockedDoor.position.set(2.5, 0, lockedDoorZ + 0.52);
+  world.add(lockedDoor);
+  add(0.12, 2.28, 1.04, 0, 1.36, -0.52, mats.door, lockedDoor);
+
   const lockedKnob = new THREE.Group();
   lockedKnob.name = 'locked-doorknob';
-  lockedKnob.position.set(2.39, 1.25, lockedKnobZ);
+  lockedKnob.position.set(-0.11, 1.25, -0.79);
   const knobRoseGeo = new THREE.BoxGeometry(0.09, 0.16, 0.045);
   const knobLeverGeo = new THREE.BoxGeometry(0.24, 0.055, 0.08);
   const knobRose = new THREE.Mesh(knobRoseGeo, mats.metal);
@@ -152,14 +206,14 @@ export function createCorridor(scene) {
   knobHit.position.set(-0.04, 0, 0.02);
   knobHit.userData.inspectHitOnly = true;
   lockedKnob.add(knobRose, knobLever, knobHit);
-  world.add(lockedKnob);
+  lockedDoor.add(lockedKnob);
 
   // Brass key on the corridor floor at the unmarked doorway (return pass only).
   // Keep it inside the walkable hall (x < ~2.4) so it isn't buried in the recess.
   const brassKey = new THREE.Group();
   brassKey.name = 'brass-key';
-  // Out in the hall floor in front of the doorway — not under the swinging door.
-  brassKey.position.set(1.35, 0.1, -11.9);
+  // Same lateral spot, just past the unmarked door toward the dead end.
+  brassKey.position.set(1.45, 0.1, -13.55);
   brassKey.rotation.set(1.45, 0.55, 0.25);
   brassKey.visible = false;
   brassKey.userData.taken = false;
@@ -212,12 +266,12 @@ export function createCorridor(scene) {
   const interactables = [
     {
       id: 'locked-doorknob',
-      object: lockedKnob,
+      object: lockedDoor,
       radius: 9.5,
       title: 'DOOR HANDLE',
       body: 'Locked.',
       lockedBody: 'Locked.',
-      unlockedBody: 'The lock turns. Dust, and a room that was never used.',
+      unlockedBody: 'It opens. Too dark to see anything.',
       requiresItem: 'brass-key',
     },
     {
@@ -249,7 +303,8 @@ export function createCorridor(scene) {
     {
       id: 'altered-door',
       object: changedDoor,
-      radius: 3.6,
+      // Tight radius so the floor key beside this bay stays clickable.
+      radius: 2.15,
       // First pass stays unmarked — outline only after the return begins.
       onlyAfterBacktrack: true,
       title: 'UNMARKED DOOR',
@@ -258,7 +313,13 @@ export function createCorridor(scene) {
   ];
 
   return {
-    lights, redLight, changedDoor, brassKey, mats, interactables,
+    lights, redLight, changedDoor, brassKey, lockedDoor, mats, interactables,
+    openLockedDoor() {
+      lockedDoorOpen = true;
+      unlockProgress = null; // latched on next update with live progress
+      peekArmed = false;
+    },
+    isLockedDoorOpen() { return lockedDoorOpen; },
     update(progress, story, dt, reduced) {
       const fault = !reduced && progress > 0.46 && progress < 0.7;
       lights.forEach((light, i) => {
@@ -271,13 +332,67 @@ export function createCorridor(scene) {
       const target = story.hasBacktracked ? 1.12 : 0;
       const follow = reduced ? 1 : 1 - Math.exp(-dt * 4);
       changedDoor.rotation.y += (target - changedDoor.rotation.y) * follow;
+      const lockedTarget = lockedDoorOpen ? LOCKED_DOOR_OPEN_YAW : 0;
+      const doorFollow = reduced ? 1 : 1 - Math.exp(-dt * 3.2);
+      lockedDoor.rotation.y += (lockedTarget - lockedDoor.rotation.y) * doorFollow;
       // Key only after return begins, and only until taken.
       brassKey.visible = Boolean(story.hasBacktracked) && !brassKey.userData.taken;
+
+      // Shadow peek (unmarked ajar doorway):
+      // Unlock key door → walk away to arm → past ajar door, walk toward elevator
+      // latches the peek ON (stays while idle). Walk back toward the ajar door = off.
+      if (lockedDoorOpen) {
+        if (unlockProgress == null) unlockProgress = progress;
+        if (progress < unlockProgress - 0.01) peekArmed = true;
+      }
+      const walkDelta = peekPrevProgress == null ? 0 : progress - peekPrevProgress;
+      peekPrevProgress = progress;
+
+      if (peekFigure) {
+        const doorOpen = changedDoor.rotation.y > 0.55;
+        const nearDoor = progress >= peekClearProgress;
+        const pastDoor = progress < peekClearProgress && progress > 0.02;
+        const canPeek = Boolean(
+          story.hasBacktracked && peekArmed && lockedDoorOpen && doorOpen && pastDoor
+        );
+
+        if (nearDoor || !canPeek) {
+          peekWantShow = false;
+        } else if (walkDelta < -0.00004) {
+          peekWantShow = true; // walking toward elevator
+        } else if (walkDelta > 0.00004) {
+          peekWantShow = false; // walking back toward ajar door
+        }
+
+        const peekTarget = peekWantShow ? 1 : 0;
+        const peekRate = peekWantShow ? 6 : 9;
+        peekAmount += (peekTarget - peekAmount) * Math.min(1, dt * peekRate);
+
+        const show = peekAmount > 0.04;
+        peekFigure.visible = show;
+        // Recess (~2.9) → well into the hall (~1.55), clear of the ajar door leaf.
+        peekFigure.position.set(
+          2.9 - peekAmount * 1.35,
+          0,
+          alteredZ - 0.05
+        );
+      }
     },
     reset() {
       changedDoor.rotation.y = 0;
+      lockedDoorOpen = false;
+      lockedDoor.rotation.y = 0;
       brassKey.userData.taken = false;
       brassKey.visible = false;
+      peekAmount = 0;
+      peekArmed = false;
+      peekWantShow = false;
+      unlockProgress = null;
+      peekPrevProgress = null;
+      if (peekFigure) {
+        peekFigure.visible = false;
+        peekFigure.position.set(2.72, 0, alteredZ);
+      }
     },
     dispose() {
       batchesToDispose.forEach(batch => batch.dispose());
@@ -297,6 +412,7 @@ export function createCorridor(scene) {
       keyHitGeo.dispose();
       keyMat.dispose();
       keyHitMat.dispose();
+      peekMats.forEach(mat => mat.dispose());
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);
       scene.remove(world);
