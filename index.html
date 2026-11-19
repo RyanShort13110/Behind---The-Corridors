@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#05090b" />
+  <meta name="description" content="Behind. — An Interactive Psychological Horror Experience." />
+  <title>Behind. — 02:17</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
+</head>
+<body>
+  <main id="experience" aria-label="Behind. — An Interactive Psychological Horror Experience">
+    <div id="viewport" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div id="intro" class="intro">
+      <p class="eyebrow">An Interactive Psychological Horror Experience</p>
+      <h1>Behind<span>.</span></h1>
+      <div class="intro-rule"></div>
+      <p class="intro-copy">Some doors only open when you leave them behind.</p>
+      <button id="begin" class="primary">ENTER THE BUILDING <span aria-hidden="true">↗</span></button>
+      <p class="hint">HEADPHONES RECOMMENDED · SCROLL UP TO ADVANCE</p>
+    </div>
+    <div class="topbar" id="topbar" aria-hidden="true"><div class="brand">BEHIND.</div><div class="location" id="location">NORTH WING <span class="separator">/</span> LEVEL 13</div><div class="time">02:17 AM</div></div>
+    <div class="narrative" id="narrative" aria-live="off"><div id="chapter" class="chapter">01 — THE CORRIDOR</div><p id="line">Someone left the lights on.</p></div>
+    <div class="unseen-retreat-prompt" id="unseen-retreat-prompt" role="status" aria-live="polite" aria-hidden="true"><strong>BACK UP.</strong><span>SCROLL DOWN ↓</span></div>
+    <div class="bottom" id="bottom"><div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div><p id="instruction">SCROLL UP TO CONTINUE <span aria-hidden="true">↑</span></p><button id="quality" class="quiet" title="Change rendering quality">QUALITY: AUTO</button><button id="motion" class="quiet" title="Toggle reduced motion">MOTION: ON</button><button id="sound" class="quiet" title="Toggle ambient audio">SOUND: OFF</button></div>
+    <div id="ending" class="ending" aria-hidden="true"><p class="eyebrow" id="ending-eyebrow">LEVEL 01 COMPLETE · THE CORRIDOR</p><h2 id="ending-title">IT WAS<br>BEHIND YOU.</h2><p id="ending-copy">The doors closed in front of you.</p><div class="ending-actions"><button id="continue" class="primary">CONTINUE INTO THE OFFICE ↑</button><button id="restart" class="primary">START OVER ↺</button></div></div>
+    <div id="chapter-veil" aria-hidden="true"></div>
+    <div id="perf" class="perf-hud" aria-hidden="true"></div>
+    <div id="fallback" class="fallback" role="alert" hidden>Unable to start the 3D experience. Check the browser console for the underlying error.</div>
+    <div class="sr-only" id="accessible-story"><h2>Story and controls</h2><p>You are inside an empty office building at 2:17 AM. Scroll up to move forward through a corridor. Scroll down to return and discover changes. The far elevator remains closed. Upon reaching it, scroll down to retrace your steps. A different elevator opens behind the camera when you return; you back into it and its doors close in front of you. Continue into a wider office floor. The far office Records door stays locked. On the return trip, a metal latch clicks ahead, near the meeting room; the same event is described in text for sound-off visitors. Scroll up to investigate the side passage leading to Records. On the next floor, you walk past old filing drawers and a face-down photograph. You may return to check what changed, but do not have to. Continue past Records into an old staff wing. In the Night Shift, footsteps follow your movement and stop near the exit; text conveys the events with sound off. You can retreat, but there is no required backtrack. Continue into the Threshold, where a freestanding door opens onto a nearly ordinary corridor that slowly becomes an organic, red-lit nightmare. The next passage is almost ordinary again: it ends at a sealed door. A sound draws nearer from the empty hallway ahead, and you must scroll backward while still watching the corridor. At the first scraping sound a large on-screen prompt instructs the player to back up. During the retreat, two overhead fixtures intermittently dim, a right-side electrical panel swings open, a distorted inhuman roar merges with the dragging, a huge featureless darkness gradually approaches in the distance, scratching answers from the walls and ceiling, the far lights go out in sequence, and the cardboard carton on the trolley opens by itself. When the dragging stops the dark shape vanishes and all overhead lights return, before one final metallic click. A side maintenance door opens only on the retreat. Keep scrolling down as the camera turns into that exit. The event has text descriptions for sound-off visitors. The experience includes subtle light flicker. Use the Motion button to reduce motion; sound is off by default.</p></div>
+  </main>
+  <div id="scroll-space" aria-hidden="true"></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
