@@ -222,6 +222,8 @@ try {
     onWrong: () => audio.playInteract('keypad-wrong'),
     onSuccess: () => {
       officeStory.unlockKeypad();
+      inventory?.remove('sticky-note');
+      closeItemDetail();
       audio.playUnlock();
     },
   });
