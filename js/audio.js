@@ -462,6 +462,12 @@ export function createAudioDirector() {
       playNoiseBurst({ duration: 0.1, band: 1600, q: 1.2, level: 0.016, pan: 0.25 });
       return;
     }
+    if (String(id).startsWith('stuffed-dragon')) {
+      // Soft fabric take — muted, close.
+      playNoiseBurst({ duration: 0.14, band: 480, q: 0.7, level: 0.018, pan: -0.15 });
+      playTone({ freq: 220, duration: 0.16, level: 0.012, type: 'sine', pan: -0.15 });
+      return;
+    }
     if (id === 'locked-doorknob') {
       // Deadbolt / handle rattle — short metallic clicks.
       playTone({ freq: 920, freq2: 1380, duration: 0.09, level: 0.028, type: 'triangle', pan: 0.35 });

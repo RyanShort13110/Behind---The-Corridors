@@ -126,6 +126,7 @@ export function createInteractionSystem({
     const {
       id, object, title, body, radius = 3.4, tooltip = null,
       onlyAfterBacktrack = false, takeable = false, itemId = null, itemLabel = null,
+      previewColor = null,
       requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
       sceneRoot, pickMeshes,
     } = spec;
@@ -134,7 +135,7 @@ export function createInteractionSystem({
     const { lines, material } = makeMeshOutlines(meshes);
     const entry = {
       id, object, title, body, tooltip, radius,
-      onlyAfterBacktrack, takeable, itemId, itemLabel,
+      onlyAfterBacktrack, takeable, itemId, itemLabel, previewColor,
       requiresItem, requiresItemLabel, lockedBody, unlockedBody,
       taken: false, unlocked: false,
       lines, material, opacity: 0,
@@ -263,6 +264,7 @@ export function createInteractionSystem({
     inventory?.add(entry.itemId, {
       label: entry.itemLabel || entry.title,
       tooltip: entry.tooltip || entry.body,
+      previewColor: entry.previewColor ?? entry.object?.userData?.dragonColor,
     });
     onTake?.(entry.itemId, entry.id);
     bodyEl.textContent = 'Taken.';

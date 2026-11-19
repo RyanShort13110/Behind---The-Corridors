@@ -8,6 +8,7 @@ import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
 import { createLookControls } from './look.js';
 import { createInventory } from './inventory.js';
+import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
 import { createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z, RECORDS_PHOTO_LOOK_START, RECORDS_PHOTO_LOOK_END } from './levels/records-story.js';
@@ -175,7 +176,7 @@ try {
     actionEl: el.inspectAction,
     inventory,
     onInspect: id => audio.playInteract(id),
-    onTake: () => audio.playInteract('brass-key'),
+    onTake: itemId => audio.playInteract(itemId),
     onUse: (_itemId, targetId) => {
       if (targetId !== 'locked-doorknob') return;
       audio.playUnlock();
@@ -251,7 +252,9 @@ function openItemDetail(item) {
   el.itemDetailBody.textContent = item.tooltip
     || 'An item you are carrying.';
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
-  else {
+  else if (String(item.id).startsWith('stuffed-dragon')) {
+    drawStuffedDragonPreview(el.itemDetailCanvas, item.previewColor ?? 0xf2f0ea);
+  } else {
     const ctx = el.itemDetailCanvas?.getContext('2d');
     ctx?.clearRect(0, 0, el.itemDetailCanvas.width, el.itemDetailCanvas.height);
   }
