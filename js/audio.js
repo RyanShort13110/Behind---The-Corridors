@@ -1371,20 +1371,73 @@ export function createAudioDirector() {
     markSfx(0.45);
   }
 
-  /** Quiet draw + exhale when using a cigarette — close, restrained, not cinematic. */
+  /** Soft breath noise with attack/sustain/release — used for cigarette draw. */
+  function playBreath({
+    duration = 0.5, band = 800, q = 0.55, level = 0.03, pan = 0,
+    attack = 0.1, release = 0.28,
+  } = {}) {
+    if (!enabled || !ctx) return;
+    const length = Math.ceil(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    const attackN = Math.max(1, Math.floor(ctx.sampleRate * attack));
+    const releaseN = Math.max(1, Math.floor(ctx.sampleRate * release));
+    const sustainEnd = Math.max(attackN, length - releaseN);
+    for (let i = 0; i < length; i++) {
+      let env = 1;
+      if (i < attackN) env = i / attackN;
+      else if (i > sustainEnd) env = 1 - (i - sustainEnd) / releaseN;
+      env = Math.max(0, env);
+      data[i] = (Math.random() * 2 - 1) * env * env;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = band;
+    filter.Q.value = q;
+    const gain = ctx.createGain();
+    const peak = level * CORRIDOR_GAIN;
+    const t = ctx.currentTime;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(peak, t + 0.02);
+    gain.gain.setValueAtTime(peak, t + Math.max(0.05, duration - release));
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + duration + 0.02);
+    const spatial = ctx.createStereoPanner?.();
+    if (spatial) {
+      spatial.pan.value = pan;
+      source.connect(filter).connect(gain).connect(spatial).connect(ctx.destination);
+    } else {
+      source.connect(filter).connect(gain).connect(ctx.destination);
+    }
+    source.start(t);
+    source.stop(t + duration + 0.03);
+    source.onended = () => {
+      source.disconnect(); filter.disconnect(); gain.disconnect(); spatial?.disconnect();
+    };
+    markSfx(duration + 0.1);
+  }
+
+  /** Close inhale → exhale when using a cigarette. Audible but restrained. */
   function playCigaretteDraw() {
     if (!enabled || !ctx) return;
     resume();
-    // Inhale — thin air across the lips.
-    playNoiseBurst({ duration: 0.38, band: 980, q: 0.42, level: 0.009, pan: 0 });
-    playTone({ freq: 165, freq2: 88, duration: 0.34, level: 0.005, type: 'sine', pan: 0 });
-    // Exhale — warmer, lower, a touch longer.
+    // Inhale — brighter, shorter air across the lips.
+    playBreath({
+      duration: 0.48, band: 1350, q: 0.5, level: 0.034, pan: 0,
+      attack: 0.08, release: 0.22,
+    });
+    playTone({ freq: 210, freq2: 130, duration: 0.4, level: 0.012, type: 'sine', pan: 0 });
+    // Exhale — warmer, lower, longer; timed with the smoke puff.
     window.setTimeout(() => {
       if (!enabled || !ctx) return;
-      playNoiseBurst({ duration: 0.62, band: 360, q: 0.5, level: 0.012, pan: 0.04 });
-      playTone({ freq: 98, freq2: 62, duration: 0.52, level: 0.006, type: 'sine', pan: 0.03 });
-    }, 460);
-    markSfx(1.15);
+      playBreath({
+        duration: 0.78, band: 480, q: 0.55, level: 0.038, pan: 0.05,
+        attack: 0.12, release: 0.4,
+      });
+      playTone({ freq: 105, freq2: 68, duration: 0.7, level: 0.014, type: 'sine', pan: 0.04 });
+    }, 430);
+    markSfx(1.3);
   }
 
   function enterThreshold() {

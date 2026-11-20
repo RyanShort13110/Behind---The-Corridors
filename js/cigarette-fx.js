@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 /**
- * First-person cigarette exhale — soft puffs locked to the camera view.
- * Uses scene-rooted transparent planes (not camera children) so they always draw.
+ * First-person cigarette exhale — soft puffs tracked to the camera.
+ * Scene-rooted transparent planes (camera children are not drawn by the renderer).
  */
 
 function makeSmokeTexture() {
