@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#05090b" />
   <meta name="description" content="Behind. — An Interactive Psychological Horror Experience." />
   <title>Behind. — 02:17</title>
-  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="./css/style.css?v=steady-zones-1" />
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
 </head>
 <body>
@@ -57,9 +57,16 @@
       <p class="steady__cue" id="steady-cue">STEADY YOURSELF</p>
       <p class="steady__prompt" id="steady-prompt">PRESS X</p>
       <div class="steady__bar" id="steady-bar" aria-hidden="true">
+        <span class="steady__zone steady__zone--partial" id="steady-zone-partial" title="Almost"></span>
+        <span class="steady__zone steady__zone--perfect" id="steady-zone-perfect" title="Perfect"></span>
         <span class="steady__fill"></span>
         <span class="steady__marker" id="steady-marker"></span>
       </div>
+      <p class="steady__legend" id="steady-legend" aria-hidden="true">
+        <span class="steady__legend-item steady__legend-item--partial">ALMOST</span>
+        <span class="steady__legend-item steady__legend-item--perfect">PERFECT</span>
+        <span class="steady__legend-item steady__legend-item--partial">ALMOST</span>
+      </p>
       <p class="steady__hint" id="steady-hint"></p>
       <button type="button" class="steady__tap" id="steady-tap">STEADY</button>
     </div>
@@ -80,6 +87,6 @@
   <div id="scroll-space" aria-hidden="true"></div>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script type="module" src="./js/main.js?v=ward-cry-peak-1"></script>
+  <script type="module" src="./js/main.js?v=steady-zones-1"></script>
 </body>
 </html>

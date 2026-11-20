@@ -72,6 +72,9 @@ const el = {
   steady: $('steady'), steadyCue: $('steady-cue'),
   steadyPrompt: $('steady-prompt'), steadyHint: $('steady-hint'),
   steadyBar: $('steady-bar'), steadyMarker: $('steady-marker'),
+  steadyZonePartial: $('steady-zone-partial'),
+  steadyZonePerfect: $('steady-zone-perfect'),
+  steadyLegend: $('steady-legend'),
   steadyTap: $('steady-tap'),
   gameOver: $('game-over'), gameOverRetry: $('game-over-retry'),
   gameOverRestart: $('game-over-restart'),
@@ -352,6 +355,9 @@ try {
     hintEl: el.steadyHint,
     barEl: el.steadyBar,
     markerEl: el.steadyMarker,
+    partialZoneEl: el.steadyZonePartial,
+    perfectZoneEl: el.steadyZonePerfect,
+    legendEl: el.steadyLegend,
     buttonEl: el.steadyTap,
     onResolve: onSteadyResolved,
     isBlocked: () => gameOverActive || transitioning || ended
@@ -976,7 +982,9 @@ function openItemDetail(item) {
     return;
   }
   openDetailItemId = item.id;
-  el.itemDetailTitle.textContent = item.label || item.id;
+  const stackCount = inventoryStackCountFor(item.id);
+  const baseLabel = item.label || item.id;
+  el.itemDetailTitle.textContent = stackCount > 1 ? `${baseLabel}  ×${stackCount}` : baseLabel;
   el.itemDetailBody.textContent = item.tooltip
     || 'An item you are carrying.';
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
@@ -1002,7 +1010,9 @@ function openItemDetail(item) {
     el.itemDetailUse.hidden = !canUse;
     el.itemDetailUse.dataset.itemId = canUse ? item.id : '';
     el.itemDetailUse.disabled = blockedFull;
-    el.itemDetailUse.textContent = blockedFull ? 'ALREADY STEADY' : 'USE';
+    el.itemDetailUse.textContent = blockedFull
+      ? 'ALREADY STEADY'
+      : (stackCount > 1 ? 'USE ONE' : 'USE');
   }
   el.itemDetail.classList.add('is-open');
   el.itemDetail.setAttribute('aria-hidden', 'false');
@@ -1023,6 +1033,33 @@ function drawCigarettePreview(canvas) {
   ctx.fillRect(x + len * 0.78, y - 0.5, len * 0.18, 8);
   ctx.fillStyle = '#3a3834';
   ctx.fillRect(x - 4, y + 0.5, 5, 6);
+}
+
+/** Stack key — cigarettes share one slot even with unique pickup ids. */
+function inventoryStackKey(item) {
+  if (String(item?.id || '').startsWith('cigarette')) return 'cigarette';
+  return item?.id || '';
+}
+
+function inventoryStacks(list) {
+  const order = [];
+  const map = new Map();
+  for (const item of list) {
+    const key = inventoryStackKey(item);
+    if (!key) continue;
+    if (!map.has(key)) {
+      map.set(key, { key, items: [] });
+      order.push(key);
+    }
+    map.get(key).items.push(item);
+  }
+  return order.map(key => map.get(key));
+}
+
+function inventoryStackCountFor(itemId) {
+  const list = inventory?.list() || [];
+  const key = inventoryStackKey({ id: itemId });
+  return list.filter(item => inventoryStackKey(item) === key).length;
 }
 
 function useInventoryItem(itemId) {
@@ -1046,9 +1083,18 @@ function useInventoryItem(itemId) {
 function renderInventory(items) {
   if (!el.inventory) return;
   const list = items || inventory?.list() || [];
-  el.inventory.innerHTML = list.map(item =>
-    `<button type="button" class="inventory__item" data-item-id="${item.id}">${item.label || item.id}</button>`
-  ).join('');
+  const stacks = inventoryStacks(list);
+  el.inventory.innerHTML = stacks.map(stack => {
+    const item = stack.items[0];
+    const count = stack.items.length;
+    const label = item.label || item.id;
+    const qty = count > 1
+      ? `<span class="inventory__qty" aria-hidden="true">×${count}</span>`
+      : '';
+    const aria = count > 1 ? `${label}, ${count}` : label;
+    return `<button type="button" class="inventory__item" data-item-id="${item.id}" aria-label="${aria}">`
+      + `<span class="inventory__label">${label}</span>${qty}</button>`;
+  }).join('');
   const show = list.length > 0 && started && !ended;
   el.inventory.classList.toggle('is-visible', show);
   el.inventory.setAttribute('aria-hidden', String(!show));

@@ -92,15 +92,6 @@ export const STEADY_ENCOUNTERS = Object.freeze({
     perfectDamage: 4,
     partialDamage: 10,
     tutorial: false,
-    // Faster / tighter than the Level 01 tutorial window.
-    // Mild bump from the first hard pass — snappier, still fair.
-    timing: Object.freeze({
-      warnSec: 0.08,
-      buildupSec: 0.22,
-      perfectSec: 0.16,
-      partialPadSec: 0.12,
-      resolveHoldSec: 0.2,
-    }),
   }),
   'ward-clank': Object.freeze({
     maxDamage: 22,
@@ -113,27 +104,22 @@ export const STEADY_ENCOUNTERS = Object.freeze({
     perfectDamage: 5,
     partialDamage: 10,
     tutorial: false,
-    timing: Object.freeze({
-      warnSec: 0.2,
-      buildupSec: 0.9,
-      perfectSec: 0.45,
-      partialPadSec: 0.35,
-      resolveHoldSec: 0.3,
-    }),
   }),
 });
 
 /**
  * STEADY timing (seconds, wall-clock — not animation frames).
+ * Shared by every encounter — snappy Records-dart pace.
  * Buildup telegraphs the window; perfect is centered; partial surrounds it.
- * Encounters may override via STEADY_ENCOUNTERS[id].timing.
+ * Encounters may still override via STEADY_ENCOUNTERS[id].timing if needed.
  */
 export const STEADY_TIMING = Object.freeze({
-  warnSec: 0.35,
-  buildupSec: 1.5,
-  perfectSec: 0.55,
-  partialPadSec: 0.45,
-  resolveHoldSec: 0.35,
+  // Slightly eased from the first hard pass — still snappy, more hittable.
+  warnSec: 0.12,
+  buildupSec: 0.35,
+  perfectSec: 0.22,
+  partialPadSec: 0.16,
+  resolveHoldSec: 0.22,
 });
 
 export function steadyTimingFor(encounterId) {

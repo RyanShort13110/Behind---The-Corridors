@@ -15,6 +15,9 @@ export function createSteadySystem({
   barEl,
   markerEl,
   buttonEl,
+  partialZoneEl,
+  perfectZoneEl,
+  legendEl,
   onResolve,
   isBlocked = () => false,
 } = {}) {
@@ -29,6 +32,32 @@ export function createSteadySystem({
     if (!root) return;
     root.classList.toggle('is-active', on);
     root.setAttribute('aria-hidden', on ? 'false' : 'true');
+    if (legendEl) legendEl.setAttribute('aria-hidden', on ? 'false' : 'true');
+  }
+
+  function placeZone(el, start, end) {
+    if (!el) return;
+    const left = Math.max(0, Math.min(1, start)) * 100;
+    const right = Math.max(0, Math.min(1, end)) * 100;
+    el.style.left = `${left}%`;
+    el.style.width = `${Math.max(0, right - left)}%`;
+  }
+
+  function layoutZones(t) {
+    const warnEnd = t.warnSec;
+    const buildEnd = warnEnd + t.buildupSec;
+    const perfectStart = buildEnd;
+    const perfectEnd = perfectStart + t.perfectSec;
+    const partialStart = perfectStart - t.partialPadSec;
+    const partialEnd = perfectEnd + t.partialPadSec;
+    const total = Math.max(0.001, partialEnd + t.resolveHoldSec);
+    placeZone(partialZoneEl, partialStart / total, partialEnd / total);
+    placeZone(perfectZoneEl, perfectStart / total, perfectEnd / total);
+    if (markerEl) {
+      const mid = (perfectStart + perfectEnd) / 2 / total;
+      markerEl.style.left = `${Math.round(mid * 100)}%`;
+    }
+    return { total, perfectStart, perfectEnd, partialStart, partialEnd };
   }
 
   function clearUi() {
@@ -38,6 +67,9 @@ export function createSteadySystem({
     if (hintEl) hintEl.textContent = '';
     if (barEl) barEl.style.setProperty('--steady-progress', '0');
     if (markerEl) markerEl.style.left = '50%';
+    placeZone(partialZoneEl, 0, 0);
+    placeZone(perfectZoneEl, 0, 0);
+    root?.classList.remove('is-in-partial', 'is-in-perfect');
   }
 
   function timing() {
@@ -105,11 +137,12 @@ export function createSteadySystem({
     paused = false;
     pausedAccum = 0;
     setVisible(true);
+    layoutZones(steadyTimingFor(id));
     if (cueEl) cueEl.textContent = 'STEADY YOURSELF';
     if (promptEl) promptEl.textContent = 'PRESS X';
     if (hintEl) {
       hintEl.textContent = showTutorial
-        ? 'Hold your nerve — press X as the moment peaks'
+        ? 'Hit the center for PERFECT — the wider band still counts'
         : '';
     }
     if (buttonEl) buttonEl.setAttribute('aria-label', 'Steady yourself');
@@ -134,14 +167,14 @@ export function createSteadySystem({
     const phase = phaseOf(elapsed);
     const progress = Math.max(0, Math.min(1, elapsed / phase.total));
     if (barEl) barEl.style.setProperty('--steady-progress', String(progress));
-    if (markerEl) {
-      const mid = (phase.perfectStart + phase.perfectEnd) / 2 / phase.total;
-      markerEl.style.left = `${Math.round(mid * 100)}%`;
-    }
+    root?.classList.toggle('is-in-perfect', phase.id === 'perfect');
+    root?.classList.toggle('is-in-partial', phase.id === 'partial');
     if (phase.id === 'build' || phase.id === 'warn') {
       if (cueEl) cueEl.textContent = 'STEADY YOURSELF';
       if (promptEl) promptEl.textContent = 'PRESS X';
-    } else if (phase.id === 'perfect' || phase.id === 'partial') {
+    } else if (phase.id === 'perfect') {
+      if (promptEl) promptEl.textContent = 'PERFECT';
+    } else if (phase.id === 'partial') {
       if (promptEl) promptEl.textContent = 'NOW';
     }
     if (elapsed >= phase.total) finish('missed');
