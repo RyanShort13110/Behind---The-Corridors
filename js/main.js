@@ -17,7 +17,7 @@ import {
   composureStage,
 } from './composure.js';
 import { createSteadySystem } from './steady.js';
-import { createCigaretteFx } from './cigarette-fx.js';
+import { createCigaretteFx } from './cigarette-fx.js?v=cig-exhale-7';
 import { createCheckpointStore } from './checkpoint.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
@@ -250,6 +250,8 @@ try {
   $('viewport').appendChild(renderer.domElement);
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(72, 1, 0.07, 65);
+  // Camera must live in the scene graph so camera-local FX (cigarette smoke) render.
+  scene.add(camera);
   camera.position.set(0, 1.7, REAR_CABIN_CAMERA_Z - START_PROGRESS * CORRIDOR_METERS);
   director = createSceneDirector();
   director.add('corridor', createCorridor(scene));
@@ -1145,7 +1147,9 @@ function useInventoryItem(itemId) {
     }
     syncComposureUi();
     audio.playCigaretteDraw?.();
-    if (!reduced && camera) cigaretteFx?.play(camera, { delayMs: 460 });
+    if (!reduced && camera && scene) {
+      cigaretteFx?.play(camera, { delayMs: 460, scene });
+    }
     closeItemDetail();
     renderInventory();
   }
