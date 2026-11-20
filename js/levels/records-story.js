@@ -33,6 +33,7 @@ export function createRecordsStory() {
     // One-shot aisle shadow + shelf head-peek (visual only).
     shadowDartPlay: false,
     shadowDartDone: false,
+    shadowDartSteadyReady: false, // visual streak has begun — safe to arm STEADY
     shadowPeekPlay: false,
     shadowPeekDone: false,
     drawersOpeningNoticed: false,
@@ -77,7 +78,7 @@ export function createRecordsStory() {
       }
       if (current >= 0.62) state.photoPassed = true;
       // Distant aisle drawers begin opening (composure beat; not the discrepancy drawer).
-      if (!state.drawersOpeningNoticed && current >= 0.48 && previous < 0.48) {
+      if (!state.drawersOpeningNoticed && current >= 0.22 && previous < 0.22) {
         state.drawersOpeningNoticed = true;
       }
       // Drawer settles only after the camera is well past it — no onscreen close.
@@ -92,13 +93,13 @@ export function createRecordsStory() {
       ) {
         state.shadowDartPlay = true;
       }
-      // Head peek at the second right shelf stack — after the dart, before the door.
+      // Head peek after the dart near the second right shelf stack.
+      // Level-trigger (not edge-only) so a slow STEADY dart cannot skip this forever.
       if (
         state.shadowDartDone
         && !state.shadowPeekDone
         && !state.shadowPeekPlay
         && state.direction === 'forward'
-        && previous < 0.83
         && current >= 0.83
       ) {
         state.shadowPeekPlay = true;
@@ -205,6 +206,7 @@ export function createRecordsStory() {
         lockedDoorLineDone: false,
         shadowDartPlay: false,
         shadowDartDone: false,
+        shadowDartSteadyReady: false,
         shadowPeekPlay: false,
         shadowPeekDone: false,
         drawersOpeningNoticed: false,

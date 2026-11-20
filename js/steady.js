@@ -4,7 +4,7 @@
  */
 
 import {
-  STEADY_ENCOUNTERS, STEADY_TIMING, steadyDamageFor,
+  STEADY_ENCOUNTERS, STEADY_TIMING, steadyDamageFor, steadyTimingFor,
 } from './composure.js';
 
 export function createSteadySystem({
@@ -40,8 +40,12 @@ export function createSteadySystem({
     if (markerEl) markerEl.style.left = '50%';
   }
 
+  function timing() {
+    return steadyTimingFor(active?.id);
+  }
+
   function phaseOf(elapsed) {
-    const t = STEADY_TIMING;
+    const t = timing();
     const warnEnd = t.warnSec;
     const buildEnd = warnEnd + t.buildupSec;
     const perfectStart = buildEnd;
@@ -76,11 +80,12 @@ export function createSteadySystem({
     if (promptEl) promptEl.textContent = '';
     const payload = { ...lastResult };
     const encounterId = active.id;
+    const holdMs = (steadyTimingFor(encounterId).resolveHoldSec || STEADY_TIMING.resolveHoldSec) * 1000;
     window.setTimeout(() => {
       clearUi();
       active = null;
       onResolve?.(payload, encounterId);
-    }, STEADY_TIMING.resolveHoldSec * 1000);
+    }, holdMs);
   }
 
   function begin(id, { forceTutorial = false } = {}) {

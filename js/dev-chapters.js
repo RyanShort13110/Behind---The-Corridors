@@ -14,13 +14,19 @@ const OPTIONS = [
 ];
 
 const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
+const STORAGE_KEY = 'behind.devPanelCollapsed';
 
 export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
-  panel.setAttribute('aria-label', 'Developer chapter navigation');
+  panel.setAttribute('aria-label', 'Developer tools');
   panel.innerHTML = `
-    <div class="dev-chapters__title">DEV / CHAPTER JUMP</div>
+    <div class="dev-chapters__head">
+      <div class="dev-chapters__title">DEV TOOLS</div>
+      <button type="button" class="dev-chapters__toggle" id="dev-panel-toggle" aria-expanded="true" aria-controls="dev-panel-body" title="Collapse or expand (Ctrl+Shift+D)">HIDE</button>
+    </div>
+    <div class="dev-chapters__body" id="dev-panel-body">
+    <div class="dev-chapters__title">CHAPTER JUMP</div>
     <div class="dev-chapters__row">
       <label class="sr-only" for="dev-chapter-choice">Chapter to load</label>
       <select id="dev-chapter-choice">
@@ -86,12 +92,35 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
       </div>
       <p class="dev-chapters__status" id="dev-composure-status" aria-live="polite">Composure: —</p>
     </div>
-    <p class="dev-chapters__status" aria-live="polite">Current: 01 — The Corridor</p>
+    <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
+    </div>
   `;
   document.body.appendChild(panel);
+  const toggle = panel.querySelector('#dev-panel-toggle');
+  const setCollapsed = (collapsed) => {
+    panel.classList.toggle('is-collapsed', collapsed);
+    toggle.textContent = collapsed ? 'SHOW' : 'HIDE';
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    try { sessionStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0'); } catch (_) { /* private mode */ }
+  };
+  toggle.addEventListener('click', () => {
+    setCollapsed(!panel.classList.contains('is-collapsed'));
+  });
+  window.addEventListener('keydown', (event) => {
+    if (!(event.ctrlKey && event.shiftKey && (event.code === 'KeyD' || event.key === 'D' || event.key === 'd'))) {
+      return;
+    }
+    if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+    event.preventDefault();
+    setCollapsed(!panel.classList.contains('is-collapsed'));
+  });
+  try {
+    if (sessionStorage.getItem(STORAGE_KEY) === '1') setCollapsed(true);
+  } catch (_) { /* ignore */ }
+
   const picker = panel.querySelector('#dev-chapter-choice');
   const go = panel.querySelector('#dev-chapter-go');
-  const status = panel.querySelector('.dev-chapters__status:last-of-type');
+  const status = panel.querySelector('#dev-chapter-status');
   const checkpointRow = panel.querySelector('#dev-checkpoint-row');
   const checkpointPicker = panel.querySelector('#dev-checkpoint-choice');
   const memoryCheckpointRow = panel.querySelector('#dev-memory-checkpoint-row');

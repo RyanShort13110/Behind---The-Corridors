@@ -36,10 +36,11 @@ export function createRecords(scene) {
     glass: new THREE.MeshStandardMaterial({ color: 0x728681, roughness: 0.36, transparent: true, opacity: 0.35, depthWrite: false }),
     // One-shot aisle dart — unlit so it reads as a void, not a lit prop.
     dart: new THREE.MeshBasicMaterial({
-      color: 0x040505,
+      color: 0x050607,
       transparent: true,
       opacity: 0,
       depthWrite: false,
+      fog: false,
     }),
   };
 
@@ -122,14 +123,12 @@ export function createRecords(scene) {
   movingDrawer.name = 'File drawer / open on arrival';
   world.add(movingDrawer);
   // A few rows past the sorting table, still well short of the exit shelves.
-  // Fully open before the player reaches the table so the bodies/folders read
-  // clearly ahead down the aisle (front plates alone are edge-on and invisible).
-  // row 8 → z≈-35.2, row 9 → z≈-38.2, row 10 → z≈-41.2
-  // startAt/endAt = scroll progress (0→1). Raise both to open later; lower to open sooner.
+  // Open in the near mid-aisle — far enough ahead to read, close enough to beat fog.
+  // row 5 → z≈-26.2, row 6 → z≈-29.2, row 7 → z≈-32.2
   const distantOpeners = [
-    { side: -1, row: 8, tray: 1, open: 0.42, startAt: 0.48, endAt: 0.62, group: null },
-    { side: 1, row: 9, tray: 2, open: 0.46, startAt: 0.52, endAt: 0.66, group: null },
-    { side: -1, row: 10, tray: 0, open: 0.40, startAt: 0.56, endAt: 0.70, group: null },
+    { side: -1, row: 5, tray: 1, open: 0.95, startAt: 0.28, endAt: 0.42, group: null },
+    { side: 1, row: 6, tray: 2, open: 0.98, startAt: 0.32, endAt: 0.46, group: null },
+    { side: -1, row: 7, tray: 0, open: 0.92, startAt: 0.36, endAt: 0.50, group: null },
   ];
   for (const spec of distantOpeners) {
     const group = new THREE.Group();
@@ -291,16 +290,18 @@ export function createRecords(scene) {
   const DART_Z = -48.15;
   const DART_X0 = -3.15;
   const DART_X1 = 3.15;
-  // Telegraph aligns with STEADY buildup (~warn+buildup) before the flash.
-  const DART_TELEGRAPH = 1.85;
-  const DART_DURATION = 0.22;
+  // Visible streak begins quickly; STEADY can still run in parallel for damage.
+  // (A long invisible telegraph made this beat feel "missing" during the QTE.)
+  const DART_TELEGRAPH = 0.15;
+  // Faster cross so the blot reads as a dart, not a stroll (was 1.05 → 0.72 → 0.45).
+  const DART_DURATION = 0.28;
   const dart = new THREE.Group();
   dart.name = 'Records aisle shadow dart';
   dart.visible = false;
   dart.position.set(DART_X0, 1.05, DART_Z);
   world.add(dart);
-  box(0.48, 1.72, 0.28, 0, 0, 0, mat.dart, dart);
-  box(0.32, 0.55, 0.22, 0.02, 0.95, 0.02, mat.dart, dart);
+  box(0.62, 1.95, 0.36, 0, 0, 0, mat.dart, dart);
+  box(0.40, 0.62, 0.28, 0.02, 1.05, 0.02, mat.dart, dart);
   let dartPlaying = false;
   let dartAge = 0;
   let dartFlashed = false;
@@ -388,10 +389,33 @@ export function createRecords(scene) {
         const eased = t * t * (3 - 2 * t);
         // Toward aisle: left cabinets +X, right cabinets -X.
         const target = -spec.side * spec.open * eased;
-        spec.group.position.x = reduced
-          ? target
-          : spec.group.position.x + (target - spec.group.position.x)
-              * (1 - Math.exp(-dt * 1.6));
+        // Always snap under reduced motion; otherwise ease, but never lag so far
+        // that a fast scroll leaves them closed when the beat has already passed.
+        if (reduced || t >= 1) spec.group.position.x = target;
+        else {
+          spec.group.position.x = spec.group.position.x
+            + (target - spec.group.position.x) * (1 - Math.exp(-dt * 3.2));
+        }
+      }
+
+      // Dev probe — confirms story + visual sync while diagnosing.
+      if (typeof window !== 'undefined') {
+        window.__recordsDebug = {
+          progress: Number(progress.toFixed(3)),
+          reduced: Boolean(reduced),
+          dartPlay: Boolean(state.shadowDartPlay),
+          dartDone: Boolean(state.shadowDartDone),
+          peekPlay: Boolean(state.shadowPeekPlay),
+          peekDone: Boolean(state.shadowPeekDone),
+          drawers: distantOpeners.map(spec => ({
+            row: spec.row,
+            x: Number(spec.group.position.x.toFixed(3)),
+            children: spec.group.children.length,
+          })),
+          dartVisible: dart.visible,
+          dartOpacity: Number(mat.dart.opacity.toFixed(3)),
+          dartAge: Number(dartAge.toFixed(3)),
+        };
       }
 
       // Aisle shadow: telegraph for STEADY, then a short streak (no jump scare).
@@ -414,8 +438,10 @@ export function createRecords(scene) {
         } else if (dartAge < DART_TELEGRAPH) {
           dart.visible = false;
           mat.dart.opacity = 0;
+          state.shadowDartSteadyReady = false;
         } else {
           dartFlashed = true;
+          state.shadowDartSteadyReady = true;
           const flashAge = dartAge - DART_TELEGRAPH;
           const u = Math.min(1, flashAge / DART_DURATION);
           const streak = u * u * (2 - u);
@@ -423,13 +449,14 @@ export function createRecords(scene) {
           dart.position.x = DART_X0 + (DART_X1 - DART_X0) * streak;
           dart.position.y = 1.05 + Math.sin(u * Math.PI) * 0.04;
           const edge = Math.sin(Math.min(1, Math.max(0, u)) * Math.PI);
-          mat.dart.opacity = 0.92 * edge;
+          mat.dart.opacity = Math.max(0.15, 1.0 * edge);
           if (u >= 1) {
             dartPlaying = false;
             dart.visible = false;
             mat.dart.opacity = 0;
             state.shadowDartDone = true;
             state.shadowDartPlay = false;
+            state.shadowDartSteadyReady = false;
           }
         }
       } else if (state.shadowDartDone) {
@@ -438,12 +465,19 @@ export function createRecords(scene) {
       }
 
       // Head peek from behind the second right shelf stack.
-      if (state.shadowPeekPlay && !state.shadowPeekDone && !reduced && !peekPlaying) {
-        peekPlaying = true;
-        peekAge = 0;
-        peek.visible = true;
-        peek.position.set(PEEK_X_HIDE, PEEK_Y, PEEK_Z);
-        peekMat.opacity = 0;
+      if (state.shadowPeekPlay && !state.shadowPeekDone && !peekPlaying) {
+        if (reduced) {
+          state.shadowPeekDone = true;
+          state.shadowPeekPlay = false;
+          peek.visible = false;
+          peekMat.opacity = 0;
+        } else {
+          peekPlaying = true;
+          peekAge = 0;
+          peek.visible = true;
+          peek.position.set(PEEK_X_HIDE, PEEK_Y, PEEK_Z);
+          peekMat.opacity = 0;
+        }
       }
       if (peekPlaying) {
         peekAge += Math.max(0, dt);
@@ -452,7 +486,7 @@ export function createRecords(scene) {
         const flare = Math.sin(u * Math.PI);
         peek.position.x = PEEK_X_HIDE + (PEEK_X_SHOW - PEEK_X_HIDE) * flare;
         // Soft blot — never fully solid.
-        peekMat.opacity = 0.58 * Math.min(1, flare * 1.25);
+        peekMat.opacity = 0.72 * Math.min(1, flare * 1.25);
         if (u >= 1) {
           peekPlaying = false;
           peek.visible = false;
@@ -460,7 +494,7 @@ export function createRecords(scene) {
           state.shadowPeekDone = true;
           state.shadowPeekPlay = false;
         }
-      } else if (reduced || state.shadowPeekDone) {
+      } else if (state.shadowPeekDone) {
         peek.visible = false;
         peekMat.opacity = 0;
       }

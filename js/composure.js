@@ -87,12 +87,22 @@ export const STEADY_ENCOUNTERS = Object.freeze({
     perfectDamage: 4,
     partialDamage: 10,
     tutorial: false,
+    // Faster / tighter than the Level 01 tutorial window.
+    // Mild bump from the first hard pass — snappier, still fair.
+    timing: Object.freeze({
+      warnSec: 0.08,
+      buildupSec: 0.22,
+      perfectSec: 0.16,
+      partialPadSec: 0.12,
+      resolveHoldSec: 0.2,
+    }),
   }),
 });
 
 /**
  * STEADY timing (seconds, wall-clock — not animation frames).
  * Buildup telegraphs the window; perfect is centered; partial surrounds it.
+ * Encounters may override via STEADY_ENCOUNTERS[id].timing.
  */
 export const STEADY_TIMING = Object.freeze({
   warnSec: 0.35,
@@ -101,6 +111,11 @@ export const STEADY_TIMING = Object.freeze({
   partialPadSec: 0.45,
   resolveHoldSec: 0.35,
 });
+
+export function steadyTimingFor(encounterId) {
+  const override = STEADY_ENCOUNTERS[encounterId]?.timing;
+  return override ? { ...STEADY_TIMING, ...override } : STEADY_TIMING;
+}
 
 export function composureStage(value) {
   const v = Math.max(0, Math.min(COMPOSURE_MAX, value));

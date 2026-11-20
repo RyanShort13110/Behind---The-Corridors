@@ -1182,7 +1182,7 @@ async function enterRecords() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js');
+    const { createRecords } = await import('./levels/records.js?v=dart-fast-3');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
@@ -1410,7 +1410,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js');
+      const { createRecords } = await import('./levels/records.js?v=dart-fast-3');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js');
@@ -1923,7 +1923,8 @@ function frame(now) {
     if (chapterId === 'office' && officeStory.state.soundTriggered) {
       beginSteadyEncounter('office-latch');
     }
-    if (chapterId === 'records' && recordsStory.state.shadowDartPlay) {
+    // Arm STEADY only once the dart streak is actually on-screen.
+    if (chapterId === 'records' && recordsStory.state.shadowDartSteadyReady) {
       beginSteadyEncounter('records-dart');
     }
 
@@ -1946,6 +1947,17 @@ function frame(now) {
     } else if (chapterId === 'records') {
       director.update(p, recordsStory.state, dt, reduced);
       audio.updateRecords(p, recordsStory.state);
+      if (typeof window !== 'undefined') {
+        window.__behindFrame = {
+          chapterId,
+          p: Number(p.toFixed(3)),
+          reduced: Boolean(reduced),
+          dartPlay: Boolean(recordsStory.state.shadowDartPlay),
+          dartDone: Boolean(recordsStory.state.shadowDartDone),
+          drawersNoticed: Boolean(recordsStory.state.drawersOpeningNoticed),
+          recordsDebug: window.__recordsDebug || null,
+        };
+      }
     } else if (chapterId === 'night') {
       director.update(p, nightStory.state, dt, reduced);
       audio.updateNight(p, nightStory.state);
