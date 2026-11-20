@@ -37,7 +37,10 @@ export const WARD_BALANCE = Object.freeze({
   clankWarnProgress: 0.58,
   clankPeakProgress: 0.50,
   clankWarnSec: 1.05,
-  // Crying — only after clank fully resolved (clankDone)
+  // Keep the Ward footsteps (~4.2s) and a quiet 1.5s beat distinct from crying.
+  footstepsDurationSec: 4.25,
+  footstepsQuietSec: 1.5,
+  // Crying — only after the footsteps have finished and the quiet beat has passed.
   cryStartProgress: 0.40,
   cryPeakIntensity: 0.90,
   cryApproachSec: 12.5,
@@ -94,6 +97,7 @@ function blankState() {
     // Encounter 2 — fast footsteps after creak (atmospheric; no STEADY / no damage)
     clankWarning: false,
     clankWarnElapsed: 0,
+    footstepsElapsed: 0,
     clankReady: false,
     clankTriggered: false,
     clankSteadyReady: false, // unused — kept so checkpoints/debug stay compatible
@@ -281,6 +285,7 @@ export function createHospitalReverseStory() {
     ) {
       state.clankWarning = true;
       state.clankWarnElapsed = 0;
+      state.footstepsElapsed = 0;
       state.activeThreat = 'clank-warn';
       setCaption('[footsteps behind you]', 2.4);
     }
@@ -301,10 +306,17 @@ export function createHospitalReverseStory() {
       }
     }
 
-    // --- Encounter 3: crying — requires clankDone ---
+    // The footstep audio continues after its peak marker. Let the full sequence
+    // finish, then leave a short silent beat before any crying can begin.
+    if (state.clankWarning && !state.cryingStarted) {
+      state.footstepsElapsed += Math.max(0, dt);
+    }
+
+    // --- Encounter 3: crying — requires finished footsteps + quiet beat ---
     if (
       state.reverseStarted
       && state.clankDone
+      && state.footstepsElapsed >= B.footstepsDurationSec + B.footstepsQuietSec
       && !state.cryingStarted
       && current <= B.cryStartProgress
     ) {
@@ -495,6 +507,8 @@ export function createHospitalReverseStory() {
         state.clankTriggered = true;
         state.clankDone = true;
         state.clankResult = 'perfect';
+        // This checkpoint skips the footsteps, so don't wait through their gap.
+        state.footstepsElapsed = B.footstepsDurationSec + B.footstepsQuietSec;
         state.mutateGurneyEligible = true;
         state.mutateGurney = true;
         state.mutateWheelchairEligible = true;
