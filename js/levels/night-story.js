@@ -152,21 +152,21 @@ export function createNightStory() {
 }
 
 /**
- * One quiet internal thought after the chair settles. The player sees the
- * lamp fade, the room cool and the exit ahead without further narration.
+ * Two restrained observations: the opening feels different, and the deeper
+ * hallway is noticeably colder. Let the lamp and chair speak for themselves.
  * Keep instructions even while the narrative subtitle is absent.
  */
 export function nightNarrative(progress, state) {
   const chapter = '04 — THE NIGHT SHIFT';
   if (state.completed) return { chapter, line: '', instruction: ' ' };
 
-  const afterChair = state.lampOut && !state.hush
+  const inColdHall = state.coldHall
     && state.direction !== 'backward'
-    && state.absenceElapsed >= 4.0 && state.absenceElapsed < 6.4;
+    && progress >= NIGHT_COLD_START && progress < 0.70;
 
   return {
     chapter,
-    line: afterChair ? 'I thought someone was here.'
+    line: inColdHall ? 'Much colder back here.'
       : progress < 0.12 && !state.absenceArmed ? 'This floor feels different.' : '',
     instruction: 'SCROLL UP TO CONTINUE ↑',
   };
