@@ -1,6 +1,6 @@
 # BEHIND. — Living Story Bible
 
-**Status:** Working draft / synchronized with playable Levels 01–02, November 2026  
+**Status:** Working draft / synchronized with playable Levels 01–03, November 2026. Ordinary progression stops after Records while Levels 04–06 are revamped (`?debug=1` still reaches them).  
 **Genre:** Interactive first-person psychological horror web film  
 **Target:** Approximately 10 chapters, 45–60+ minutes in its eventual complete form  
 **Creative rule:** *The building doesn't chase you. It waits for you to look away.*
@@ -252,7 +252,8 @@ Instructional UI still teaches backtracking; control text is not protagonist dia
 **Architecture:** Lower ceiling, older cabinets with repeating file drawers, receiving counter, a quiet sorting station, box storage, and an already-open passage onward.  
 **Motif:** The face-down photograph rests on the sorting surface around the middle of the level. The camera never turns to see its contents, and no front artwork is created or loaded. The protagonist thinks only: **“Leave it.”**  
 **Environmental memory:** A right-side drawer is visibly ajar on the first pass. After the player passes it, it settles shut out of view. Backtracking may reveal the discrepancy, but is not required.  
-**Exit:** A partially open doorway into another administrative space.
+**Exit:** A partially open doorway into another administrative space.  
+**Build gate (temporary):** Completing Records shows the end card with **no** Continue into Night Shift. Levels 04–06 remain in the build for `?debug=1` only while they are revamped.
 
 ### Why Level 03 breaks the Level 01–02 return pattern
 

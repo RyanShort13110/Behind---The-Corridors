@@ -530,11 +530,12 @@ function setEndCard(which) {
     el.continue.textContent = 'CONTINUE INTO THE RECORDS ↑';
     el.continue.hidden = false;
   } else if (which === 'records') {
+    // Soft content gate: later chapters exist for debug, but ordinary play stops here
+    // while Levels 04–06 are revamped.
     el.endingEyebrow.textContent = 'LEVEL 03 COMPLETE · THE RECORDS';
     el.endingTitle.innerHTML = 'END OF<br>THE ROW.';
-    el.endingCopy.textContent = 'The doorway ahead opens onto another wing.';
-    el.continue.textContent = 'CONTINUE INTO THE NIGHT SHIFT ↑';
-    el.continue.hidden = false;
+    el.endingCopy.textContent = 'That is as far as this build goes for now.';
+    el.continue.hidden = true;
   } else if (which === 'night') {
     el.endingEyebrow.textContent = 'LEVEL 04 COMPLETE · THE NIGHT SHIFT';
     el.endingTitle.innerHTML = 'ONE MORE<br>STEP.';
@@ -997,7 +998,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
 function continueChapter() {
   if (chapterId === 'corridor') return enterOffice();
   if (chapterId === 'office') return enterRecords();
-  if (chapterId === 'records') return enterNightShift();
+  // Records is the current playable end — do not continue into Night Shift.
+  if (chapterId === 'records') return;
   if (chapterId === 'night') return enterThreshold();
   if (chapterId === 'threshold') return enterUnseen();
 }
