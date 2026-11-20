@@ -12,10 +12,12 @@ import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import {
   createComposure, COMPOSURE_MAX, CIGARETTE_RESTORE, COMPOSURE_HITS,
-  CIGARETTE_TOOLTIP, CIGARETTE_LABEL, COMPOSURE_CONFIG, STEADY_ENCOUNTERS,
+  CIGARETTE_TOOLTIP, CIGARETTE_FLAVOR, cigaretteEffectLine, fillCopyWithEffect,
+  CIGARETTE_LABEL, COMPOSURE_CONFIG, STEADY_ENCOUNTERS,
   composureStage,
 } from './composure.js';
 import { createSteadySystem } from './steady.js';
+import { createCigaretteFx } from './cigarette-fx.js';
 import { createCheckpointStore } from './checkpoint.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
@@ -115,6 +117,7 @@ let displayed = START_PROGRESS;
 let activeBeat = -1;
 let ended = false;
 let renderer, camera, scene, director, monitor, interaction, look, inventory, keypad;
+let cigaretteFx = createCigaretteFx();
 let memoryEnterTimer = 0;
 let lastTime = performance.now();
 let scrollTrigger = null;
@@ -1036,8 +1039,15 @@ function openItemDetail(item) {
   const stackCount = inventoryStackCountFor(item.id);
   const baseLabel = item.label || item.id;
   el.itemDetailTitle.textContent = stackCount > 1 ? `${baseLabel}  ×${stackCount}` : baseLabel;
-  el.itemDetailBody.textContent = item.tooltip
-    || 'An item you are carrying.';
+  if (String(item.id).startsWith('cigarette')) {
+    fillCopyWithEffect(
+      el.itemDetailBody,
+      CIGARETTE_FLAVOR,
+      cigaretteEffectLine(item.restoreAmount ?? CIGARETTE_RESTORE),
+    );
+  } else {
+    el.itemDetailBody.textContent = item.tooltip || 'An item you are carrying.';
+  }
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
   else if (item.id === 'sticky-note') {
     drawStickyNotePreview(el.itemDetailCanvas, officeStory.state.keypadCode);
@@ -1051,9 +1061,6 @@ function openItemDetail(item) {
   } else {
     const ctx = el.itemDetailCanvas?.getContext('2d');
     ctx?.clearRect(0, 0, el.itemDetailCanvas.width, el.itemDetailCanvas.height);
-  }
-  if (String(item.id).startsWith('cigarette')) {
-    el.itemDetailBody.textContent = item.tooltip || CIGARETTE_TOOLTIP;
   }
   if (el.itemDetailUse) {
     const canUse = Boolean(item.consumable);
@@ -1118,9 +1125,11 @@ function useInventoryItem(itemId) {
   if (!item?.consumable) return;
   if (String(itemId).startsWith('cigarette')) {
     if (composure.isFull) {
-      el.itemDetailBody.textContent =
-        'Already steady. Save it for later.\n'
-        + `Restores ${item.restoreAmount ?? CIGARETTE_RESTORE} composure`;
+      fillCopyWithEffect(
+        el.itemDetailBody,
+        'Already steady. Save it for later.',
+        cigaretteEffectLine(item.restoreAmount ?? CIGARETTE_RESTORE),
+      );
       return;
     }
     inventory.remove(itemId);
@@ -1135,7 +1144,8 @@ function useInventoryItem(itemId) {
       }, 720);
     }
     syncComposureUi();
-    audio.playInteract?.(itemId);
+    audio.playCigaretteDraw?.();
+    if (!reduced && camera) cigaretteFx?.play(camera, { delayMs: 460 });
     closeItemDetail();
     renderInventory();
   }
@@ -1411,7 +1421,7 @@ async function enterNightShift() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createNightShift } = await import('./levels/night.js?v=night-absence-1');
+    const { createNightShift } = await import('./levels/night.js?v=night-absence-6');
     module = createNightShift(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1599,7 +1609,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createRecords } = await import('./levels/records.js?v=drawer-ajar-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=night-absence-1');
+      const { createNightShift } = await import('./levels/night.js?v=night-absence-6');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
       const { createThreshold } = await import('./levels/threshold.js');
@@ -2282,6 +2292,7 @@ function frame(now) {
     }
     updateNarrative(p);
   }
+  cigaretteFx?.update(dt);
   renderer.render(scene, camera);
   devChapterUI?.sync(chapterId);
   monitor?.update(dt, started, !document.hidden);
@@ -2291,6 +2302,7 @@ requestAnimationFrame(frame);
 window.addEventListener('pagehide', () => {
   scrollTrigger?.kill();
   audio.dispose();
+  cigaretteFx?.dispose();
   interaction?.dispose();
   look?.dispose();
   director?.dispose();

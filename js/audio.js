@@ -1371,6 +1371,22 @@ export function createAudioDirector() {
     markSfx(0.45);
   }
 
+  /** Quiet draw + exhale when using a cigarette — close, restrained, not cinematic. */
+  function playCigaretteDraw() {
+    if (!enabled || !ctx) return;
+    resume();
+    // Inhale — thin air across the lips.
+    playNoiseBurst({ duration: 0.38, band: 980, q: 0.42, level: 0.009, pan: 0 });
+    playTone({ freq: 165, freq2: 88, duration: 0.34, level: 0.005, type: 'sine', pan: 0 });
+    // Exhale — warmer, lower, a touch longer.
+    window.setTimeout(() => {
+      if (!enabled || !ctx) return;
+      playNoiseBurst({ duration: 0.62, band: 360, q: 0.5, level: 0.012, pan: 0.04 });
+      playTone({ freq: 98, freq2: 62, duration: 0.52, level: 0.006, type: 'sine', pan: 0.03 });
+    }, 460);
+    markSfx(1.15);
+  }
+
   function enterThreshold() {
     setGain(nightAirGain, 0, 0.025);
     setGain(nightDroneGain, 0, 0.025);
@@ -2357,6 +2373,7 @@ export function createAudioDirector() {
     playWardSqueak, playWardClankWarn, playWardClank, playWardProximity,
     playWardDoorButton, playWardDoorFail, playWardDoorOpen,
     playNightLampDying, playNightChairSettle,
+    playCigaretteDraw,
     playComposureHit,
     setWardCryVolume, getWardCryVolume, stopWardCry, cancelWardDelayedSfx,
     get wardCryUsesHrtf() { return wardCryUseHrtf; },

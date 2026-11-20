@@ -110,12 +110,21 @@ export function createInteractionSystem({
     panel.setAttribute('aria-hidden', String(!openId));
     if (entry) {
       titleEl.textContent = entry.title;
+      let body = entry.body;
       if (entry.requiresItem && !entry.unlocked) {
-        bodyEl.textContent = entry.lockedBody || entry.body;
+        body = entry.lockedBody || entry.body;
       } else if (entry.unlocked && entry.unlockedBody) {
-        bodyEl.textContent = entry.unlockedBody;
+        body = entry.unlockedBody;
+      }
+      if (entry.bodyEffect && body === entry.body) {
+        bodyEl.replaceChildren();
+        bodyEl.append(document.createTextNode(body));
+        const effect = document.createElement('span');
+        effect.className = 'copy-effect';
+        effect.textContent = entry.bodyEffect;
+        bodyEl.append(effect);
       } else {
-        bodyEl.textContent = entry.body;
+        bodyEl.textContent = body;
       }
     }
     refreshAction();
@@ -127,7 +136,7 @@ export function createInteractionSystem({
 
   function register(spec) {
     const {
-      id, object, title, body, radius = 3.4, tooltip = null,
+      id, object, title, body, bodyEffect = null, radius = 3.4, tooltip = null,
       onlyAfterBacktrack = false, onlyAfterSecondApproach = false,
       takeable = false, itemId = null, itemLabel = null,
       previewColor = null, kind = 'inspect',
@@ -140,7 +149,7 @@ export function createInteractionSystem({
     const meshes = pickMeshes || collectMeshes(object);
     const { lines, material } = makeMeshOutlines(meshes);
     const entry = {
-      id, object, title, body, tooltip, radius, kind,
+      id, object, title, body, bodyEffect, tooltip, radius, kind,
       onlyAfterBacktrack, onlyAfterSecondApproach, takeable, itemId, itemLabel, previewColor,
       requiresItem, requiresItemLabel, lockedBody, unlockedBody, consumesItem,
       consumable, restoreAmount, stayAvailable,

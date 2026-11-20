@@ -51,6 +51,7 @@ body.debug-performance .perf-hud{display:block}
 .inspect.is-open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
 .inspect-title{margin:0 0 12px;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.28em;color:#c98982;text-transform:uppercase}
 .inspect-body{margin:0;font:300 clamp(16px,2.4vw,22px)/1.35 Arial,Helvetica,sans-serif;letter-spacing:-.02em;color:#dce8e6;text-shadow:0 2px 18px #000}
+.inspect-body .copy-effect,.item-detail-body .copy-effect{display:block;margin-top:.55em;font-size:.68em;line-height:1.35;letter-spacing:.02em;font-weight:400;color:#9aada8;text-shadow:none}
 .inspect-hint{margin:16px 0 0;font:10px/1 'Courier New',monospace;letter-spacing:.16em;color:#7f908c}
 .inspect-close{position:absolute;top:12px;right:14px;border:0;background:transparent;color:#9aada8;font:10px/1 'Courier New',monospace;letter-spacing:.14em;padding:6px}
 .inspect-close:hover,.inspect-close:focus-visible{color:#fff}

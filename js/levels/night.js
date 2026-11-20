@@ -24,9 +24,11 @@ export function createNightShift(scene) {
     tiles: new THREE.MeshStandardMaterial({ color: 0x5a564e, roughness: 0.9 }),
     baseboard: new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.75 }),
     wood: new THREE.MeshStandardMaterial({ color: 0x6b5544, roughness: 0.87 }),
+    laminate: new THREE.MeshStandardMaterial({ color: 0x8a8174, roughness: 0.82 }),
     upholstery: new THREE.MeshStandardMaterial({ color: 0x4a4038, roughness: 0.97 }),
     upholstery2: new THREE.MeshStandardMaterial({ color: 0x5c5348, roughness: 0.98 }),
     metal: new THREE.MeshStandardMaterial({ color: 0x6a6660, roughness: 0.67, metalness: 0.24 }),
+    appliance: new THREE.MeshStandardMaterial({ color: 0x9a968e, roughness: 0.42, metalness: 0.38 }),
     dark: new THREE.MeshStandardMaterial({ color: 0x241f1a, roughness: 0.85 }),
     ceramic: new THREE.MeshStandardMaterial({ color: 0xc9bda8, roughness: 0.77 }),
     fabric: new THREE.MeshStandardMaterial({ color: 0x3d4a5c, roughness: 0.92 }),
@@ -75,32 +77,82 @@ export function createNightShift(scene) {
   add(0.12, 2.8, 0.18, 1.50, 1.4, 3.18, mat.metal);
   add(3.16, 0.17, 0.18, 0, 2.85, 3.18, mat.metal);
 
-  // Kitchenette — ordinary overnight life left mid-ritual.
-  add(2.55, 0.11, 0.74, -3.75, 1.05, -13.1, mat.wood);
-  add(2.45, 1.05, 0.63, -3.75, 0.50, -13.15, mat.wallDarker);
-  add(0.7, 0.028, 0.39, -3.1, 1.122, -13.04, mat.metal);
-  add(0.37, 0.022, 0.16, -3.1, 1.145, -13.04, mat.dark);
-  add(0.048, 0.32, 0.044, -3.3, 1.29, -13.25, mat.metal);
-  add(0.22, 0.04, 0.048, -3.2, 1.45, -13.25, mat.metal);
-  for (const x of [-4.55, -3.92, -3.28]) {
-    add(0.56, 0.69, 0.025, x, 0.49, -12.79, mat.wood);
-    add(0.13, 0.025, 0.027, x + 0.18, 0.52, -12.77, mat.metal);
+  // Breakroom kitchen — fridge, counter run, uppers; ordinary overnight life.
+  // Fridge (toward the entrance end of the run).
+  add(0.72, 1.78, 0.70, -5.22, 0.92, -11.35, mat.appliance);
+  add(0.02, 1.68, 0.64, -4.85, 0.92, -11.35, mat.metal);
+  add(0.04, 0.55, 0.04, -4.82, 1.35, -11.12, mat.dark);
+  add(0.04, 0.42, 0.04, -4.82, 0.55, -11.12, mat.dark);
+  add(0.68, 0.02, 0.66, -5.22, 1.38, -11.35, mat.dark); // freezer seam
+  // Base cabinets + laminate counter along the left wall.
+  add(0.74, 0.11, 3.15, -5.28, 1.05, -13.55, mat.laminate);
+  add(0.63, 1.05, 3.05, -5.28, 0.50, -13.55, mat.wallDarker);
+  // Tile backsplash strip.
+  add(0.04, 0.52, 3.10, -5.58, 1.40, -13.55, mat.tiles);
+  // Sink + faucet.
+  add(0.39, 0.028, 0.7, -5.05, 1.122, -13.05, mat.metal);
+  add(0.16, 0.022, 0.37, -5.05, 1.145, -13.05, mat.dark);
+  add(0.044, 0.32, 0.048, -5.43, 1.29, -13.25, mat.metal);
+  add(0.22, 0.04, 0.048, -5.32, 1.45, -13.25, mat.metal);
+  for (const z of [-14.7, -13.95, -13.2, -12.45]) {
+    add(0.025, 0.69, 0.58, -4.94, 0.49, z, mat.wood);
+    add(0.027, 0.025, 0.13, -4.92, 0.52, z + 0.18, mat.metal);
   }
   // Tea towel hanging off a cupboard edge.
-  add(0.28, 0.42, 0.02, -3.55, 0.55, -12.76, mat.fabric);
+  add(0.02, 0.42, 0.28, -4.92, 0.55, -13.35, mat.fabric);
+  // Wall cabinets above the run.
+  add(0.42, 0.62, 3.05, -5.40, 2.42, -13.55, mat.wood);
+  for (const z of [-14.7, -13.95, -13.2, -12.45]) {
+    add(0.02, 0.52, 0.58, -5.18, 2.42, z, mat.laminate);
+    add(0.025, 0.025, 0.12, -5.16, 2.42, z + 0.16, mat.metal);
+  }
+  // Microwave on the counter (far end of the run).
+  add(0.42, 0.28, 0.52, -5.05, 1.30, -14.65, mat.dark);
+  add(0.01, 0.16, 0.22, -4.83, 1.32, -14.65, mat.glass);
+  add(0.02, 0.08, 0.02, -4.82, 1.22, -14.48, mat.metal);
+  // Drip coffee maker + grounds can.
+  add(0.22, 0.34, 0.28, -5.10, 1.28, -12.35, mat.dark);
+  add(0.16, 0.14, 0.16, -5.10, 1.52, -12.35, mat.ceramic);
+  add(0.12, 0.02, 0.12, -5.10, 1.46, -12.35, mat.dark);
+  add(0.10, 0.16, 0.10, -4.95, 1.20, -12.05, mat.metal);
+  // Paper-towel roll under the uppers.
+  add(0.06, 0.22, 0.06, -5.05, 1.95, -14.05, mat.paper);
+  add(0.02, 0.28, 0.02, -5.05, 1.95, -14.05, mat.metal);
+  // Trash bin — clear of the fridge door swing.
+  add(0.32, 0.48, 0.32, -4.55, 0.28, -9.85, mat.dark);
+  add(0.34, 0.04, 0.34, -4.55, 0.52, -9.85, mat.metal);
+  // Cork notice board — gap between board and fridge.
+  add(0.04, 0.72, 1.05, -5.55, 1.85, -9.65, mat.wood);
+  add(0.01, 0.18, 0.22, -5.52, 2.05, -9.85, mat.paper);
+  add(0.01, 0.14, 0.18, -5.52, 1.70, -9.45, mat.paper);
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.099, 0.19, 10), mat.ceramic);
-  cup.position.set(-4.30, 1.195, -12.95);
+  cup.position.set(-5.08, 1.195, -13.65);
   world.add(cup);
   ownedGeometry.push(cup.geometry);
   // Second mug — someone meant to wash up later.
   const cup2 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.17, 10), mat.ceramic);
-  cup2.position.set(-3.95, 1.19, -13.15);
+  cup2.position.set(-5.15, 1.19, -12.70);
   cup2.rotation.z = 0.08;
   world.add(cup2);
   ownedGeometry.push(cup2.geometry);
+  // Small cafe table near the kitchen (left of aisle) — lived-in, not the beat.
+  add(1.15, 0.08, 1.15, -2.35, 0.82, -16.4, mat.wood);
+  for (const [x, z] of [[-2.75, -16.8], [-1.95, -16.8], [-2.75, -16.0], [-1.95, -16.0]]) {
+    add(0.06, 0.78, 0.06, x, 0.39, z, mat.metal);
+  }
+  add(0.55, 0.14, 0.55, -2.95, 0.45, -17.35, mat.upholstery2);
+  add(0.52, 0.48, 0.08, -2.95, 0.78, -17.55, mat.upholstery2);
+  add(0.55, 0.14, 0.55, -1.55, 0.45, -15.55, mat.upholstery2);
+  add(0.52, 0.48, 0.08, -1.55, 0.78, -15.35, mat.upholstery2);
+  add(0.28, 0.01, 0.22, -2.15, 0.875, -16.2, mat.paper);
+  const cafeMug = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.075, 0.14, 10), mat.ceramic);
+  cafeMug.position.set(-2.55, 0.96, -16.55);
+  world.add(cafeMug);
+  ownedGeometry.push(cafeMug.geometry);
+  // Pack on the cafe table — close enough to the rail to highlight / take.
   const cigarette = createCigarettePack(THREE, { name: 'Night cigarette pack' });
-  cigarette.position.set(-4.55, 1.12, -12.85);
-  cigarette.rotation.set(0, 0.55, 0.1);
+  cigarette.position.set(-1.95, 0.90, -16.55);
+  cigarette.rotation.set(0, -0.4, 0.08);
   world.add(cigarette);
 
   // Break table — one chair pushed back as if recently vacated.
@@ -156,9 +208,9 @@ export function createNightShift(scene) {
   lampFill.position.set(3.2, 1.6, -26.5);
   world.add(lampFill);
 
-  // Kitchenette under-cabinet warmth.
-  const kitchenWarm = new THREE.PointLight(0xffd4a8, 1.35, 5.5, 2);
-  kitchenWarm.position.set(-3.6, 2.4, -13.0);
+  // Under-cabinet warmth over the breakroom run.
+  const kitchenWarm = new THREE.PointLight(0xffd4a8, 1.55, 6.2, 2);
+  kitchenWarm.position.set(-4.9, 2.05, -13.4);
   world.add(kitchenWarm);
 
   // Past the lounge the architecture quietly loses its communal character.
@@ -173,8 +225,9 @@ export function createNightShift(scene) {
       add(0.16, 0.06, 0.12, side * 2.98, 1.10, z + 0.49, mat.metal);
     }
   }
-  add(2.1, 1.35, 0.09, 5.57, 1.72, -14.4, mat.dark);
-  add(1.80, 1.07, 0.04, 5.51, 1.72, -14.4, mat.glass);
+  // Framed glass on the right wall — thin in X, wide along the corridor (Z).
+  add(0.09, 1.35, 2.1, 5.57, 1.72, -14.4, mat.dark);
+  add(0.04, 1.07, 1.80, 5.51, 1.72, -14.4, mat.glass);
 
   // Far door stands open a fraction — not a puzzle.
   add(0.15, 2.89, 0.15, -1.27, 1.44, -68.8, mat.metal);

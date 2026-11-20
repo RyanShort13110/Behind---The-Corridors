@@ -31,9 +31,26 @@ export const COMPOSURE_START = COMPOSURE_CONFIG.start;
 export const CIGARETTE_RESTORE = COMPOSURE_CONFIG.cigaretteRestore;
 
 export const CIGARETTE_LABEL = 'CIGARETTES';
-export const CIGARETTE_TOOLTIP =
-  'A familiar ritual. Temporary relief from overwhelming surroundings.\n'
-  + `Restores ${CIGARETTE_RESTORE} composure`;
+export const CIGARETTE_FLAVOR =
+  'A familiar ritual. Temporary relief from overwhelming surroundings.';
+export function cigaretteEffectLine(restore = CIGARETTE_RESTORE) {
+  return `Restores ${restore} composure`;
+}
+export const CIGARETTE_EFFECT = cigaretteEffectLine();
+/** Plain-text fallback (newline). Prefer fillCopyWithEffect for UI panels. */
+export const CIGARETTE_TOOLTIP = `${CIGARETTE_FLAVOR}\n${CIGARETTE_EFFECT}`;
+
+/** Flavor paragraph + smaller effect line under it (inspect + inventory). */
+export function fillCopyWithEffect(el, flavor, effect, effectClass = 'copy-effect') {
+  if (!el) return;
+  el.replaceChildren();
+  if (flavor) el.append(document.createTextNode(flavor));
+  if (!effect) return;
+  const line = document.createElement('span');
+  line.className = effectClass;
+  line.textContent = effect;
+  el.append(line);
+}
 
 /**
  * One-shot hits for L01–L03. STEADY encounters list max damage only;
@@ -233,7 +250,8 @@ export function cigaretteInteractable(id, object) {
     itemId: id,
     itemLabel: CIGARETTE_LABEL,
     title: CIGARETTE_LABEL,
-    body: CIGARETTE_TOOLTIP,
+    body: CIGARETTE_FLAVOR,
+    bodyEffect: CIGARETTE_EFFECT,
     tooltip: CIGARETTE_TOOLTIP,
     consumable: true,
     restoreAmount: CIGARETTE_RESTORE,
