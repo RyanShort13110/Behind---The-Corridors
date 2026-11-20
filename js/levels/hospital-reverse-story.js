@@ -9,41 +9,56 @@
 export const HOSPITAL_REVERSE_METERS = 52;
 export const HOSPITAL_REVERSE_START_Z = 4.6;
 export const HOSPITAL_REVERSE_END_HOLD = 0.905;
+/** World Z of the right-wall side escape doors (must match hospital-reverse.js). */
+export const HOSPITAL_SIDE_DOOR_Z = -18.5;
 
-/** Editable Ward encounter balance — change here first during playtests. */
+/**
+ * Editable Ward encounter balance — change here first during playtests.
+ * Progress descends during reverse (far end ≈ 0.90 → entrance ≈ 0).
+ */
 export const WARD_BALANCE = Object.freeze({
   // Intentional reverse speed dead zone (progress/sec). Scroll smoothing stays below this.
   moveDeadZone: 0.018,
-  // Squeak
-  squeakArmProgress: 0.80,
-  squeakZoneEnd: 0.66,
+  // Squeak — early reverse teaching beat
+  squeakArmProgress: 0.84,
+  squeakZoneEnd: 0.74,
   squeakSettleSec: 0.35,
   squeakCleanWindowSec: 1.05,
   squeakHesitateSec: 1.85,
   squeakCleanDamage: 0,
   squeakHesitateDamage: 4,
   squeakIgnoreDamage: 12,
-  // Clank telegraph → peak
-  clankWarnProgress: 0.64,
-  clankPeakProgress: 0.56,
-  clankWarnSec: 0.95,
-  // Crying
-  cryStartProgress: 0.48,
+  // Quiet gap after squeak before clank may arm
+  clankWarnProgress: 0.58,
+  clankPeakProgress: 0.50,
+  clankWarnSec: 1.05,
+  // Crying — only after clank fully resolved (clankDone)
+  cryStartProgress: 0.40,
   cryPeakIntensity: 0.90,
-  cryApproachSec: 10.5,
-  // Side door usable once crying is clearly present (not only after peak damage).
-  sideDoorCryIntensity: 0.32,
-  sideDoorProgressMax: 0.46,
-  sideDoorProgressMin: 0.16,
-  // Escape animation before completion
-  escapeHoldSec: 1.15,
+  cryApproachSec: 12.5,
+  cryMinBuildSec: 2.4,
+  // Side door usable once cry is clearly present (not locked behind damage).
+  // Door sits near progress ≈ 0.44 (z = -18.5).
+  sideDoorCryIntensity: 0.28,
+  sideDoorProgressMax: 0.50,
+  sideDoorProgressMin: 0.30,
+  // Guided escape: further reverse after OPEN drives into the passage
+  escapeEnterProgress: 0.40,
+  escapeCompleteProgress: 0.26,
+  escapeDoorCloseProgress: 0.30,
   // Proximity (only if still endangered after cry; capped ≤18)
-  proximityProgress: 0.28,
+  proximityProgress: 0.22,
   proximityAfterPerfectMoving: 0,
   proximityAfterPerfectStill: 5,
   proximityAfterPartial: 8,
   proximityAfterMiss: 16,
   proximityIfSkippedCry: 10,
+  // Mutation eligibility (actual reveal waits for offscreen check in the level)
+  mutGurneyProgress: 0.82,
+  mutWheelchairProgress: 0.66,
+  mutDoorProgress: 0.52,
+  mutSheetProgress: 0.38,
+  mutWarmProgress: 0.32,
 });
 
 const clamp01 = n => Math.max(0, Math.min(1, n));
@@ -67,6 +82,9 @@ function blankState() {
     squeakStillSec: 0,
     squeakDamage: 0,
     squeakResult: '', // clean | hesitate | ignored
+    // Left bay near the chair — opens offscreen after the creak plays
+    creakDoorEligible: false,
+    creakDoorOpen: false,
 
     // Encounter 2 — metallic clank + STEADY
     clankWarning: false,
@@ -94,15 +112,22 @@ function blankState() {
     proximityDamage: 0,
     proximitySkipped: false,
 
-    // Escape
+    // Escape — physical guided route (not a timed hold)
     sideDoorReady: false,
     sideDoorOpen: false,
     sideDoorOpening: false,
+    sideDoorClosing: false,
     escapePressed: false,
-    escapeHoldLeft: 0,
+    escapeProgress: 0,
     completed: false,
 
-    // Reverse visual mutations
+    // Reverse visual mutations — eligible vs revealed
+    // Level reveals only when safely offscreen; once true, never toggles off mid-run.
+    mutateGurneyEligible: false,
+    mutateWheelchairEligible: false,
+    mutateDoorOpenEligible: false,
+    mutateSheetBedEligible: false,
+    mutateWarmLightEligible: false,
     mutateGurney: false,
     mutateWheelchair: false,
     mutateDoorOpen: false,
@@ -138,6 +163,8 @@ export function createHospitalReverseStory() {
       state.lastDamageNote = `squeak:${result}:${state.squeakDamage}`;
     }
     state.activeThreat = '';
+    // Door was the source — mark it open once the beat resolves (reveal waits offscreen).
+    state.creakDoorEligible = true;
   }
 
   function observe(previous, current, dt = 0) {
@@ -167,18 +194,31 @@ export function createHospitalReverseStory() {
       state.reverseStarted = true;
     }
 
+    // Mutation eligibility only — reveal is deferred to offscreen checks in the level.
     if (state.reverseStarted) {
-      if (current <= 0.82) state.mutateGurney = true;
-      if (current <= 0.68) state.mutateWheelchair = true;
-      if (current <= 0.55) state.mutateDoorOpen = true;
-      if (current <= 0.42) state.mutateSheetBed = true;
-      if (current <= 0.36) state.mutateWarmLight = true;
+      if (current <= B.mutGurneyProgress) state.mutateGurneyEligible = true;
+      if (current <= B.mutWheelchairProgress) state.mutateWheelchairEligible = true;
+      if (current <= B.mutDoorProgress) state.mutateDoorOpenEligible = true;
+      if (current <= B.mutSheetProgress) state.mutateSheetBedEligible = true;
+      if (current <= B.mutWarmProgress) state.mutateWarmLightEligible = true;
     }
 
-    // --- Escape hold: doors animate, then complete ---
+    // --- Guided escape completion ---
     if (state.escapePressed && !state.completed) {
-      state.escapeHoldLeft = Math.max(0, state.escapeHoldLeft - dt);
-      if (state.escapeHoldLeft <= 0) state.completed = true;
+      state.escapeProgress = clamp01(
+        (B.escapeEnterProgress - current) /
+          Math.max(0.04, B.escapeEnterProgress - B.escapeCompleteProgress)
+      );
+      if (current <= B.escapeDoorCloseProgress) {
+        state.sideDoorClosing = true;
+        state.sideDoorOpening = false;
+      }
+      if (current <= B.escapeCompleteProgress) {
+        state.completed = true;
+        state.activeThreat = '';
+        state.sideDoorClosing = true;
+        state.sideDoorOpen = false;
+      }
     }
 
     // --- Encounter 1: wheel squeak ---
@@ -195,7 +235,8 @@ export function createHospitalReverseStory() {
       state.squeakElapsed = 0;
       state.squeakStillSec = 0;
       state.activeThreat = 'squeak';
-      setCaption('[wheel squeak behind you]', 2.8);
+      state.creakDoorEligible = true;
+      setCaption('[door creaks behind you]', 2.8);
     }
 
     if (state.squeakActive && !state.squeakDone) {
@@ -205,7 +246,6 @@ export function createHospitalReverseStory() {
       else state.squeakStillSec += Math.max(0, dt);
 
       if (state.squeakStillSec >= B.squeakSettleSec) {
-        // Stopped — grade by how long they kept reversing after the warning.
         if (state.squeakElapsed <= B.squeakCleanWindowSec) resolveSqueak('clean');
         else if (state.squeakElapsed <= B.squeakHesitateSec) resolveSqueak('hesitate');
         else resolveSqueak('ignored');
@@ -214,7 +254,7 @@ export function createHospitalReverseStory() {
       }
     }
 
-    // --- Encounter 2: clank telegraph then peak ---
+    // --- Encounter 2: clank — only after squeak resolved; quiet gap via progress ---
     if (
       state.reverseStarted
       && state.squeakDone
@@ -242,10 +282,10 @@ export function createHospitalReverseStory() {
       }
     }
 
-    // --- Encounter 3: crying ---
+    // --- Encounter 3: crying — requires clankDone (no STEADY overlap) ---
     if (
       state.reverseStarted
-      && state.clankTriggered
+      && state.clankDone
       && !state.cryingStarted
       && current <= B.cryStartProgress
     ) {
@@ -258,18 +298,19 @@ export function createHospitalReverseStory() {
     if (state.cryingStarted && !state.cryingDone) {
       state.cryingElapsed += Math.max(0, dt);
       const fromTime = clamp01(state.cryingElapsed / B.cryApproachSec);
-      const fromPos = clamp01((B.cryStartProgress - current) / 0.24);
-      state.cryingIntensity = Math.max(fromTime, fromPos * 0.88);
+      const fromPos = clamp01((B.cryStartProgress - current) / 0.28);
+      // Fast movers still get a short perceptual buildup before peak intensity.
+      const minBuild = clamp01(state.cryingElapsed / B.cryMinBuildSec) * 0.35;
+      state.cryingIntensity = Math.max(fromTime, fromPos * 0.88, minBuild);
       if (!state.cryingPeak && state.cryingIntensity >= B.cryPeakIntensity) {
         state.cryingPeak = true;
         state.cryingSteadyReady = true;
         setCaption('[crying — closer]', 2.8);
       }
-      // Movement toward escape during the critical window counts as survival effort.
       if (state.cryingPeak && movingBack) state.cryingMovedDuringPeak = true;
     }
 
-    // Side door: available once cry is established OR after peak — not locked behind damage.
+    // Side door: available once cry is established — not locked behind damage.
     if (
       state.reverseStarted
       && !state.sideDoorReady
@@ -286,7 +327,7 @@ export function createHospitalReverseStory() {
       setCaption('[door button]', 2.0);
     }
 
-    // Clean escape before cry peak — skip proximity, mark cry soft-resolved.
+    // Clean escape before cry peak — soft-resolve cry, skip proximity.
     if (
       state.escapePressed
       && state.cryingStarted
@@ -298,12 +339,10 @@ export function createHospitalReverseStory() {
       state.cryingDone = true;
       state.cryingResult = 'escaped';
       state.cryingIntensity = Math.min(state.cryingIntensity, 0.25);
-      state.activeThreat = '';
+      if (state.activeThreat === 'crying') state.activeThreat = '';
     }
 
     // --- Encounter 4: proximity — near-contact only if still endangered ---
-    // Perfect STEADY while still = modest residual; moving/escaping avoids it.
-    // Skipped entirely after a clean pre-peak escape (no double-penalty).
     if (
       state.reverseStarted
       && !state.proximityHit
@@ -350,9 +389,10 @@ export function createHospitalReverseStory() {
     state.escapePressed = true;
     state.sideDoorOpening = true;
     state.sideDoorOpen = true;
-    state.escapeHoldLeft = B.escapeHoldSec;
+    state.sideDoorClosing = false;
+    state.escapeProgress = 0;
     state.activeThreat = '';
-    setCaption('[automatic door opens]', 2.4);
+    setCaption('[automatic door opens — keep moving]', 2.8);
     return { ok: true, line: '' };
   }
 
@@ -360,7 +400,9 @@ export function createHospitalReverseStory() {
     state.clankSteadyReady = false;
     state.clankDone = true;
     state.clankResult = result || state.clankResult;
-    if (state.activeThreat === 'clank') state.activeThreat = '';
+    if (state.activeThreat === 'clank' || state.activeThreat === 'clank-warn') {
+      state.activeThreat = '';
+    }
   }
 
   function markCryingResolved(result = '') {
@@ -391,7 +433,7 @@ export function createHospitalReverseStory() {
         state.reachedEnd = true;
         state.endDoorTried = true;
         state.reverseStarted = true;
-        return { progress: 0.82 };
+        return { progress: 0.86 };
       },
       clank: () => {
         state.noticedHospital = true;
@@ -401,8 +443,11 @@ export function createHospitalReverseStory() {
         state.squeakArmed = true;
         state.squeakDone = true;
         state.squeakResult = 'clean';
+        state.creakDoorEligible = true;
+        state.creakDoorOpen = true;
+        state.mutateGurneyEligible = true;
         state.mutateGurney = true;
-        return { progress: 0.66 };
+        return { progress: 0.60 };
       },
       'before-crying': () => {
         state.noticedHospital = true;
@@ -412,13 +457,17 @@ export function createHospitalReverseStory() {
         state.squeakArmed = true;
         state.squeakDone = true;
         state.squeakResult = 'clean';
+        state.creakDoorEligible = true;
+        state.creakDoorOpen = true;
         state.clankWarning = true;
         state.clankTriggered = true;
         state.clankDone = true;
         state.clankResult = 'perfect';
+        state.mutateGurneyEligible = true;
         state.mutateGurney = true;
+        state.mutateWheelchairEligible = true;
         state.mutateWheelchair = true;
-        return { progress: 0.50 };
+        return { progress: 0.42 };
       },
       'before-escape': () => {
         state.noticedHospital = true;
@@ -426,6 +475,8 @@ export function createHospitalReverseStory() {
         state.endDoorTried = true;
         state.reverseStarted = true;
         state.squeakDone = true;
+        state.creakDoorEligible = true;
+        state.creakDoorOpen = true;
         state.clankTriggered = true;
         state.clankDone = true;
         state.cryingStarted = true;
@@ -435,12 +486,43 @@ export function createHospitalReverseStory() {
         state.cryingIntensity = 0.35;
         state.sideDoorReady = true;
         state.proximitySkipped = true;
+        state.mutateGurneyEligible = true;
+        state.mutateGurney = true;
+        state.mutateWheelchairEligible = true;
+        state.mutateWheelchair = true;
+        state.mutateDoorOpenEligible = true;
+        state.mutateDoorOpen = true;
+        state.mutateSheetBedEligible = true;
+        state.mutateSheetBed = true;
+        state.mutateWarmLightEligible = true;
+        state.mutateWarmLight = true;
+        return { progress: 0.42 };
+      },
+      escape: () => {
+        state.noticedHospital = true;
+        state.reachedEnd = true;
+        state.endDoorTried = true;
+        state.reverseStarted = true;
+        state.squeakDone = true;
+        state.creakDoorEligible = true;
+        state.creakDoorOpen = true;
+        state.clankTriggered = true;
+        state.clankDone = true;
+        state.cryingStarted = true;
+        state.cryingDone = true;
+        state.cryingResult = 'escaped';
+        state.cryingIntensity = 0.2;
+        state.sideDoorReady = true;
+        state.escapePressed = true;
+        state.sideDoorOpen = true;
+        state.sideDoorOpening = true;
+        state.proximitySkipped = true;
         state.mutateGurney = true;
         state.mutateWheelchair = true;
         state.mutateDoorOpen = true;
         state.mutateSheetBed = true;
         state.mutateWarmLight = true;
-        return { progress: 0.36 };
+        return { progress: 0.38 };
       },
     };
     const run = map[name] || map.start;
@@ -469,7 +551,11 @@ export function hospitalReverseNarrative(progress, state) {
     return { chapter, line: '', instruction: ' ' };
   }
   if (state.escapePressed && !state.completed) {
-    return { chapter, line: state.caption || '', instruction: ' ' };
+    return {
+      chapter,
+      line: state.caption || '',
+      instruction: 'SCROLL DOWN TO ESCAPE ↓',
+    };
   }
   if (state.caption) {
     return {
@@ -480,7 +566,9 @@ export function hospitalReverseNarrative(progress, state) {
         : 'SCROLL UP TO CONTINUE ↑',
     };
   }
-  if (state.sideDoorReady && !state.escapePressed && progress <= 0.46 && progress >= 0.16) {
+  if (state.sideDoorReady && !state.escapePressed
+      && progress <= WARD_BALANCE.sideDoorProgressMax
+      && progress >= WARD_BALANCE.sideDoorProgressMin) {
     return {
       chapter,
       line: '',
@@ -492,8 +580,8 @@ export function hospitalReverseNarrative(progress, state) {
   }
   if (state.reverseStarted && state.direction === 'backward') {
     let line = '';
-    if (state.mutateDoorOpen && progress < 0.55 && progress > 0.48) line = "That wasn't there.";
-    else if (state.proximityHit && progress < 0.32) line = 'Keep moving.';
+    if (state.mutateDoorOpen && progress < 0.54 && progress > 0.46) line = "That wasn't there.";
+    else if (state.proximityHit && progress < 0.26) line = 'Keep moving.';
     return {
       chapter,
       line,
@@ -519,6 +607,21 @@ export function hospitalReverseNarrative(progress, state) {
 }
 
 export function hospitalReverseMaxProgress(state) {
-  if (state.completed || state.sideDoorOpen) return 1;
+  if (state.completed) return 1;
+  // During guided escape, keep the player near the doorway — reverse drives inward.
+  if (state.escapePressed) {
+    return Math.max(
+      WARD_BALANCE.escapeEnterProgress,
+      WARD_BALANCE.sideDoorProgressMax
+    );
+  }
   return HOSPITAL_REVERSE_END_HOLD;
+}
+
+/** Progress floor while escaping — cannot scroll forward past the doorway commit. */
+export function hospitalReverseMinProgress(state) {
+  if (state.escapePressed && !state.completed) {
+    return WARD_BALANCE.escapeCompleteProgress;
+  }
+  return 0;
 }

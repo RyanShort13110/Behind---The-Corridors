@@ -207,27 +207,27 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 ## Hospital reverse prototype — The Ward
 
-**PROTOTYPE / EXPERIMENTAL** — not confirmed final story placement; not in ordinary L01–L06 progression. Current polish models **warning → escalating threat → player response → consequence**; not a finalized story chapter.
+**PROTOTYPE / EXPERIMENTAL** — not confirmed final story placement; not in ordinary L01–L06 progression. Current polish models **warning → escalating threat → player response → consequence** with cinematic reverse pacing; not a finalized story chapter.
 
 **Design question:** Can reverse-movement horror carry real gameplay stakes when the player must retreat into unseen space, using sound as the primary warning system?
 
 **IMPLEMENTED (dev only):** `?debug=1&level=hospital-reverse`
 
-- Modules: `js/levels/hospital-reverse.js`, `hospital-reverse-story.js` (balance: `WARD_BALANCE`)
+- Modules: `hospital-reverse.js`, `hospital-reverse-story.js` (`WARD_BALANCE`), `hospital-reverse-route.js`
 - Abandoned hospital ward hallway on the standard scroll rail (no free-walk, no combat, no visible monster)
 - Forward pass is calm; far automatic doors fail via wall OPEN button → forced retreat
+- **Encounter pacing (descending progress):** squeak (~0.84) → quiet gap → clank warn/peak (~0.58/0.50) → requires `clankDone` → crying (~0.40) → side escape (~0.44). No overlapping STEADY windows.
 - Reverse audio encounters (composure 0–100; cigarette +40; one pack per chapter):
-  1. **Wheel squeak** — intensifies while reversing; stop promptly = 0 / hesitate = 4 / ignore zone = 12; never repeats after resolve
-  2. **Metallic clank** — faint rattle/scrape telegraph, then peak clank coordinated with Ward-local STEADY (`ward-clank`: perfect 5 / partial 11 / miss 22)
-  3. **Crying** — approaches over time even while still; STEADY at peak (`ward-crying`); side OPEN available once cry is established (not locked behind taking damage); pre-peak escape can soft-resolve
-  4. **Proximity** — near-contact only if still endangered; skipped after clean escape or perfect STEADY + retreat movement; otherwise graded (still-perfect residual ~5, partial ~8, miss ≤16, max design cap 18) — avoids double-penalizing one continuous cry threat
-- Subtle one-way reverse mutations (moved gurney, wheelchair, open bay door, sheet-covered bed, warmer light)
-- Escape: side-door OPEN with limited look (~1.05 rad); door animates ~1.15s before chapter complete
-- Cigarette collected-state tracked separately from inventory (`cigaretteTaken`) for fair checkpoint restore
-- Dev: checkpoints `start` / `before-end` / `reverse` / `squeak` / `clank` / `before-crying` / `before-escape`; cry-volume QUIET/REF/LOUD; `window.__wardDebug`
-- Breathing volume baseline remains `0.07` (approved)
+  1. **Door creak** — CC0 sample (`assets/door-creak.mp3`); stop promptly = 0 / hesitate = 4 / ignore = 12; never repeats. Left bay near the chair snaps open offscreen after the sound (no tween).
+  2. **Metallic clank** — rattle → anticipation → peak + Ward-local STEADY (5 / 11 / 22) → silence
+  3. **Crying** — time + position buildup (min perceptual build); continues while still; STEADY at peak; side OPEN once cry is established
+  4. **Proximity** — conditional near-contact only; skipped after clean escape / perfect+retreat; otherwise graded ≤16
+- **Offscreen mutations:** reverse props become *eligible* by progress, but only *reveal* when outside the camera frustum (with look margin). One-way for the run; checkpoint restore can rewind state.
+- **Physical escape:** OPEN → doors slide → scroll-down guided route into the right-wall passage (`hospitalReverseCameraPose`) → doors close → complete. Cry muffles during the route; ambience fades after seal. No free-walk / no 180° spin.
+- Audio: cry volume multiplier applied once at the master bus; HRTF rear panner when available, stereo pan fallback; delayed Ward SFX cancelled on GO / checkpoint / chapter jump. Breathing baseline remains `0.07`.
+- Dev: checkpoints `start` / `before-end` / `reverse` / `squeak` / `clank` / `before-crying` / `before-escape` / `escape`; cry QUIET/REF/LOUD; `window.__wardDebug`
 
-**OPEN / PROVISIONAL:** Whether this becomes a signature mid-game chapter, a memory space, or remains a mechanics sandbox. Encounter damage values are playtest knobs.
+**OPEN / PROVISIONAL:** Whether this becomes a signature mid-game chapter, a memory space, or remains a mechanics sandbox. Encounter damage and timing remain playtest knobs.
 
 ---
 

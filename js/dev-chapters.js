@@ -81,10 +81,11 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         <option value="start">START / WARD ENTRY</option>
         <option value="before-end">BEFORE END / SEALED DOORS</option>
         <option value="reverse">REVERSE / FORCED RETREAT</option>
-        <option value="squeak">SQUEAK / WHEEL ZONE</option>
+        <option value="squeak">CREAK / DOOR ZONE</option>
         <option value="clank">CLANK / PRE-METAL</option>
         <option value="before-crying">BEFORE CRYING / POST CLANK</option>
         <option value="before-escape">BEFORE ESCAPE / SIDE DOOR</option>
+        <option value="escape">ESCAPE / DOORS OPEN</option>
       </select>
     </div>
     <div class="dev-chapters__cry" id="dev-ward-cry-row" hidden>

@@ -38,9 +38,11 @@ import {
   createHospitalReverseStory,
   hospitalReverseNarrative,
   hospitalReverseMaxProgress,
+  hospitalReverseMinProgress,
   HOSPITAL_REVERSE_METERS,
   HOSPITAL_REVERSE_START_Z,
 } from './levels/hospital-reverse-story.js';
+import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -194,7 +196,10 @@ function progressBounds() {
     return { min: 0, max: RECORDS_DOOR_HOLD };
   }
   if (isHospitalReverse()) {
-    return { min: 0, max: hospitalReverseMaxProgress(hospitalReverseStory.state) };
+    return {
+      min: hospitalReverseMinProgress(hospitalReverseStory.state),
+      max: hospitalReverseMaxProgress(hospitalReverseStory.state),
+    };
   }
   return { min: 0, max: 1 };
 }
@@ -875,7 +880,7 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       Object.assign(hospitalReverseStory.state, snapshot.hospital || {});
       director?.reset();
       cancelWardClankPeak();
-      audio.stopWardCry?.(0.05);
+      audio.cancelWardDelayedSfx?.();
     }
     composureHits.clear();
     for (const id of snapshot.composureHits || []) composureHits.add(id);
@@ -1607,9 +1612,11 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'hospital-reverse') {
-      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-door-center-1');
+      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-sfx-2');
       hospitalReverseStory.reset();
-      next.add('hospital-reverse', createHospitalReverse(scene));
+      const wardMod = createHospitalReverse(scene);
+      wardMod.setCamera?.(camera);
+      next.add('hospital-reverse', wardMod);
     } else {
       const { createUnseen } = await import('./levels/unseen.js');
       next.add('unseen', createUnseen(scene));
@@ -1640,6 +1647,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     memory.keyPassed = false;
     keypad?.close();
     cancelWardClankPeak();
+    audio.cancelWardDelayedSfx?.();
     audio.reset();
     if (target === 'office') audio.enterOffice();
     else if (target === 'records') audio.enterRecords();
@@ -2090,6 +2098,7 @@ function frame(now) {
           squeakDone: s.squeakDone,
           squeakResult: s.squeakResult,
           squeakDmg: s.squeakDamage,
+          creakDoor: s.creakDoorOpen,
           clankWarn: s.clankWarning,
           clank: s.clankTriggered,
           clankResult: s.clankResult,
@@ -2103,6 +2112,14 @@ function frame(now) {
           proxDmg: s.proximityDamage,
           proxSkip: s.proximitySkipped,
           sideReady: s.sideDoorReady,
+          escape: s.escapePressed,
+          escapeP: Number((s.escapeProgress || 0).toFixed(2)),
+          doorClosing: s.sideDoorClosing,
+          mut: {
+            g: s.mutateGurney, w: s.mutateWheelchair, d: s.mutateDoorOpen,
+            s: s.mutateSheetBed, warm: s.mutateWarmLight,
+          },
+          hrtf: Boolean(audio.wardCryUsesHrtf),
           cigTaken: s.cigaretteTaken,
           cigHeld: Boolean(inventory?.has('cigarette-hospital-reverse')),
           lastDmg: s.lastDamageNote,
@@ -2148,6 +2165,12 @@ function frame(now) {
       camera.rotation.x += route.pitch;
     } else if (chapterId === 'unseen') {
       const route = unseenCameraPose(p, unseenStory.state);
+      camera.position.x += route.x;
+      camera.position.z = route.z;
+      camera.rotation.y += route.yaw;
+      camera.rotation.x += route.pitch;
+    } else if (isHospitalReverse()) {
+      const route = hospitalReverseCameraPose(p, hospitalReverseStory.state);
       camera.position.x += route.x;
       camera.position.z = route.z;
       camera.rotation.y += route.yaw;
@@ -2205,6 +2228,7 @@ function frame(now) {
       }
     }
     if (isHospitalReverse()
+        && hospitalReverseStory.state.clankDone
         && hospitalReverseStory.state.cryingSteadyReady
         && !composureHits.has('ward-crying')
         && !steady?.isActive) {

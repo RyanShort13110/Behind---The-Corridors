@@ -75,11 +75,22 @@ export function createHospitalReverse(scene) {
   // Shell — institutional ward (~7m wide, ~52m deep).
   const depth = 56;
   const zMid = -22;
+  const zNear = zMid + depth * 0.5; // ~6
+  const zFar = zMid - depth * 0.5; // ~-50
+  const sideGapZ = -18.5;
+  const sideGapHalf = 1.2;
   box(7.0, 0.16, depth, 0, -0.09, zMid, mat.floor);
   box(0.42, 0.01, depth, 0, 0.001, zMid, mat.floorStripe);
   box(7.0, 0.14, depth, 0, 3.38, zMid, mat.ceiling);
   box(0.18, 3.5, depth, -3.5, 1.70, zMid, mat.wall);
-  box(0.18, 3.5, depth, 3.5, 1.70, zMid, mat.wall);
+  // Right wall split around the side-escape opening so the camera can enter.
+  const wallSeg = (z0, z1) => {
+    const len = Math.abs(z0 - z1);
+    const mid = (z0 + z1) * 0.5;
+    if (len > 0.2) box(0.18, 3.5, len, 3.5, 1.70, mid, mat.wall);
+  };
+  wallSeg(zNear, sideGapZ + sideGapHalf);
+  wallSeg(sideGapZ - sideGapHalf, zFar);
   box(7.0, 3.5, 0.2, 0, 1.70, -49.2, mat.wall);
   for (const x of [-3.38, 3.38]) box(0.09, 0.22, depth - 1, x, 0.12, zMid, mat.trim);
 
@@ -100,11 +111,13 @@ export function createHospitalReverse(scene) {
   }
 
   // Room bays + plaques along both walls
-  function roomBay(side, z, number) {
+  function roomBay(side, z, number, { doorLeaves = true } = {}) {
     const x = side * 3.42;
-    // Recessed door leaf
-    box(0.08, 2.35, 1.05, x, 1.22, z, mat.door);
-    box(0.04, 0.55, 0.55, x + side * 0.06, 1.55, z, mat.doorGlass);
+    // Recessed door leaf (skip when a controllable openable leaf owns this bay).
+    if (doorLeaves) {
+      box(0.08, 2.35, 1.05, x, 1.22, z, mat.door);
+      box(0.04, 0.55, 0.55, x + side * 0.06, 1.55, z, mat.doorGlass);
+    }
     // Room plaque flush to the wall face (thin toward the aisle).
     box(0.06, 0.14, 0.28, x - side * 0.07, 2.05, z + 0.42, mat.sign);
     // Frame plugs
@@ -112,11 +125,49 @@ export function createHospitalReverse(scene) {
     box(0.2, 2.55, 0.08, x, 1.28, z + 0.58, mat.trim);
     box(0.2, 0.12, 1.2, x, 2.48, z, mat.trim);
   }
+
+  /** Left bay near the chair — closed by default; snaps open after the creak. */
+  const CREAK_DOOR_Z = -16.0;
+  function makeCreakDoorBay() {
+    const bay = new THREE.Group();
+    bay.name = 'Ward creak door bay';
+    bay.position.set(-3.42, 0, CREAK_DOOR_Z);
+    world.add(bay);
+
+    const closed = new THREE.Group();
+    closed.name = 'creak-door-closed';
+    bay.add(closed);
+    box(0.08, 2.35, 1.05, 0, 1.22, 0, mat.door, closed);
+    box(0.04, 0.55, 0.55, -0.06, 1.55, 0, mat.doorGlass, closed);
+
+    const open = new THREE.Group();
+    open.name = 'creak-door-open';
+    open.visible = false;
+    bay.add(open);
+    // Dark room mouth + leaf swung into the aisle (no animation — just the open pose).
+    box(0.06, 2.3, 0.98, -0.12, 1.2, 0, mat.dark, open);
+    const leaf = new THREE.Group();
+    leaf.position.set(0, 0, -0.52); // hinge on the deeper-ward frame edge
+    leaf.rotation.y = -1.15; // ~66° into the hallway
+    open.add(leaf);
+    box(0.08, 2.35, 1.05, 0, 1.22, 0.52, mat.door, leaf);
+    box(0.04, 0.55, 0.55, 0.06, 1.55, 0.52, mat.doorGlass, leaf);
+
+    return {
+      bay,
+      setOpen(isOpen) {
+        closed.visible = !isOpen;
+        open.visible = !!isOpen;
+      },
+    };
+  }
+
   const roomZs = [-4.5, -10.2, -16.0, -21.8, -27.5, -33.2, -39.0];
   roomZs.forEach((z, i) => {
-    roomBay(-1, z, 110 + i);
+    roomBay(-1, z, 110 + i, { doorLeaves: z !== CREAK_DOOR_Z });
     roomBay(1, z + 0.4, 210 + i);
   });
+  const creakDoor = makeCreakDoorBay();
 
   // Props — gurney
   function makeGurney(x, z, yaw = 0) {
@@ -270,6 +321,22 @@ export function createHospitalReverse(scene) {
   sideRecess.scale.set(1.1, 2.5, 1.85);
   sideDoors.add(sideRecess);
 
+  // Short service passage beyond the side doors (+X) for the guided escape.
+  const sidePassage = new THREE.Group();
+  sidePassage.name = 'Ward side escape passage';
+  sidePassage.position.set(3.55, 0, -18.5);
+  world.add(sidePassage);
+  box(4.4, 0.16, 2.3, 2.3, -0.09, 0, mat.floor, sidePassage);
+  box(4.4, 0.14, 2.3, 2.3, 3.38, 0, mat.ceiling, sidePassage);
+  box(4.4, 3.5, 0.18, 2.3, 1.7, -1.15, mat.wall, sidePassage);
+  box(4.4, 3.5, 0.18, 2.3, 1.7, 1.15, mat.wall, sidePassage);
+  box(0.18, 3.5, 2.3, 4.45, 1.7, 0, mat.wall, sidePassage);
+  box(0.9, 0.06, 0.35, 1.6, 3.28, 0, mat.fixtureDim, sidePassage);
+  const passageLight = new THREE.PointLight(0xd5e2d8, 0.55, 8, 2);
+  passageLight.position.set(2.2, 3.0, 0);
+  sidePassage.add(passageLight);
+  lights.push(passageLight);
+
   // Side OPEN button flush on the right wall beside the escape doors.
   // Plate faces the aisle (−X); a deep invisible hit volume reaches toward
   // the rail so limited look can still target it without floating the prop.
@@ -318,11 +385,74 @@ export function createHospitalReverse(scene) {
     },
   ];
 
+  let cameraRef = null;
+  const _frustum = new THREE.Frustum();
+  const _proj = new THREE.Matrix4();
+  const _box = new THREE.Box3();
+  const _sphere = new THREE.Sphere();
+  const _margin = new THREE.Vector3(1.35, 1.1, 1.35);
+
+  function isSafelyOffscreen(object) {
+    if (!cameraRef || !object) return true;
+    // Temporarily show to get accurate bounds, then restore.
+    const wasVisible = object.visible;
+    object.visible = true;
+    object.updateWorldMatrix(true, true);
+    _box.setFromObject(object);
+    object.visible = wasVisible;
+    if (_box.isEmpty()) return true;
+    _box.expandByVector(_margin);
+    _box.getBoundingSphere(_sphere);
+    cameraRef.updateMatrixWorld(true);
+    _proj.multiplyMatrices(cameraRef.projectionMatrix, cameraRef.matrixWorldInverse);
+    _frustum.setFromProjectionMatrix(_proj);
+    // If the expanded sphere is outside the frustum, the change is safe.
+    return !_frustum.intersectsSphere(_sphere);
+  }
+
+  function resolveOffscreenMutation(state, eligibleKey, activeKey, object) {
+    if (state[activeKey]) {
+      if (object) object.visible = true;
+      return;
+    }
+    if (!state[eligibleKey]) {
+      if (object) object.visible = false;
+      return;
+    }
+    if (isSafelyOffscreen(object)) {
+      state[activeKey] = true;
+      if (object) object.visible = true;
+    } else if (object) {
+      object.visible = false;
+    }
+  }
+
   function syncMutations(state) {
-    mutGurney.visible = Boolean(state.mutateGurney);
-    mutChair.visible = Boolean(state.mutateWheelchair);
-    mutSheet.visible = Boolean(state.mutateSheetBed);
-    mutOpenDoor.visible = Boolean(state.mutateDoorOpen);
+    resolveOffscreenMutation(state, 'mutateGurneyEligible', 'mutateGurney', mutGurney);
+    resolveOffscreenMutation(state, 'mutateWheelchairEligible', 'mutateWheelchair', mutChair);
+    resolveOffscreenMutation(state, 'mutateSheetBedEligible', 'mutateSheetBed', mutSheet);
+    resolveOffscreenMutation(state, 'mutateDoorOpenEligible', 'mutateDoorOpen', mutOpenDoor);
+
+    // Creak payoff: left door by the chair opens behind the player (no tween).
+    if (state.creakDoorOpen) {
+      creakDoor.setOpen(true);
+    } else if (state.creakDoorEligible && isSafelyOffscreen(creakDoor.bay)) {
+      state.creakDoorOpen = true;
+      creakDoor.setOpen(true);
+    } else {
+      creakDoor.setOpen(false);
+    }
+
+    if (!state.mutateWarmLight && state.mutateWarmLightEligible) {
+      // Warm shift is global — apply only when no mutation props are mid-reveal
+      // in view, approximated by waiting until the sheet/door are settled or offscreen.
+      if (
+        (state.mutateSheetBed || isSafelyOffscreen(mutSheet))
+        && (state.mutateDoorOpen || isSafelyOffscreen(mutOpenDoor))
+      ) {
+        state.mutateWarmLight = true;
+      }
+    }
     warmLight.intensity = state.mutateWarmLight ? 0.45 : 0;
     if (state.mutateWarmLight) {
       scene.fog.color.setHex(0x1a1612);
@@ -331,7 +461,6 @@ export function createHospitalReverse(scene) {
       scene.fog.color.setHex(0x161c18);
       scene.background.setHex(0x161c18);
     }
-    // Live pad color on side button when ready
     if (sidePad) {
       sidePad.material = state.sideDoorReady && !state.escapePressed
         ? mat.buttonPad
@@ -350,8 +479,10 @@ export function createHospitalReverse(scene) {
       endLeafR.position.x = 0.62 + twitch;
     }
 
-    // Side doors slide open on escape
-    const targetOpen = state.sideDoorOpen ? 1 : 0;
+    // Side doors: open on button, close again once the player is inside.
+    let targetOpen = 0;
+    if (state.sideDoorClosing || state.completed) targetOpen = 0;
+    else if (state.sideDoorOpen || state.sideDoorOpening) targetOpen = 1;
     if (reduced) sideOpenAmt = targetOpen;
     else sideOpenAmt += (targetOpen - sideOpenAmt) * (1 - Math.exp(-dt * 3.5));
     sideLeafL.position.z = -0.48 - sideOpenAmt * 0.85;
@@ -371,6 +502,7 @@ export function createHospitalReverse(scene) {
     mutChair.visible = false;
     mutSheet.visible = false;
     mutOpenDoor.visible = false;
+    creakDoor.setOpen(false);
     warmLight.intensity = 0;
     scene.fog.color.setHex(0x161c18);
     scene.background.setHex(0x161c18);
@@ -392,6 +524,7 @@ export function createHospitalReverse(scene) {
     update,
     reset,
     dispose,
+    setCamera(cam) { cameraRef = cam; },
     endButton,
     sideButton,
   };
