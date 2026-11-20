@@ -1418,26 +1418,26 @@ export function createAudioDirector() {
     markSfx(duration + 0.1);
   }
 
-  /** Close inhale → exhale when using a cigarette. Audible but restrained. */
+  /** Close inhale → exhale when using a cigarette. Soft, restrained. */
   function playCigaretteDraw() {
     if (!enabled || !ctx) return;
     resume();
-    // Inhale — brighter, shorter air across the lips.
+    // Inhale — quieter, shorter air across the lips.
     playBreath({
-      duration: 0.48, band: 1350, q: 0.5, level: 0.034, pan: 0,
-      attack: 0.08, release: 0.22,
+      duration: 0.42, band: 1350, q: 0.5, level: 0.018, pan: 0,
+      attack: 0.08, release: 0.2,
     });
-    playTone({ freq: 210, freq2: 130, duration: 0.4, level: 0.012, type: 'sine', pan: 0 });
-    // Exhale — warmer, lower, longer; timed with the smoke puff.
+    playTone({ freq: 210, freq2: 130, duration: 0.36, level: 0.006, type: 'sine', pan: 0 });
+    // Exhale — warmer, drawn out; timed with the smoke puff.
     window.setTimeout(() => {
       if (!enabled || !ctx) return;
       playBreath({
-        duration: 0.78, band: 480, q: 0.55, level: 0.038, pan: 0.05,
-        attack: 0.12, release: 0.4,
+        duration: 1.35, band: 460, q: 0.5, level: 0.02, pan: 0.05,
+        attack: 0.16, release: 0.7,
       });
-      playTone({ freq: 105, freq2: 68, duration: 0.7, level: 0.014, type: 'sine', pan: 0.04 });
-    }, 430);
-    markSfx(1.3);
+      playTone({ freq: 100, freq2: 64, duration: 1.2, level: 0.007, type: 'sine', pan: 0.04 });
+    }, 400);
+    markSfx(1.9);
   }
 
   function enterThreshold() {

@@ -3,7 +3,7 @@ import { createCorridor } from './scene.js';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js';
-import { createAudioDirector } from './audio.js?v=cig-breath-1';
+import { createAudioDirector } from './audio.js?v=cig-breath-2';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
 import { createLookControls } from './look.js';
