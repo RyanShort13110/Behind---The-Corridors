@@ -53,6 +53,11 @@ export const COMPOSURE_HITS = Object.freeze({
   'records-drawers-open': 10,
   'records-dart': 20,
   'records-peek': 14,
+  // DEV — The Ward / hospital-reverse
+  'ward-squeak': 6,
+  'ward-clank': 22,
+  'ward-crying': 20,
+  'ward-proximity': 18,
   // Provisional — gated by enableLateChapterDamage
   'night-first-step': 18,
   'night-cadence': 18,
@@ -95,6 +100,25 @@ export const STEADY_ENCOUNTERS = Object.freeze({
       perfectSec: 0.16,
       partialPadSec: 0.12,
       resolveHoldSec: 0.2,
+    }),
+  }),
+  'ward-clank': Object.freeze({
+    maxDamage: 22,
+    perfectDamage: 5,
+    partialDamage: 11,
+    tutorial: false,
+  }),
+  'ward-crying': Object.freeze({
+    maxDamage: 20,
+    perfectDamage: 5,
+    partialDamage: 10,
+    tutorial: false,
+    timing: Object.freeze({
+      warnSec: 0.2,
+      buildupSec: 0.9,
+      perfectSec: 0.45,
+      partialPadSec: 0.35,
+      resolveHoldSec: 0.3,
     }),
   }),
 });

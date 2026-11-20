@@ -1547,6 +1547,8 @@ export function createAudioDirector() {
     setGain(unseenCueBus, 0, 0.03);
     setGain(unseenFinalBus, 0, 0.03);
     for(const kind of Object.keys(heardUnseen)) heardUnseen[kind]=0;
+    stopWardCry(0.05);
+    wardSqueakUntil = 0;
   }
 
   function suspend() { if (ctx?.state === 'running') ctx.suspend().catch(() => {}); }
@@ -1677,6 +1679,283 @@ export function createAudioDirector() {
 
   const exitMemoryBlack = exitMemoryWhite;
 
+  // --- DEV: The Ward / hospital-reverse ---
+  // Phrase-based infant-distress cry (formants + sob gaps), not a continuous tone.
+  let wardCryBus = null;
+  let wardCryMaster = null;
+  let wardCryPan = null;
+  let wardCryDistance = null; // lowpass — muffles when far, opens when near
+  let wardCryIntensity = 0;
+  let wardCryNextPhrase = 0;
+  let wardCryActive = false;
+  let wardSqueakUntil = 0;
+
+  function enterHospitalReverse() {
+    stopBreathing();
+    stopMemoryRain(0.2);
+    officeMusicActive = false;
+    recordsMusicActive = false;
+    silenceHorrorScore(0.4);
+    setGain(phoneHigh, 0);
+    setGain(phoneLow, 0);
+    setGain(buzzGain, 0.00025, 0.4);
+    setGain(motorGain, 0);
+    setGain(humGain, 0.0032, 0.5);
+    ensureHorrorScore();
+    setGain(musicGain, 0.05, 1.2);
+    setGain(musicDryGain, 0.35, 0.01);
+    setGain(musicWetGain, 0.7, 0.01);
+    stopWardCry(0.01);
+  }
+
+  function ensureWardCryBus() {
+    if (!ctx || wardCryBus) return;
+    wardCryMaster = ctx.createGain();
+    wardCryMaster.gain.value = 1;
+    wardCryDistance = ctx.createBiquadFilter();
+    wardCryDistance.type = 'lowpass';
+    wardCryDistance.frequency.value = 900;
+    wardCryDistance.Q.value = 0.65;
+    wardCryPan = ctx.createStereoPanner?.() || null;
+    if (wardCryPan) {
+      wardCryPan.pan.value = 0.06;
+      wardCryMaster.connect(wardCryDistance).connect(wardCryPan).connect(ctx.destination);
+    } else {
+      wardCryMaster.connect(wardCryDistance).connect(ctx.destination);
+    }
+    wardCryBus = ctx.createGain();
+    wardCryBus.gain.value = 1;
+    wardCryBus.connect(wardCryMaster);
+  }
+
+  /**
+   * One sob phrase: rising wail → falling sob → breath gap.
+   * `intensity` 0 = far down the hall; 1 = almost on top of you.
+   * Formants are PARALLEL (series bandpasses were silencing the signal).
+   */
+  function scheduleWardCryPhrase(when, intensity) {
+    if (!ctx || !wardCryBus || when < ctx.currentTime - 0.02) return;
+    const i = Math.max(0, Math.min(1, intensity));
+    // Ease-in so early phrases stay distant, then close the gap fast near the end.
+    const near = i * i;
+    const f0 = 400 + near * 160 + (Math.random() * 20 - 6);
+    const peak = f0 * (1.22 + near * 0.2 + Math.random() * 0.12);
+    const end = f0 * (0.8 + Math.random() * 0.08);
+    const dur = 0.58 + Math.random() * 0.26 + near * 0.14;
+    // Wide distance span: whisper-far → close wail (peak kept restrained).
+    const level = 0.004 + near * 0.085 + i * 0.008;
+
+    const osc = ctx.createOscillator();
+    const partial = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    partial.type = 'triangle';
+    osc.frequency.setValueAtTime(f0 * 0.94, when);
+    osc.frequency.linearRampToValueAtTime(peak, when + dur * 0.3);
+    osc.frequency.linearRampToValueAtTime(peak * 1.03, when + dur * 0.55);
+    osc.frequency.linearRampToValueAtTime(Math.max(120, end), when + dur);
+    partial.frequency.setValueAtTime(f0 * 2.01, when);
+    partial.frequency.linearRampToValueAtTime(peak * 2.0, when + dur * 0.32);
+    partial.frequency.linearRampToValueAtTime(Math.max(180, end * 1.95), when + dur);
+
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.type = 'sine';
+    lfo.frequency.value = 5.0 + Math.random() * 1.5 + near * 0.8;
+    lfoGain.gain.value = 5 + near * 9;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    const voice = ctx.createGain();
+    voice.gain.value = 0.7;
+    const partialGain = ctx.createGain();
+    // Distant = duller harmonics; close = sharper partial.
+    partialGain.gain.value = 0.1 + near * 0.28;
+    osc.connect(voice);
+    partial.connect(partialGain);
+
+    // Parallel formants — sum bands instead of chaining (chaining ≈ silence).
+    const sum = ctx.createGain();
+    sum.gain.value = 1.05;
+    function formant(freq, q, gainVal) {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = freq;
+      bp.Q.value = q;
+      const g = ctx.createGain();
+      g.gain.value = gainVal;
+      voice.connect(bp);
+      partialGain.connect(bp);
+      bp.connect(g).connect(sum);
+      return { bp, g };
+    }
+    const fm1 = formant(760 + near * 100, 3.0, 1.0);
+    const fm2 = formant(1450 + near * 280, 2.6, 0.25 + near * 0.55);
+    const fm3 = formant(2500 + near * 220, 2.0, 0.05 + near * 0.35);
+
+    // Light rasp — mostly when closer
+    const nLen = Math.ceil(ctx.sampleRate * (dur + 0.04));
+    const nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
+    const nData = nBuf.getChannelData(0);
+    for (let n = 0; n < nLen; n += 1) nData[n] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = nBuf;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 1500;
+    noiseFilter.Q.value = 0.9;
+    const rasp = ctx.createGain();
+    rasp.gain.value = 0.02 + near * 0.14;
+    noise.connect(noiseFilter).connect(rasp).connect(sum);
+
+    const amp = ctx.createGain();
+    amp.gain.setValueAtTime(0.0001, when);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.001, level * 0.5), when + 0.05);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.001, level), when + dur * 0.25);
+    amp.gain.setValueAtTime(level * 0.88, when + dur * 0.5);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.001, level * 0.28), when + dur * 0.75);
+    amp.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+    // Per-phrase air absorption: far = darker, near = open.
+    const outFilter = ctx.createBiquadFilter();
+    outFilter.type = 'lowpass';
+    outFilter.frequency.value = 1100 + near * 3400;
+    outFilter.Q.value = 0.7;
+    sum.connect(outFilter).connect(amp).connect(wardCryBus);
+
+    osc.start(when);
+    partial.start(when);
+    lfo.start(when);
+    noise.start(when);
+    osc.stop(when + dur + 0.03);
+    partial.stop(when + dur + 0.03);
+    lfo.stop(when + dur + 0.03);
+    noise.stop(when + dur + 0.03);
+    osc.onended = () => {
+      try {
+        osc.disconnect(); partial.disconnect(); lfo.disconnect(); lfoGain.disconnect();
+        voice.disconnect(); partialGain.disconnect();
+        fm1.bp.disconnect(); fm1.g.disconnect();
+        fm2.bp.disconnect(); fm2.g.disconnect();
+        fm3.bp.disconnect(); fm3.g.disconnect();
+        sum.disconnect(); outFilter.disconnect(); amp.disconnect();
+        noise.disconnect(); noiseFilter.disconnect(); rasp.disconnect();
+      } catch (_) { /* ignore */ }
+    };
+  }
+
+  function stopWardCry(seconds = 0.4) {
+    wardCryActive = false;
+    wardCryNextPhrase = 0;
+    if (wardCryMaster) setGain(wardCryMaster, 0, seconds);
+  }
+
+  function updateHospitalReverse(progress, state) {
+    if (!enabled || !ctx || ctx.state !== 'running') return;
+    setGain(humGain, 0.0028 + (state?.cryingIntensity || 0) * 0.0012, 0.35);
+    setGain(buzzGain, 0.0002 + (state?.mutateWarmLight ? 0.00015 : 0), 0.4);
+    setGain(motorGain, 0, 0.2);
+    const duck = (ctx.currentTime < sfxBusyUntil) || (state?.cryingIntensity > 0.25);
+    setGain(musicGain, duck ? 0.02 : 0.055, 0.5);
+
+    // Squeak loops softly while active and the player is still moving.
+    if (state?.squeakActive && state.squeakMoving && ctx.currentTime > wardSqueakUntil) {
+      playWardSqueak();
+      wardSqueakUntil = ctx.currentTime + 0.55;
+    }
+
+    // Keep sobbing while the encounter is live; after STEADY resolves, linger
+    // quieter until escape so the threat doesn't go fully silent.
+    const cryLive = state?.cryingStarted && !state?.escapePressed && !state?.completed;
+    if (cryLive) {
+      ensureWardCryBus();
+      const wasActive = wardCryActive;
+      wardCryActive = true;
+      // Use raw story intensity for true far→near (no artificial loud floor).
+      const raw = Math.max(0, Math.min(1, state.cryingIntensity || 0));
+      wardCryIntensity = state.cryingDone ? Math.min(raw, 0.55) : raw;
+      const near = wardCryIntensity * wardCryIntensity;
+      // Master tracks distance; start very quiet, swell as it closes.
+      setGain(wardCryMaster, 0.35 + near * 0.65, 0.35);
+      if (wardCryDistance) {
+        const cutoff = 850 + near * 3600;
+        wardCryDistance.frequency.setTargetAtTime(cutoff, ctx.currentTime, 0.25);
+      }
+      if (wardCryPan) {
+        // Far: wider/uncertain; near: locked behind you.
+        const drift = (1 - near) * 0.22;
+        wardCryPan.pan.value = Math.sin(ctx.currentTime * 0.28) * drift;
+      }
+      const t = ctx.currentTime;
+      // Distant sobs are sparse; they stack faster as it approaches.
+      const gap = (state.cryingDone ? 1.5 : 1.55) - near * 0.85
+        + Math.random() * 0.12;
+      if (!wasActive || wardCryNextPhrase < t - 0.05) {
+        wardCryNextPhrase = t + 0.02;
+      }
+      while (wardCryNextPhrase < t + 1.2) {
+        scheduleWardCryPhrase(wardCryNextPhrase, wardCryIntensity);
+        wardCryNextPhrase += Math.max(0.5, gap);
+      }
+    } else if (wardCryActive) {
+      stopWardCry(0.9);
+    }
+  }
+
+  function playWardSqueak() {
+    if (!enabled || !ctx) return;
+    resume();
+    // Soft rubber wheel — behind the player (rear pan ~0, slight left).
+    playNoiseBurst({ duration: 0.32, band: 340, q: 1.4, level: 0.028, pan: -0.08 });
+    playTone({ freq: 190, freq2: 140, duration: 0.26, level: 0.018, type: 'triangle', pan: 0.05 });
+  }
+
+  function playWardClank() {
+    if (!enabled || !ctx) return;
+    resume();
+    playNoiseBurst({ duration: 0.22, band: 520, q: 0.7, level: 0.055, pan: 0.12 });
+    playTone({ freq: 110, freq2: 70, duration: 0.4, level: 0.04, type: 'square', pan: 0.1 });
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.14, band: 900, q: 1.1, level: 0.032, pan: -0.15 });
+    }, 90);
+  }
+
+  function playWardProximity() {
+    if (!enabled || !ctx) return;
+    resume();
+    playNoiseBurst({ duration: 0.45, band: 180, q: 0.5, level: 0.036, pan: 0 });
+    playTone({ freq: 68, duration: 0.6, level: 0.028, type: 'sine', pan: 0.02 });
+    window.setTimeout(() => {
+      playWardSqueak();
+    }, 220);
+  }
+
+  function playWardDoorButton() {
+    if (!enabled || !ctx) return;
+    playTone({ freq: 880, duration: 0.05, level: 0.014, type: 'square', pan: 0.25 });
+    playNoiseBurst({ duration: 0.06, band: 1400, q: 1.2, level: 0.01, pan: 0.25 });
+  }
+
+  function playWardDoorFail() {
+    if (!enabled || !ctx) return;
+    playWardDoorButton();
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.35, band: 220, q: 0.6, level: 0.018, pan: 0.05 });
+      playTone({ freq: 95, duration: 0.4, level: 0.012, type: 'triangle', pan: 0 });
+    }, 80);
+  }
+
+  function playWardDoorOpen() {
+    if (!enabled || !ctx) return;
+    playWardDoorButton();
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.55, band: 280, q: 0.55, level: 0.024, pan: 0.35 });
+      playTone({ freq: 140, freq2: 90, duration: 0.7, level: 0.014, type: 'sine', pan: 0.32 });
+    }, 70);
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.35, band: 400, q: 0.8, level: 0.016, pan: 0.4 });
+    }, 420);
+  }
+
   /** Keys lift + door open/close — ordinary, not horror. Once per visit via story latch. */
   function playMemoryDoorLeave() {
     if (!enabled || !ctx) return;
@@ -1729,11 +2008,15 @@ export function createAudioDirector() {
   return {
     toggle, update, updateOffice, updateRecords, updateNight, updateThreshold, updateUnseen,
     updateMemoryWhite, updateMemoryBlack, updateMemoryHome,
+    updateHospitalReverse,
     enterOffice, enterRecords, enterNight, enterThreshold, enterUnseen,
     enterMemoryStaging, enterMemoryWhite, enterMemoryBlack, exitMemoryWhite, exitMemoryBlack,
+    enterHospitalReverse,
     playMemoryDoorLeave,
     playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
     playRecordsFobAccess,
+    playWardSqueak, playWardClank, playWardProximity,
+    playWardDoorButton, playWardDoorFail, playWardDoorOpen,
     setComposureStress,
     fadeForGameOver,
     reset, suspend, resume, dispose,

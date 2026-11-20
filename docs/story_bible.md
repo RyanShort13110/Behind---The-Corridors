@@ -205,6 +205,31 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 ---
 
+## Hospital reverse prototype — The Ward
+
+**PROTOTYPE / EXPERIMENTAL** — not confirmed final story placement; not in ordinary L01–L06 progression.
+
+**Design question:** Can reverse-movement horror carry real gameplay stakes when the player must retreat into unseen space, using sound as the primary warning system?
+
+**IMPLEMENTED (dev only):** `?debug=1&level=hospital-reverse`
+
+- Modules: `js/levels/hospital-reverse.js`, `hospital-reverse-story.js`
+- Abandoned hospital ward hallway on the standard scroll rail (no free-walk, no combat, no visible monster)
+- Forward pass is calm; far automatic doors fail via wall OPEN button → forced retreat
+- Reverse audio encounters:
+  1. Wheel squeak — stopping quiets it (stop can be safe)
+  2. Metallic clank — STEADY (`ward-clank`)
+  3. Crying that intensifies over time even while standing still (stop is NOT safe) — STEADY (`ward-crying`)
+  4. Proximity beat — unavoidable composure hit (`ward-proximity`)
+- Subtle one-way reverse mutations (moved gurney, wheelchair, open bay door, sheet-covered bed, warmer light)
+- Escape via a working side-door wall OPEN button after the crying peak
+- One cigarette pickup (`cigarette-hospital-reverse`, +40)
+- Checkpoints: `start` / `before-end` / `reverse` / `before-crying` / `before-escape`
+
+**OPEN / PROVISIONAL:** Whether this becomes a signature mid-game chapter, a memory space, or remains a mechanics sandbox.
+
+---
+
 ## Chapter 01: The Corridor
 
 **IMPLEMENTED** unless noted.

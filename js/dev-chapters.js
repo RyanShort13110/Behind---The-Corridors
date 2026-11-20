@@ -11,9 +11,11 @@ const OPTIONS = [
   ['unseen', '06 — The Unseen', '06'],
   ['memory-white', 'DEV — White Memory', 'memory-white'],
   ['memory-black', 'DEV — Black Memory', 'memory-black'],
+  ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
 ];
 
 const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
+const WARD_CHAPTERS = new Set(['hospital-reverse']);
 const STORAGE_KEY = 'behind.devPanelCollapsed';
 
 export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
@@ -73,6 +75,16 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
         <option value="unlocked">DOOR / UNLOCKED</option>
       </select>
     </div>
+    <div class="dev-chapters__checkpoint" id="dev-ward-checkpoint-row" hidden>
+      <label for="dev-ward-checkpoint-choice">WARD CHECKPOINT</label>
+      <select id="dev-ward-checkpoint-choice">
+        <option value="start">START / WARD ENTRY</option>
+        <option value="before-end">BEFORE END / SEALED DOORS</option>
+        <option value="reverse">REVERSE / FORCED RETREAT</option>
+        <option value="before-crying">BEFORE CRYING / POST CLANK</option>
+        <option value="before-escape">BEFORE ESCAPE / SIDE DOOR</option>
+      </select>
+    </div>
     <div class="dev-chapters__composure" id="dev-composure-row">
       <div class="dev-chapters__title">COMPOSURE</div>
       <div class="dev-chapters__row">
@@ -127,10 +139,13 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
   const memoryCheckpointPicker = panel.querySelector('#dev-memory-checkpoint-choice');
   const recordsCheckpointRow = panel.querySelector('#dev-records-checkpoint-row');
   const recordsCheckpointPicker = panel.querySelector('#dev-records-checkpoint-choice');
+  const wardCheckpointRow = panel.querySelector('#dev-ward-checkpoint-row');
+  const wardCheckpointPicker = panel.querySelector('#dev-ward-checkpoint-choice');
   const updateCheckpointPicker = () => {
     checkpointRow.hidden = picker.value !== 'unseen';
     memoryCheckpointRow.hidden = !MEMORY_CHAPTERS.has(picker.value);
     recordsCheckpointRow.hidden = picker.value !== 'records';
+    wardCheckpointRow.hidden = !WARD_CHAPTERS.has(picker.value);
   };
   picker.addEventListener('change', updateCheckpointPicker);
   let shown = '';
@@ -151,6 +166,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
     checkpointPicker.disabled = true;
     memoryCheckpointPicker.disabled = true;
     recordsCheckpointPicker.disabled = true;
+    wardCheckpointPicker.disabled = true;
     go.disabled = true;
     status.textContent = 'Loading chapter…';
     try {
@@ -160,7 +176,9 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
           ? memoryCheckpointPicker.value
           : picker.value === 'records'
             ? recordsCheckpointPicker.value
-            : 'start';
+            : WARD_CHAPTERS.has(picker.value)
+              ? wardCheckpointPicker.value
+              : 'start';
       const ok = await jump(picker.value, checkpoint);
       if (ok) {
         shown = ''; // Force status refresh even when restarting current chapter.
@@ -168,7 +186,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
         const choice = OPTIONS.find(([id]) => id === picker.value);
         url.searchParams.set('level', choice?.[2] ?? '01');
         if ((picker.value === 'unseen' || MEMORY_CHAPTERS.has(picker.value)
-            || picker.value === 'records')
+            || picker.value === 'records' || WARD_CHAPTERS.has(picker.value))
             && checkpoint !== 'start' && checkpoint !== 'before') {
           url.searchParams.set('checkpoint', checkpoint);
         } else {
@@ -188,6 +206,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
       checkpointPicker.disabled = false;
       memoryCheckpointPicker.disabled = false;
       recordsCheckpointPicker.disabled = false;
+      wardCheckpointPicker.disabled = false;
       go.disabled = false;
     }
   }
@@ -240,6 +259,9 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
   }
   if (Array.from(recordsCheckpointPicker.options).some(option => option.value === checkpoint)) {
     recordsCheckpointPicker.value = checkpoint;
+  }
+  if (Array.from(wardCheckpointPicker.options).some(option => option.value === checkpoint)) {
+    wardCheckpointPicker.value = checkpoint;
   }
   updateCheckpointPicker();
   sync(getCurrentChapter());

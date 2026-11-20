@@ -34,6 +34,13 @@ import {
   MEMORY_STAGING_METERS, MEMORY_STAGING_START_Z, MEMORY_ROOM_METERS,
 } from './levels/memory-home-story.js';
 import { memoryHomeCameraPose } from './levels/memory-home-route.js';
+import {
+  createHospitalReverseStory,
+  hospitalReverseNarrative,
+  hospitalReverseMaxProgress,
+  HOSPITAL_REVERSE_METERS,
+  HOSPITAL_REVERSE_START_Z,
+} from './levels/hospital-reverse-story.js';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -87,6 +94,7 @@ const thresholdStory = createThresholdStory();
 const unseenStory = createUnseenStory();
 const memoryWhiteStory = createMemoryWhiteStory();
 const memoryBlackStory = createMemoryBlackStory();
+const hospitalReverseStory = createHospitalReverseStory();
 const audio = createAudioDirector();
 const composure = createComposure();
 const composureHits = new Set();
@@ -109,6 +117,7 @@ let chapterId = 'corridor';
 let transitioning = false;
 
 const isMemoryChapter = (id = chapterId) => id === 'memory-white' || id === 'memory-black';
+const isHospitalReverse = (id = chapterId) => id === 'hospital-reverse';
 const memoryStoryFor = (id = chapterId) =>
   (id === 'memory-black' ? memoryBlackStory : memoryWhiteStory);
 const memoryDragonId = (id = chapterId) =>
@@ -181,6 +190,9 @@ function progressBounds() {
   if (chapterId === 'records' && !recordsStory.state.doorUnlocked) {
     return { min: 0, max: RECORDS_DOOR_HOLD };
   }
+  if (isHospitalReverse()) {
+    return { min: 0, max: hospitalReverseMaxProgress(hospitalReverseStory.state) };
+  }
   return { min: 0, max: 1 };
 }
 
@@ -196,6 +208,7 @@ function chapterMeters() {
       ? MEMORY_ROOM_METERS
       : MEMORY_STAGING_METERS;
   }
+  if (isHospitalReverse()) return HOSPITAL_REVERSE_METERS;
   return UNSEEN_METERS;
 }
 
@@ -265,6 +278,21 @@ try {
       } else if (id === 'memory-window' && chapterId === 'memory-black'
           && memoryBlackStory.state.exitReady) {
         void exitMemoryChapter();
+      } else if (id === 'ward-end-button' && isHospitalReverse()) {
+        const result = hospitalReverseStory.tryEndDoor();
+        audio.playWardDoorFail();
+        if (result.line) {
+          hospitalReverseStory.state.caption = result.line;
+          hospitalReverseStory.state.captionUntil = 2.4;
+        }
+      } else if (id === 'ward-side-button' && isHospitalReverse()) {
+        const result = hospitalReverseStory.trySideDoor();
+        if (result.ok) {
+          audio.playWardDoorOpen();
+          bindChapterInteractables();
+        } else {
+          audio.playWardDoorButton();
+        }
       }
     },
     onTake: (itemId, entryId) => {
@@ -394,6 +422,15 @@ function bindChapterInteractables() {
       }
       if (spec.id === 'memory-front-door' && chapterId === 'memory-black') {
         entry.unlocked = false;
+      }
+      if (spec.id === 'ward-side-button' && isHospitalReverse()) {
+        entry.unlocked = Boolean(hospitalReverseStory.state.sideDoorReady);
+        if (hospitalReverseStory.state.sideDoorReady) {
+          entry.body = 'The pad is lit. Press to open the side doors.';
+        }
+        if (hospitalReverseStory.state.escapePressed) {
+          entry.taken = true;
+        }
       }
     }
   }
@@ -569,6 +606,8 @@ function beginSteadyEncounter(id) {
 function onSteadyResolved(payload) {
   if (!payload?.id || composureHits.has(payload.id)) return;
   composureHitOnce(payload.id, payload.damage);
+  if (payload.id === 'ward-clank') hospitalReverseStory.markClankResolved();
+  if (payload.id === 'ward-crying') hospitalReverseStory.markCryingResolved();
 }
 
 /** Unavoidable L01–L03 hits. STEADY encounters are started separately. */
@@ -588,6 +627,13 @@ function syncChapterComposureHits() {
     if (recordsStory.state.polaroidLine >= 1) composureHitOnce('records-polaroid-proximity');
     if (recordsStory.state.drawersOpeningNoticed) composureHitOnce('records-drawers-open');
     if (recordsStory.state.shadowPeekDone) composureHitOnce('records-peek');
+  } else if (isHospitalReverse()) {
+    if (hospitalReverseStory.state.squeakDone || hospitalReverseStory.state.squeakArmed) {
+      composureHitOnce('ward-squeak');
+    }
+    if (hospitalReverseStory.state.proximityHit) {
+      composureHitOnce('ward-proximity');
+    }
   } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
     if (chapterId === 'night') {
       if (nightStory.state.footstepHeard) composureHitOnce('night-first-step');
@@ -631,6 +677,7 @@ function chapterCigaretteId(id = chapterId) {
   if (id === 'night') return 'cigarette-night';
   if (id === 'threshold') return 'cigarette-threshold';
   if (id === 'unseen') return 'cigarette-unseen';
+  if (id === 'hospital-reverse') return 'cigarette-hospital-reverse';
   return null;
 }
 
@@ -650,6 +697,11 @@ function seedCompletedComposureHits() {
     mark(recordsStory.state.drawersOpeningNoticed, 'records-drawers-open');
     mark(recordsStory.state.shadowDartDone || recordsStory.state.shadowDartPlay, 'records-dart');
     mark(recordsStory.state.shadowPeekDone, 'records-peek');
+  } else if (isHospitalReverse()) {
+    mark(hospitalReverseStory.state.squeakDone || hospitalReverseStory.state.squeakArmed, 'ward-squeak');
+    mark(hospitalReverseStory.state.clankTriggered || hospitalReverseStory.state.clankDone, 'ward-clank');
+    mark(hospitalReverseStory.state.cryingPeak || hospitalReverseStory.state.cryingDone, 'ward-crying');
+    mark(hospitalReverseStory.state.proximityHit, 'ward-proximity');
   } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
     if (chapterId === 'night') {
       mark(nightStory.state.footstepHeard, 'night-first-step');
@@ -689,6 +741,7 @@ function captureCheckpointSnapshot() {
     story: { ...story.state },
     office: { ...officeStory.state },
     records: { ...recordsStory.state },
+    hospital: { ...hospitalReverseStory.state },
   };
 }
 
@@ -707,7 +760,7 @@ function applyInventorySnapshot(items = []) {
 }
 
 function saveChapterStartCheckpoint() {
-  if (!['corridor', 'office', 'records'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse'].includes(chapterId)) return;
   for (const key of [...savedCheckpointKeys]) {
     if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
   }
@@ -717,7 +770,7 @@ function saveChapterStartCheckpoint() {
 const savedCheckpointKeys = new Set();
 
 function saveSafeCheckpoint(reason = '') {
-  if (!['corridor', 'office', 'records'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse'].includes(chapterId)) return;
   if (gameOverActive || transitioning || steady?.isActive) return;
   if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
   checkpoints.saveLatest(captureCheckpointSnapshot());
@@ -728,7 +781,7 @@ function saveSafeCheckpoint(reason = '') {
 }
 
 function maybeAutoCheckpoint() {
-  if (!['corridor', 'office', 'records'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse'].includes(chapterId)) return;
   if (chapterId === 'corridor' && story.state.reachedDeadEnd
       && !composureHits.has('corridor-cascade')) {
     saveSafeCheckpoint('corridor-dead-end');
@@ -741,6 +794,9 @@ function maybeAutoCheckpoint() {
       && !recordsStory.state.shadowDartDone
       && !composureHits.has('records-dart')) {
     saveSafeCheckpoint('records-pre-dart');
+  } else if (chapterId === 'hospital-reverse' && hospitalReverseStory.state.endDoorTried
+      && !hospitalReverseStory.state.clankTriggered) {
+    saveSafeCheckpoint('ward-pre-reverse');
   }
 }
 
@@ -769,6 +825,9 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       director?.reset();
     } else if (target === 'records') {
       Object.assign(recordsStory.state, snapshot.records);
+      director?.reset();
+    } else if (target === 'hospital-reverse') {
+      Object.assign(hospitalReverseStory.state, snapshot.hospital || {});
       director?.reset();
     }
     composureHits.clear();
@@ -864,9 +923,15 @@ async function restartCurrentChapterFromStart() {
     recordsStory.reset();
     director?.reset();
     progress = displayed = 0;
+  } else if (chapterId === 'hospital-reverse') {
+    hospitalReverseStory.reset();
+    director?.reset();
+    progress = displayed = 0;
   }
   const prefix = chapterId === 'corridor' ? 'corridor-'
-    : chapterId === 'office' ? 'office-' : 'records-';
+    : chapterId === 'office' ? 'office-'
+      : chapterId === 'hospital-reverse' ? 'ward-'
+        : 'records-';
   for (const id of [...composureHits]) {
     if (id.startsWith(prefix)) composureHits.delete(id);
   }
@@ -1048,6 +1113,11 @@ function setEndCard(which) {
     el.endingCopy.textContent = 'The walls fall quiet. A maintenance passage waits ahead.';
     el.continue.textContent = 'CONTINUE INTO THE UNSEEN ↑';
     el.continue.hidden = false;
+  } else if (which === 'hospital-reverse') {
+    el.endingEyebrow.textContent = 'DEV PROTOTYPE · THE WARD';
+    el.endingTitle.innerHTML = 'YOU DIDN\'T<br>TURN AROUND.';
+    el.endingCopy.textContent = 'Reverse retreat under sound pressure. Prototype complete — not part of the main path.';
+    el.continue.hidden = true;
   } else {
     el.endingEyebrow.textContent = 'LEVEL 06 COMPLETE · THE UNSEEN';
     el.endingTitle.innerHTML = 'IT WAS<br>RIGHT THERE.';
@@ -1058,7 +1128,7 @@ function setEndCard(which) {
 
 function showEndCard(which) {
   ended = true;
-  const id = which === 'corridor' ? '01' : which === 'office' ? '02' : which === 'records' ? '03' : which === 'night' ? '04' : which === 'threshold' ? '05' : '06';
+  const id = which === 'corridor' ? '01' : which === 'office' ? '02' : which === 'records' ? '03' : which === 'night' ? '04' : which === 'threshold' ? '05' : which === 'hospital-reverse' ? 'ward' : '06';
   if (!memory.chaptersCompleted.includes(id)) memory.chaptersCompleted.push(id);
   setEndCard(which);
   el.ending.classList.add('is-visible');
@@ -1376,6 +1446,7 @@ const DEV_CHAPTER_CONFIG = {
   unseen:    { start: 0, z: UNSEEN_START_Z, location: 'SERVICE LEVEL / MAINTENANCE' },
   'memory-white': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / WHITE DRAGON (DEV)' },
   'memory-black': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / BLACK DRAGON (DEV)' },
+  'hospital-reverse': { start: 0, z: HOSPITAL_REVERSE_START_Z, location: 'DEV / THE WARD' },
 };
 
 async function debugJumpToChapter(target, checkpoint = 'start') {
@@ -1426,6 +1497,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createMemoryBlack } = await import('./levels/memory-black.js');
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
+    } else if (target === 'hospital-reverse') {
+      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-2');
+      hospitalReverseStory.reset();
+      next.add('hospital-reverse', createHospitalReverse(scene));
     } else {
       const { createUnseen } = await import('./levels/unseen.js');
       next.add('unseen', createUnseen(scene));
@@ -1447,6 +1522,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     unseenStory.reset();
     if (target !== 'memory-white') memoryWhiteStory.reset();
     if (target !== 'memory-black') memoryBlackStory.reset();
+    if (target !== 'hospital-reverse') hospitalReverseStory.reset();
     memory.chaptersCompleted.length = 0;
     memory.lighterEncountered = false;
     memory.keyFobEncountered = false;
@@ -1461,6 +1537,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     else if (target === 'threshold') audio.enterThreshold();
     else if (target === 'unseen') audio.enterUnseen();
     else if (isMemoryChapter(target)) audio.enterMemoryStaging();
+    else if (target === 'hospital-reverse') audio.enterHospitalReverse();
 
     hideEndCard();
     activeBeat = -1;
@@ -1474,6 +1551,12 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const pose = unseenCameraPose(progress, unseenStory.state);
       camera.position.set(pose.x, 1.7, pose.z);
       camera.rotation.set(pose.pitch, pose.yaw, 0);
+    }
+    if (target === 'hospital-reverse') {
+      const seek = hospitalReverseStory.seekCheckpoint(checkpoint);
+      progress = displayed = seek.progress ?? 0;
+      camera.position.set(0, 1.7, HOSPITAL_REVERSE_START_Z - progress * HOSPITAL_REVERSE_METERS);
+      camera.rotation.set(0, 0, 0);
     }
     if (target === 'records') {
       const seek = recordsStory.seekCheckpoint(checkpoint);
@@ -1519,6 +1602,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     seedCompletedComposureHits();
     noteFogBase();
     syncComposureUi();
+    saveChapterStartCheckpoint();
     window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
     scrollTrigger?.update();
     lastTime = performance.now();
@@ -1527,7 +1611,9 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       target === 'corridor' ? story.state : target === 'office' ? officeStory.state
         : target === 'records' ? recordsStory.state : target === 'night' ? nightStory.state
           : target === 'threshold' ? thresholdStory.state
-            : isMemoryChapter(target) ? memoryStoryFor(target).state : unseenStory.state, 0, true);
+            : isMemoryChapter(target) ? memoryStoryFor(target).state
+              : target === 'hospital-reverse' ? hospitalReverseStory.state
+                : unseenStory.state, 0, true);
     updateNarrative(progress);
     renderer.render(scene, camera);
     console.info(`[Behind. DEV] Jumped to ${target}. Chapter state reset; normal controls retained.`);
@@ -1692,17 +1778,20 @@ function updateNarrative(p) {
   const inNight = chapterId === 'night';
   const inThreshold = chapterId === 'threshold';
   const inMemory = isMemoryChapter();
+  const inWard = isHospitalReverse();
   const state = inCorridor ? story.state
     : inOffice ? officeStory.state : inRecords ? recordsStory.state
       : inNight ? nightStory.state
         : inThreshold ? thresholdStory.state
-          : inMemory ? memoryStoryFor().state : unseenStory.state;
+          : inMemory ? memoryStoryFor().state
+            : inWard ? hospitalReverseStory.state : unseenStory.state;
   const narrative = inCorridor ? narrativeFor(p, state)
     : inOffice ? officeNarrative(p, state)
       : inRecords ? recordsNarrative(p, state)
         : inNight ? nightNarrative(p, state)
           : inThreshold ? thresholdNarrative(p, state)
-            : inMemory ? memoryHomeNarrative(p, state) : unseenNarrative(p, state);
+            : inMemory ? memoryHomeNarrative(p, state)
+              : inWard ? hospitalReverseNarrative(p, state) : unseenNarrative(p, state);
   if (narrative.chapter !== el.chapter.textContent || (inCorridor && narrative.beatIndex !== activeBeat)) {
     activeBeat = narrative.beatIndex ?? -1;
     el.chapter.textContent = narrative.chapter;
@@ -1721,7 +1810,7 @@ function updateNarrative(p) {
     if (near.kind === 'keypad') instruction = 'CLICK TO ENTER CODE · A / D OR SWIPE TO LOOK';
     else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
     else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
-  } else if ((inRecords || inNight || inThreshold || chapterId === 'unseen')
+  } else if ((inRecords || inNight || inThreshold || inWard || chapterId === 'unseen')
       && interaction?.nearest && !interaction.isOpen && !ended) {
     const near = interaction.nearest;
     if (near._usable) {
@@ -1775,6 +1864,9 @@ function updateNarrative(p) {
     memory.keyPassed ||= state.reachedKey;
     if (state.completed && p >= THRESHOLD_END_PROGRESS && !ended) showEndCard('threshold');
     else if (p < THRESHOLD_END_PROGRESS - 0.035 && ended) hideEndCard();
+  } else if (inWard) {
+    if (state.completed && !ended) showEndCard('hospital-reverse');
+    else if (!state.completed && ended) hideEndCard();
   } else {
     if (state.completed && p <= UNSEEN_EXIT_PROGRESS && !ended) showEndCard('unseen');
     else if (p > 0.037 && ended) hideEndCard();
@@ -1805,7 +1897,8 @@ function frame(now) {
         : chapterId === 'records' ? RECORDS_START_Z
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
-              : isMemoryChapter() ? MEMORY_STAGING_START_Z : UNSEEN_START_Z;
+              : isMemoryChapter() ? MEMORY_STAGING_START_Z
+                : isHospitalReverse() ? HOSPITAL_REVERSE_START_Z : UNSEEN_START_Z;
     const step = MAX_WALK_SPEED * dt / meters;
     displayed = clamp(displayed + THREE.MathUtils.clamp(eased, -step, step));
     const bounds = progressBounds();
@@ -1842,6 +1935,47 @@ function frame(now) {
         if (mem.consumeDoorSound?.()) audio.playMemoryDoorLeave();
       }
       if (!wasExitReady && mem.state.exitReady) bindChapterInteractables();
+    } else if (isHospitalReverse()) {
+      const wasSideReady = hospitalReverseStory.state.sideDoorReady;
+      const wasSqueak = hospitalReverseStory.state.squeakArmed;
+      const wasClank = hospitalReverseStory.state.clankTriggered;
+      const wasProx = hospitalReverseStory.state.proximityHit;
+      const wasCry = hospitalReverseStory.state.cryingStarted;
+      hospitalReverseStory.observe(previousDisplayed, p, dt);
+      if (!wasSqueak && hospitalReverseStory.state.squeakArmed) {
+        audio.playWardSqueak();
+      }
+      if (!wasClank && hospitalReverseStory.state.clankTriggered) {
+        audio.playWardClank();
+      }
+      if (!wasCry && hospitalReverseStory.state.cryingStarted) {
+        // Kick the cry bed immediately; updateHospitalReverse continues it.
+        audio.updateHospitalReverse(p, hospitalReverseStory.state);
+      }
+      if (!wasProx && hospitalReverseStory.state.proximityHit) {
+        audio.playWardProximity();
+      }
+      if (!wasSideReady && hospitalReverseStory.state.sideDoorReady) {
+        bindChapterInteractables();
+      }
+      if (typeof window !== 'undefined') {
+        const s = hospitalReverseStory.state;
+        window.__wardDebug = {
+          p: Number(p.toFixed(3)),
+          reverse: s.reverseStarted,
+          reachedEnd: s.reachedEnd,
+          endTried: s.endDoorTried,
+          squeak: s.squeakActive,
+          squeakDone: s.squeakDone,
+          clank: s.clankTriggered,
+          cry: s.cryingStarted,
+          cryDone: s.cryingDone,
+          cryI: Number(s.cryingIntensity.toFixed(2)),
+          prox: s.proximityHit,
+          sideReady: s.sideDoorReady,
+          caption: s.caption,
+        };
+      }
     } else {
       unseenStory.observe(previousDisplayed, p, dt);
     }
@@ -1909,7 +2043,8 @@ function frame(now) {
           : chapterId === 'night' ? nightStory.state
             : chapterId === 'threshold' ? thresholdStory.state
               : chapterId === 'unseen' ? unseenStory.state
-                : isMemoryChapter() ? memoryStoryFor().state : null;
+                : isMemoryChapter() ? memoryStoryFor().state
+                  : isHospitalReverse() ? hospitalReverseStory.state : null;
     interaction?.update(
       dt,
       canInteract && !uiBlocking && !steady?.isActive,
@@ -1926,6 +2061,24 @@ function frame(now) {
     // Arm STEADY only once the dart streak is actually on-screen.
     if (chapterId === 'records' && recordsStory.state.shadowDartSteadyReady) {
       beginSteadyEncounter('records-dart');
+    }
+    if (isHospitalReverse()
+        && hospitalReverseStory.state.clankSteadyReady
+        && !composureHits.has('ward-clank')
+        && !steady?.isActive) {
+      if (!beginSteadyEncounter('ward-clank')) {
+        hospitalReverseStory.markClankResolved();
+        composureHitOnce('ward-clank');
+      }
+    }
+    if (isHospitalReverse()
+        && hospitalReverseStory.state.cryingSteadyReady
+        && !composureHits.has('ward-crying')
+        && !steady?.isActive) {
+      if (!beginSteadyEncounter('ward-crying')) {
+        hospitalReverseStory.markCryingResolved();
+        composureHitOnce('ward-crying');
+      }
     }
 
     if (chapterId === 'corridor') {
@@ -1968,6 +2121,9 @@ function frame(now) {
       director.update(p, memoryStoryFor().state, dt, reduced);
       if (chapterId === 'memory-black') audio.updateMemoryBlack(p, memoryBlackStory.state);
       else audio.updateMemoryWhite(p, memoryWhiteStory.state);
+    } else if (isHospitalReverse()) {
+      director.update(p, hospitalReverseStory.state, dt, reduced);
+      audio.updateHospitalReverse(p, hospitalReverseStory.state);
     } else {
       director.update(p, unseenStory.state, dt, reduced);
       audio.updateUnseen(p, unseenStory.state, camera);
