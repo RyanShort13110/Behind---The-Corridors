@@ -218,7 +218,7 @@ Objects should appear ordinary until repetition gives them emotional weight.
 - Forward pass is calm; far automatic doors fail via wall OPEN button → forced retreat
 - **Encounter pacing (descending progress):** squeak (~0.84) → quiet gap → clank warn/peak (~0.58/0.50) → requires `clankDone` → crying (~0.40) → side escape (~0.44). No overlapping STEADY windows.
 - Reverse audio encounters (composure 0–100; cigarette +40; one pack per chapter):
-  1. **Door creak** — CC0 sample (`assets/door-creak.mp3`); stop promptly = 0 / hesitate = 4 / ignore = 12; never repeats. Left bay near the chair snaps open offscreen after the sound (no tween).
+  1. **Door creak** — CC0 sample (`assets/door-creak.mp3`); stop promptly = 0 / hesitate = 4 / ignore = 12; never repeats. Left bay at z=-27.5 snaps open into the hall offscreen after the sound (no tween).
   2. **Metallic clank** — rattle → anticipation → peak + Ward-local STEADY (5 / 11 / 22) → silence
   3. **Crying** — time + position buildup (min perceptual build); continues while still; STEADY at peak; side OPEN once cry is established
   4. **Proximity** — conditional near-contact only; skipped after clean escape / perfect+retreat; otherwise graded ≤16

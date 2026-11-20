@@ -1612,7 +1612,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'hospital-reverse') {
-      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-sfx-2');
+      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-creak-door-9');
       hospitalReverseStory.reset();
       const wardMod = createHospitalReverse(scene);
       wardMod.setCamera?.(camera);

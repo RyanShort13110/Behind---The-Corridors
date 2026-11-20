@@ -49,6 +49,9 @@ export function createHospitalReverse(scene) {
     fixtureDim: material({ color: 0xa8b2aa, emissive: 0x7a8a82, emissiveIntensity: 0.28, roughness: 0.75 }),
     dark: material({ color: 0x0c100f, roughness: 1 }),
   };
+  // Unlit void — must not pick up fluorescents or it reads as wall grey.
+  const voidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  ownedMaterials.push(voidMat);
 
   const cube = new THREE.BoxGeometry(1, 1, 1);
   ownedGeometry.push(cube);
@@ -111,7 +114,7 @@ export function createHospitalReverse(scene) {
   }
 
   // Room bays + plaques along both walls
-  function roomBay(side, z, number, { doorLeaves = true } = {}) {
+  function roomBay(side, z, number, { doorLeaves = true, plaque = true } = {}) {
     const x = side * 3.42;
     // Recessed door leaf (skip when a controllable openable leaf owns this bay).
     if (doorLeaves) {
@@ -119,15 +122,17 @@ export function createHospitalReverse(scene) {
       box(0.04, 0.55, 0.55, x + side * 0.06, 1.55, z, mat.doorGlass);
     }
     // Room plaque flush to the wall face (thin toward the aisle).
-    box(0.06, 0.14, 0.28, x - side * 0.07, 2.05, z + 0.42, mat.sign);
+    if (plaque) {
+      box(0.06, 0.14, 0.28, x - side * 0.07, 2.05, z + 0.42, mat.sign);
+    }
     // Frame plugs
     box(0.2, 2.55, 0.08, x, 1.28, z - 0.58, mat.trim);
     box(0.2, 2.55, 0.08, x, 1.28, z + 0.58, mat.trim);
     box(0.2, 0.12, 1.2, x, 2.48, z, mat.trim);
   }
 
-  /** Left bay near the chair — closed by default; snaps open after the creak. */
-  const CREAK_DOOR_Z = -16.0;
+  /** Left bay one past the mid-hall chair — closed by default; snaps open after the creak. */
+  const CREAK_DOOR_Z = -27.5;
   function makeCreakDoorBay() {
     const bay = new THREE.Group();
     bay.name = 'Ward creak door bay';
@@ -144,14 +149,20 @@ export function createHospitalReverse(scene) {
     open.name = 'creak-door-open';
     open.visible = false;
     bay.add(open);
-    // Dark room mouth + leaf swung into the aisle (no animation — just the open pose).
-    box(0.06, 2.3, 0.98, -0.12, 1.2, 0, mat.dark, open);
+    // Pitch-black aperture where the closed leaf was — covers the hall wall
+    // inside the frame so the open bay reads as a dark room, not grey plaster.
+    const voidPanel = box(0.06, 2.4, 1.1, 0.02, 1.22, 0, voidMat, open);
+    if (voidPanel) {
+      voidPanel.renderOrder = 2;
+      voidPanel.material.depthWrite = true;
+    }
+    // Hinge on the deeper-ward frame edge. Positive Y rotates the leaf into +X (hall).
     const leaf = new THREE.Group();
-    leaf.position.set(0, 0, -0.52); // hinge on the deeper-ward frame edge
-    leaf.rotation.y = -1.15; // ~66° into the hallway
+    leaf.position.set(0.02, 0, -0.52);
+    leaf.rotation.y = 1.35; // ~77° into the hallway
     open.add(leaf);
     box(0.08, 2.35, 1.05, 0, 1.22, 0.52, mat.door, leaf);
-    box(0.04, 0.55, 0.55, 0.06, 1.55, 0.52, mat.doorGlass, leaf);
+    box(0.04, 0.55, 0.55, 0.05, 1.55, 0.52, mat.doorGlass, leaf);
 
     return {
       bay,
@@ -164,7 +175,10 @@ export function createHospitalReverse(scene) {
 
   const roomZs = [-4.5, -10.2, -16.0, -21.8, -27.5, -33.2, -39.0];
   roomZs.forEach((z, i) => {
-    roomBay(-1, z, 110 + i, { doorLeaves: z !== CREAK_DOOR_Z });
+    roomBay(-1, z, 110 + i, {
+      doorLeaves: z !== CREAK_DOOR_Z,
+      plaque: z !== CREAK_DOOR_Z,
+    });
     roomBay(1, z + 0.4, 210 + i);
   });
   const creakDoor = makeCreakDoorBay();
@@ -434,14 +448,16 @@ export function createHospitalReverse(scene) {
     resolveOffscreenMutation(state, 'mutateDoorOpenEligible', 'mutateDoorOpen', mutOpenDoor);
 
     // Creak payoff: left door by the chair opens behind the player (no tween).
-    if (state.creakDoorOpen) {
-      creakDoor.setOpen(true);
-    } else if (state.creakDoorEligible && isSafelyOffscreen(creakDoor.bay)) {
-      state.creakDoorOpen = true;
-      creakDoor.setOpen(true);
-    } else {
-      creakDoor.setOpen(false);
+    // Latch while the player is still deeper than the bay (door is behind them),
+    // or whenever the bay is safely offscreen — so the swing isn't missed.
+    if (!state.creakDoorOpen && state.creakDoorEligible) {
+      const camZ = cameraRef?.position.z;
+      const behindPlayer = typeof camZ === 'number' && camZ < CREAK_DOOR_Z - 1.5;
+      if (behindPlayer || isSafelyOffscreen(creakDoor.bay)) {
+        state.creakDoorOpen = true;
+      }
     }
+    creakDoor.setOpen(!!state.creakDoorOpen);
 
     if (!state.mutateWarmLight && state.mutateWarmLightEligible) {
       // Warm shift is global — apply only when no mutation props are mid-reveal
