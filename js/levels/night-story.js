@@ -151,66 +151,22 @@ export function createNightStory() {
   };
 }
 
-const firstPass = [
-  { to: 0.12, line: 'This floor feels different.' },
-  { to: 0.22, line: 'Someone left a cup by the sink.' },
-  { to: 0.34, line: 'They kept it almost like a living room.' },
-  { to: 0.43, line: '' },
-  { to: 0.70, line: '' },
-  { to: 0.86, line: '' },
-  { to: 1.01, line: '' },
-];
+/**
+ * One quiet internal thought after the chair settles. The player sees the
+ * lamp fade, the room cool and the exit ahead without further narration.
+ * Keep instructions even while the narrative subtitle is absent.
+ */
+export function nightNarrative(_progress, state) {
+  const chapter = '04 — THE NIGHT SHIFT';
+  if (state.completed) return { chapter, line: '', instruction: ' ' };
 
-export function nightNarrative(progress, state) {
-  if (state.completed) {
-    return { chapter: '04 — THE NIGHT SHIFT', line: '', instruction: ' ' };
-  }
+  const afterChair = state.lampOut && !state.hush
+    && state.direction !== 'backward'
+    && state.absenceElapsed >= 4.0 && state.absenceElapsed < 6.4;
 
-  if (state.hush) {
-    return {
-      chapter: '04 — THE NIGHT SHIFT',
-      line: state.hushElapsed >= 0.55 ? 'Just the exit light now.' : '',
-      instruction: 'SCROLL UP TO CONTINUE ↑',
-    };
-  }
-
-  // Lamp / empty-chair beat — sparse, no diagnosis.
-  if (state.absenceArmed && !state.lampOut && state.absenceElapsed < 3.2) {
-    return {
-      chapter: '04 — THE NIGHT SHIFT',
-      line: 'The lamp is going out.',
-      instruction: 'SCROLL UP TO CONTINUE ↑',
-    };
-  }
-  if (state.lampOut && state.absenceElapsed >= 4.0 && state.absenceElapsed < 7.2) {
-    return {
-      chapter: '04 — THE NIGHT SHIFT',
-      line: 'That chair is still warm.',
-      instruction: 'SCROLL UP TO CONTINUE ↑',
-    };
-  }
-
-  if (state.coldHall && progress < 0.78 && progress > NIGHT_COLD_START) {
-    const line = progress < 0.70 ? 'Colder back here.' : '';
-    return {
-      chapter: '04 — THE NIGHT SHIFT',
-      line,
-      instruction: 'SCROLL UP TO CONTINUE ↑',
-    };
-  }
-
-  if (state.direction === 'backward' && state.absenceArmed) {
-    return {
-      chapter: '04 — THE NIGHT SHIFT',
-      line: '',
-      instruction: 'SCROLL UP TO CONTINUE ↑',
-    };
-  }
-
-  const line = firstPass.find(beat => progress < beat.to)?.line ?? '';
   return {
-    chapter: '04 — THE NIGHT SHIFT',
-    line,
+    chapter,
+    line: afterChair ? 'I thought someone was here.' : '',
     instruction: 'SCROLL UP TO CONTINUE ↑',
   };
 }
