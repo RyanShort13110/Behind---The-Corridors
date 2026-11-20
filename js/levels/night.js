@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import {
+  createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
+} from '../composure.js';
 
 /**
  * Chapter 04 — The Night Shift.
@@ -83,6 +86,11 @@ export function createNightShift(scene) {
   cup.position.set(-4.30, 1.195, -12.95);
   world.add(cup);
   ownedGeometry.push(cup.geometry);
+  // Pack on the kitchenette — look left near the sink.
+  const cigarette = createCigarettePack(THREE, { name: 'Night cigarette pack' });
+  cigarette.position.set(-4.55, 1.12, -12.85);
+  cigarette.rotation.set(0, 0.55, 0.1);
+  world.add(cigarette);
 
   // A break table, with exactly one chair pushed back — ordinary clutter.
   add(2.2, 0.11, 1.26, 3.47, 0.86, -20.5, mat.wood);
@@ -173,7 +181,12 @@ export function createNightShift(scene) {
     world.add(mesh);
   }
 
+  const interactables = [
+    cigaretteInteractable('cigarette-night', cigarette),
+  ];
+
   return {
+    interactables,
     update(progress, state, dt, reduced) {
       const target = state.hallDarkened ? 0.035 : 2.2;
       for (const light of lightsToDarken) {
@@ -189,9 +202,12 @@ export function createNightShift(scene) {
     reset() {
       lightsToDarken.forEach(light => { light.intensity = 2.2; });
       fixturesToDarken.forEach(material => { material.emissiveIntensity = 0.30; });
+      cigarette.visible = true;
+      cigarette.userData.taken = false;
     },
     dispose() {
       cube.dispose();
+      disposeCigaretteProp(cigarette);
       ownedGeometry.forEach(geometry => geometry.dispose());
       Object.values(mat).forEach(material => material.dispose());
       fixturesToDarken.forEach(material => material.dispose());

@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {
-  createCigaretteProp, disposeCigaretteProp,
-  CIGARETTE_LABEL, CIGARETTE_TOOLTIP,
+  createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
 
 /**
@@ -292,7 +291,9 @@ export function createRecords(scene) {
   const DART_Z = -48.15;
   const DART_X0 = -3.15;
   const DART_X1 = 3.15;
-  const DART_DURATION = 0.18;
+  // Telegraph aligns with STEADY buildup (~warn+buildup) before the flash.
+  const DART_TELEGRAPH = 1.85;
+  const DART_DURATION = 0.22;
   const dart = new THREE.Group();
   dart.name = 'Records aisle shadow dart';
   dart.visible = false;
@@ -302,6 +303,7 @@ export function createRecords(scene) {
   box(0.32, 0.55, 0.22, 0.02, 0.95, 0.02, mat.dart, dart);
   let dartPlaying = false;
   let dartAge = 0;
+  let dartFlashed = false;
 
   // Head-only peek: second right-hand shelf stack (z≈-53.2), out then gone.
   // Soft sprite reads as a shadow blot instead of a solid ball.
@@ -339,9 +341,9 @@ export function createRecords(scene) {
     world.add(mesh);
   }
 
-  // Cigarette on the left receiving counter — look left near the entrance.
-  const cigarette = createCigaretteProp(THREE, { name: 'Records cigarette' });
-  cigarette.position.set(-2.35, 1.14, -4.55);
+  // Pack on the left receiving counter — look left near the entrance.
+  const cigarette = createCigarettePack(THREE, { name: 'Records cigarette pack' });
+  cigarette.position.set(-2.35, 1.145, -4.55);
   cigarette.rotation.set(0, 0.4, 0.08);
   world.add(cigarette);
 
@@ -353,20 +355,7 @@ export function createRecords(scene) {
       title: 'PHOTOGRAPH',
       body: 'No. I won\'t look. I can\'t.',
     },
-    {
-      id: 'cigarette-records',
-      object: cigarette,
-      radius: 4.4,
-      takeable: true,
-      itemId: 'cigarette-records',
-      itemLabel: CIGARETTE_LABEL,
-      title: CIGARETTE_LABEL,
-      body: CIGARETTE_TOOLTIP,
-      tooltip: CIGARETTE_TOOLTIP,
-      consumable: true,
-      restoreAmount: 25,
-      previewColor: 0xd8d2c4,
-    },
+    cigaretteInteractable('cigarette-records', cigarette),
     {
       id: 'records-fob-reader',
       object: readerHit,
@@ -405,32 +394,45 @@ export function createRecords(scene) {
               * (1 - Math.exp(-dt * 1.6));
       }
 
-      // Aisle shadow: fire once when story latches; skip under reduced motion.
-      if (state.shadowDartPlay && !state.shadowDartDone && !reduced && !dartPlaying) {
+      // Aisle shadow: telegraph for STEADY, then a short streak (no jump scare).
+      if (state.shadowDartPlay && !state.shadowDartDone && !dartPlaying) {
         dartPlaying = true;
         dartAge = 0;
-        dart.visible = true;
+        dartFlashed = false;
+        dart.visible = false;
         dart.position.set(DART_X0, 1.05, DART_Z);
         mat.dart.opacity = 0;
       }
       if (dartPlaying) {
         dartAge += Math.max(0, dt);
-        const u = Math.min(1, dartAge / DART_DURATION);
-        // Ease-in so it explodes out of the left cabinets, then streaks across.
-        const streak = u * u * (2 - u);
-        dart.position.x = DART_X0 + (DART_X1 - DART_X0) * streak;
-        dart.position.y = 1.05 + Math.sin(u * Math.PI) * 0.04;
-        // Opaque in the open aisle; fade at each cabinet edge.
-        const edge = Math.sin(Math.min(1, Math.max(0, u)) * Math.PI);
-        mat.dart.opacity = 0.92 * edge;
-        if (u >= 1) {
+        if (reduced) {
           dartPlaying = false;
           dart.visible = false;
           mat.dart.opacity = 0;
           state.shadowDartDone = true;
           state.shadowDartPlay = false;
+        } else if (dartAge < DART_TELEGRAPH) {
+          dart.visible = false;
+          mat.dart.opacity = 0;
+        } else {
+          dartFlashed = true;
+          const flashAge = dartAge - DART_TELEGRAPH;
+          const u = Math.min(1, flashAge / DART_DURATION);
+          const streak = u * u * (2 - u);
+          dart.visible = true;
+          dart.position.x = DART_X0 + (DART_X1 - DART_X0) * streak;
+          dart.position.y = 1.05 + Math.sin(u * Math.PI) * 0.04;
+          const edge = Math.sin(Math.min(1, Math.max(0, u)) * Math.PI);
+          mat.dart.opacity = 0.92 * edge;
+          if (u >= 1) {
+            dartPlaying = false;
+            dart.visible = false;
+            mat.dart.opacity = 0;
+            state.shadowDartDone = true;
+            state.shadowDartPlay = false;
+          }
         }
-      } else if (reduced || state.shadowDartDone) {
+      } else if (state.shadowDartDone) {
         dart.visible = false;
         mat.dart.opacity = 0;
       }
@@ -481,6 +483,7 @@ export function createRecords(scene) {
       cigarette.userData.taken = false;
       dartPlaying = false;
       dartAge = 0;
+      dartFlashed = false;
       dart.visible = false;
       dart.position.set(DART_X0, 1.05, DART_Z);
       mat.dart.opacity = 0;

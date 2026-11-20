@@ -35,6 +35,7 @@ export function createRecordsStory() {
     shadowDartDone: false,
     shadowPeekPlay: false,
     shadowPeekDone: false,
+    drawersOpeningNoticed: false,
   };
 
   return {
@@ -75,6 +76,10 @@ export function createRecordsStory() {
         }
       }
       if (current >= 0.62) state.photoPassed = true;
+      // Distant aisle drawers begin opening (composure beat; not the discrepancy drawer).
+      if (!state.drawersOpeningNoticed && current >= 0.48 && previous < 0.48) {
+        state.drawersOpeningNoticed = true;
+      }
       // Drawer settles only after the camera is well past it — no onscreen close.
       if (current >= 0.68) state.drawerSettled = true;
       // Shadow dart: once, forward only, past the table looking toward the exit.
@@ -141,6 +146,7 @@ export function createRecordsStory() {
         state.reachedSortingStation = true;
         state.shadowDartDone = true;
         state.shadowPeekDone = true;
+        state.drawersOpeningNoticed = true;
         return { progress: 0.88, giveFob: false, doorUnlocked: false };
       }
       if (name === 'fob' || name === 'with-fob') {
@@ -153,6 +159,7 @@ export function createRecordsStory() {
         state.reachedSortingStation = true;
         state.shadowDartDone = true;
         state.shadowPeekDone = true;
+        state.drawersOpeningNoticed = true;
         return { progress: 0.88, giveFob: true, doorUnlocked: false };
       }
       if (name === 'unlocked' || name === 'open') {
@@ -165,6 +172,7 @@ export function createRecordsStory() {
         state.reachedSortingStation = true;
         state.shadowDartDone = true;
         state.shadowPeekDone = true;
+        state.drawersOpeningNoticed = true;
         state.doorUnlocked = true;
         state.lockedDoorLineSaid = true;
         state.lockedDoorLineDone = true;
@@ -199,6 +207,7 @@ export function createRecordsStory() {
         shadowDartDone: false,
         shadowPeekPlay: false,
         shadowPeekDone: false,
+        drawersOpeningNoticed: false,
       });
     },
   };

@@ -46,6 +46,63 @@ Gameplay instructions (scroll prompts, USE/TAKE cues) are separate from protagon
 
 The specific number of floors and chapter names can change if pacing requires it. Do not build to a chapter count at the expense of silence and natural discovery.
 
+## Composure (psychological survival)
+
+**ESTABLISHED CANON**
+
+Composure is a **survival resource**, not combat HP and not a purely atmospheric meter. Reaching zero is a definitive **gameplay failure** (game over). The story does **not** state whether the protagonist died, collapsed, or experienced something supernatural — only that they lost control.
+
+There is no combat, no free walking, and no automatic drain from time, ordinary movement, inspecting collectibles, solving puzzles, or re-crossing the same trigger.
+
+| Rule | Value |
+|---|---|
+| Maximum / start | 100 |
+| Cigarette restore | **+40** (`COMPOSURE_CONFIG` / `CIGARETTE_RESTORE` in `js/composure.js`) |
+| Supply | Exactly **one** cigarette per main-story chapter (pack visual → one consumable) |
+| Persistence | Unused cigarettes and composure persist across chapter transitions |
+| Use at full | Blocked; inventory copy explains temporary relief + restore amount |
+| Zero composure | **Game over** — fade, restrained failure UI, checkpoint retry or chapter restart |
+
+### Deterioration stages (**IMPLEMENTED**)
+
+| Range | Stage | Presentation |
+|---|---|---|
+| 76–100 | Composed | Baseline breathing, visibility, audio, camera |
+| 46–75 | Unsettled | Heavier breath mix, light vignette, mild bed filtering |
+| 21–45 | Distressed | Stronger vignette, unease in bed, slight instability |
+| 1–20 | Critical | Heavy vignette, irregular stress audio, subtle camera sway (honors reduced-motion) |
+| 0 | Game over | Movement locked; failure screen |
+
+### STEADY (**IMPLEMENTED** L01–L03)
+
+Timed defensive reaction (X / tap) during major encounters. Not combat. Results: Perfect / Partial / Missed → ~20% / ~50% / 100% of encounter damage (exact values per encounter in `STEADY_ENCOUNTERS`). First corridor cascade includes a brief non-blocking tutorial cue. Not every scare uses STEADY.
+
+### Chapter damage budgets
+
+**IMPLEMENTED (L01–L03 survival pass):**
+
+| Chapter | Budget | Hits |
+|---|---|---|
+| 01 Corridor | 40 | Breath 10 (unavoidable) · Altered door noticed on return 12 (unavoidable, **not** inspect) · Cascade STEADY 18/9/4 |
+| 02 Office | 45 | Phone 10 · Silence 12 · Latch STEADY 18/9/4 · Second anomaly **+5 reserved / disabled** until approved |
+| 03 Records | 50 | Polaroid proximity 6 (not inspect panel) · Drawers 10 · Dart STEADY 20/10/4 · Peek 14 unavoidable |
+
+**PROVISIONAL (L04–L06):** Prior budget numbers remain design targets; damage application is **gated off** (`enableLateChapterDamage: false`) until this pass expands.
+
+### Checkpoints (**IMPLEMENTED** L01–L03)
+
+Chapter-start snapshot + one safe mid-chapter snapshot before major STEADY threats. Restores composure, inventory (no cigarette duplication), story flags, and hit history. Retry never drops the player into an unavoidable death loop by design intent.
+
+### Cigarettes (collectible)
+
+**IMPLEMENTED:** Pack props in Corridor (left baseboard), Office (aisle chair), Records (receiving counter); also Night / Threshold / Unseen placements from earlier pass. Inventory label **CIGARETTES**. Temporary coping only.
+
+Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game over, retry checkpoint. Chapter jumps seed completed hit IDs.
+
+**OPEN / PROVISIONAL:** Exact magnitudes and STEADY windows remain tunable after playtests. Writer-only backstory untouched.
+
+---
+
 ## Recurring objects
 
 ### Worn lighter
@@ -376,3 +433,5 @@ Do not delete or reorder chapters in code based on this table alone.
 | 2026-11 | **Records revision:** Polaroid two-beat dialogue; sparse near-silence score; key-fob card-reader exit; Office softlock prevention (fob required to leave). |
 | 2026-11 | **Records polish:** Polaroid becomes inspect-only (refusal in panel); ambient “A Polaroid?” retained; exit door rebuilt as framed leaf; aisle drawers timed later. |
 | 2026-11 | **Composure prototype:** Quiet composure meter (0–100); stress from uncanny beats; cigarettes (CONSUMABLE · COMPOSURE, restore 25) hidden in Corridor / Office / Records. No fail state — empty composure only thickens fog/vignette/audio. |
+| 2026-11 | **Composure Survival Balance Pass:** Max/start 100; cigarette restore 40; one pack→one cig per chapter (all six mains); persist unused cigs; block use at full; chapter damage budgets + one-shot story flags; Overwhelmed soft retry; debug presets; no time/movement drain. |
+| 2026-11 | **Psychological Survival System v2 (L01–L03):** Stages; STEADY (cascade/latch/dart); game over at 0; checkpoints; cig restore 40; L04–L06 damage gated; office +5 anomaly reserved/disabled. |

@@ -41,6 +41,7 @@ export function createNightStory() {
     completed: false,
     direction: 'forward',
     followPace: 0,
+    cadenceRisen: false, // composure: follower pace crosses mid-stretch once
   };
 
   const step = reason => {
@@ -60,6 +61,10 @@ export function createNightStory() {
       const followPhase = smooth(clamp01((current - NIGHT_FOLLOW_START) /
         (NIGHT_FOLLOW_STOP - NIGHT_FOLLOW_START)));
       state.followPace = state.footstepsStopped ? 1 : followPhase;
+      if (!state.cadenceRisen && state.footstepHeard && !state.footstepsStopped
+          && state.followPace >= 0.55) {
+        state.cadenceRisen = true;
+      }
       if (delta > MOVEMENT_EPSILON) state.direction = 'forward';
       if (delta < -MOVEMENT_EPSILON) {
         state.direction = 'backward';
@@ -124,6 +129,7 @@ export function createNightStory() {
         idleElapsed: 0, extraStepReady: false, hallDarkened: false,
         hasRetreated: false, completed: false, direction: 'forward',
         followPace: 0,
+        cadenceRisen: false,
       });
     },
   };

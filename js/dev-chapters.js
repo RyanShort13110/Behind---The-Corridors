@@ -15,7 +15,7 @@ const OPTIONS = [
 
 const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 
-export function mountDevChapters(jump, getCurrentChapter) {
+export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
   panel.setAttribute('aria-label', 'Developer chapter navigation');
@@ -67,12 +67,31 @@ export function mountDevChapters(jump, getCurrentChapter) {
         <option value="unlocked">DOOR / UNLOCKED</option>
       </select>
     </div>
+    <div class="dev-chapters__composure" id="dev-composure-row">
+      <div class="dev-chapters__title">COMPOSURE</div>
+      <div class="dev-chapters__row">
+        <button type="button" data-comp-set="100">100</button>
+        <button type="button" data-comp-set="50">50</button>
+        <button type="button" data-comp-set="25">25</button>
+        <button type="button" data-comp-set="10">10</button>
+      </div>
+      <div class="dev-chapters__row" style="margin-top:6px">
+        <button type="button" data-comp-hit="10">HIT −10</button>
+        <button type="button" data-comp-cig> +CIG</button>
+        <button type="button" data-comp-steady>STEADY</button>
+      </div>
+      <div class="dev-chapters__row" style="margin-top:6px">
+        <button type="button" data-comp-over>GAME OVER</button>
+        <button type="button" data-comp-retry>RETRY CKPT</button>
+      </div>
+      <p class="dev-chapters__status" id="dev-composure-status" aria-live="polite">Composure: —</p>
+    </div>
     <p class="dev-chapters__status" aria-live="polite">Current: 01 — The Corridor</p>
   `;
   document.body.appendChild(panel);
   const picker = panel.querySelector('#dev-chapter-choice');
   const go = panel.querySelector('#dev-chapter-go');
-  const status = panel.querySelector('.dev-chapters__status');
+  const status = panel.querySelector('.dev-chapters__status:last-of-type');
   const checkpointRow = panel.querySelector('#dev-checkpoint-row');
   const checkpointPicker = panel.querySelector('#dev-checkpoint-choice');
   const memoryCheckpointRow = panel.querySelector('#dev-memory-checkpoint-row');
@@ -145,6 +164,38 @@ export function mountDevChapters(jump, getCurrentChapter) {
   }
 
   go.addEventListener('click', load);
+
+  const composureStatus = panel.querySelector('#dev-composure-status');
+  const refreshComposure = () => {
+    if (!composureApi || !composureStatus) return;
+    composureStatus.textContent = `Composure: ${Math.round(composureApi.get())}`;
+  };
+  panel.querySelectorAll('[data-comp-set]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      composureApi?.set(Number(btn.dataset.compSet));
+      refreshComposure();
+    });
+  });
+  panel.querySelector('[data-comp-hit]')?.addEventListener('click', () => {
+    composureApi?.hit(10);
+    refreshComposure();
+  });
+  panel.querySelector('[data-comp-cig]')?.addEventListener('click', () => {
+    composureApi?.addCigarette?.();
+    refreshComposure();
+  });
+  panel.querySelector('[data-comp-steady]')?.addEventListener('click', () => {
+    composureApi?.testSteady?.();
+  });
+  panel.querySelector('[data-comp-over]')?.addEventListener('click', () => {
+    composureApi?.forceGameOver?.();
+  });
+  panel.querySelector('[data-comp-retry]')?.addEventListener('click', () => {
+    composureApi?.retryCheckpoint?.();
+  });
+  composureApi?.subscribe?.(refreshComposure);
+  refreshComposure();
+
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('level');
   const destination = OPTIONS.find(([id, , number]) =>

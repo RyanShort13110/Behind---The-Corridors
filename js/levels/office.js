@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {
-  createCigaretteProp, disposeCigaretteProp,
-  CIGARETTE_LABEL, CIGARETTE_TOOLTIP,
+  createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
 /**
  * Level 02: The Office. A modest, contiguous floor with a single central
@@ -518,10 +517,10 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   const follow = (current, target, dt, reduced) =>
     reduced ? target : current + (target - current) * (1 - Math.exp(-dt * 1.6));
   const codeSpaced = String(keypadCode).split('').join(' ');
-  // Cigarette on the floor under the aisle chair — look right / down to catch it.
-  const cigarette = createCigaretteProp(THREE, { name: 'Office cigarette' });
-  cigarette.position.set(1.42, 0.065, -21.95);
-  cigarette.rotation.set(0.2, -0.85, 1.1);
+  // Pack under the aisle chair — look right / down to catch it.
+  const cigarette = createCigarettePack(THREE, { name: 'Office cigarette pack' });
+  cigarette.position.set(1.42, 0.07, -21.95);
+  cigarette.rotation.set(0.2, -0.85, 0.2);
   world.add(cigarette);
 
   const interactables = [
@@ -532,20 +531,7 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       title: 'LIGHTER',
       body: 'A cheap lighter. One deep scratch down the side.',
     },
-    {
-      id: 'cigarette-office',
-      object: cigarette,
-      radius: 4.2,
-      takeable: true,
-      itemId: 'cigarette-office',
-      itemLabel: CIGARETTE_LABEL,
-      title: CIGARETTE_LABEL,
-      body: CIGARETTE_TOOLTIP,
-      tooltip: CIGARETTE_TOOLTIP,
-      consumable: true,
-      restoreAmount: 25,
-      previewColor: 0xd8d2c4,
-    },
+    cigaretteInteractable('cigarette-office', cigarette),
     {
       id: 'office-sticky-note',
       object: stickyNote,
@@ -588,6 +574,14 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
     update(progress, state, dt, reduced) {
       const doorAngle = (state.keypadUnlocked || state.serviceDoorOpen) ? -1.46 : 0;
       serviceDoor.rotation.y = follow(serviceDoor.rotation.y, doorAngle, dt, reduced);
+      // Subtle second-approach anomaly: one overhead fixture dips briefly.
+      // No scare sting, no new dialogue — just a wrongness in the lights.
+      if (!reduced && state.secondApproachAnomaly && !state.keypadUnlocked) {
+        const dip = Math.max(0, 1 - Math.min(1, (progress - 0.45) * 8));
+        ambient.intensity = 0.9 - dip * 0.18;
+      } else {
+        ambient.intensity = 0.9;
+      }
       // The original far-end door never opens. The new side passage is the exit.
     },
     reset() {

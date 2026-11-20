@@ -36,6 +36,10 @@ export function createOfficeStory() {
     stickyTaken: false,
     keyFobInspected: false,
     keyFobTaken: false,
+    // Composure one-shots (narrative beats; not inspect/puzzle).
+    phoneUnanswered: false,
+    phoneSilence: false,
+    secondApproachAnomaly: false,
   };
 
   return {
@@ -55,10 +59,22 @@ export function createOfficeStory() {
       }
       if (state.soundTriggered) state.soundElapsed += Math.max(0, dt);
 
+      // Unanswered ringing — first pass only, near the far phones.
+      if (!state.phoneUnanswered && !state.hasBacktracked
+          && current >= 0.78 && previous < 0.78) {
+        state.phoneUnanswered = true;
+      }
+      // Abrupt silence on the retreat from the far door.
+      if (!state.phoneSilence && state.hasBacktracked && !state.soundTriggered
+          && previous > 0.66 && current <= 0.66) {
+        state.phoneSilence = true;
+      }
+
       // A reversed scroll is the PLAYER'S choice. Never force a direction
       // change and never reset soundTriggered when reversing again.
       if (state.soundTriggered && current > previous + 0.0001 &&
           current >= OFFICE_REINVESTIGATE) {
+        if (!state.secondApproachStarted) state.secondApproachAnomaly = true;
         state.secondApproachStarted = true;
       }
       // Records exit needs the fob — never complete Office without it.

@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {
-  createCigaretteProp, disposeCigaretteProp,
-  CIGARETTE_LABEL, CIGARETTE_TOOLTIP,
+  createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from './composure.js';
 
 /**
@@ -273,10 +272,10 @@ export function createCorridor(scene) {
   brassKey.add(keyShaft, keyBow, keyBit, keyHit);
   world.add(brassKey);
 
-  // One cigarette — tucked on the left baseboard mid-hall; needs a look left.
-  const cigarette = createCigaretteProp(THREE, { name: 'Corridor cigarette' });
-  cigarette.position.set(-2.28, 0.08, -22.4);
-  cigarette.rotation.set(0.15, 0.6, 1.25);
+  // One pack — tucked on the left baseboard mid-hall; needs a look left.
+  const cigarette = createCigarettePack(THREE, { name: 'Corridor cigarette pack' });
+  cigarette.position.set(-2.28, 0.09, -22.4);
+  cigarette.rotation.set(0.15, 0.6, 0.35);
   world.add(cigarette);
 
   // Commit one InstancedMesh per material.
@@ -354,20 +353,7 @@ export function createCorridor(scene) {
       title: 'UNMARKED DOOR',
       body: 'That door was shut. I’m sure of it.',
     },
-    {
-      id: 'cigarette-corridor',
-      object: cigarette,
-      radius: 3.6,
-      takeable: true,
-      itemId: 'cigarette-corridor',
-      itemLabel: CIGARETTE_LABEL,
-      title: CIGARETTE_LABEL,
-      body: CIGARETTE_TOOLTIP,
-      tooltip: CIGARETTE_TOOLTIP,
-      consumable: true,
-      restoreAmount: 25,
-      previewColor: 0xd8d2c4,
-    },
+    cigaretteInteractable('cigarette-corridor', cigarette),
   ];
 
   return {

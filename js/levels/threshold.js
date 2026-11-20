@@ -3,6 +3,9 @@ import {
   smoothstep, corruptionAt, THRESHOLD_START_Z, THRESHOLD_METERS,
   THRESHOLD_DOOR_START, THRESHOLD_DOOR_OPEN,
 } from './threshold-story.js';
+import {
+  createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
+} from '../composure.js';
 
 /**
  * Level 05 / The Threshold.
@@ -148,6 +151,11 @@ export function createThreshold(scene) {
   box(2.12,0.15,0.22,0,3.10,doorZ,mat.trim);
   const hinge=new THREE.Group();
   hinge.position.set(-0.94,0,doorZ);
+  // Pack near the ordinary entrance, left of the freestanding door — look left.
+  const cigarette = createCigarettePack(THREE, { name: 'Threshold cigarette pack' });
+  cigarette.position.set(-2.15, 0.09, doorZ + 2.4);
+  cigarette.rotation.set(0.1, 0.7, 0.15);
+  world.add(cigarette);
   world.add(hinge);
   box(1.87,2.90,0.105,0.94,1.48,0,mat.door,hinge);
   box(0.15,0.06,0.18,1.69,1.13,0.11,mat.handle,hinge);
@@ -360,8 +368,13 @@ export function createThreshold(scene) {
     (organicBatch?nightmare:world).add(inst);
   }
 
+  const interactables = [
+    cigaretteInteractable('cigarette-threshold', cigarette),
+  ];
+
   const doorStart=0; let doorAngle=doorStart; let pulseTime=0;
   return {
+    interactables,
     get doorAngle() { return doorAngle; },
     update(progress,state,dt,reduced) {
       pulseTime += dt;
@@ -433,6 +446,8 @@ export function createThreshold(scene) {
       scene.background.copy(coolFog);
       ambient.intensity=0.72;
       redAccent.intensity=0;
+      cigarette.visible=true;
+      cigarette.userData.taken=false;
       for (const actor of seamActors) {
         actor.mesh.position.set(actor.baseX, actor.baseY, actor.baseZ);
         actor.mesh.scale.set(actor.baseScaleX, actor.baseScaleY, actor.baseScaleZ);
@@ -441,6 +456,7 @@ export function createThreshold(scene) {
     dispose() {
       scene.remove(ambient);
       scene.remove(world);
+      disposeCigaretteProp(cigarette);
       for(const g of ownedGeometry) g.dispose();
       for(const m of ownedMaterials) m.dispose();
     },

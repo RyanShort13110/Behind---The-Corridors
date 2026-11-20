@@ -34,6 +34,9 @@ body.debug-performance .perf-hud{display:block}
 .dev-chapters__checkpoint[hidden]{display:none}
 .dev-chapters__checkpoint label{font-size:9px;letter-spacing:.12em;color:#9dbab0}
 .dev-chapters__checkpoint select{width:100%}
+.dev-chapters__composure{margin-top:10px;padding-top:8px;border-top:1px solid #2a403c}
+.dev-chapters__composure .dev-chapters__row{flex-wrap:wrap}
+.dev-chapters__composure button{flex:1;min-width:48px}
 
 /* Level 01 inspect panel — sparse, cold, no collectible UI energy. */
 .inspect{position:absolute;z-index:6;left:50%;bottom:14vh;width:min(420px,86vw);transform:translate(-50%,12px);padding:22px 24px 18px;background:rgba(4,9,11,.88);border:1px solid rgba(150,170,166,.28);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
@@ -85,11 +88,35 @@ body.debug-performance .perf-hud{display:block}
 .composure__label{font:10px/1 'Courier New',monospace;letter-spacing:.2em;color:#8a9e99}
 .composure__track{width:88px;height:1px;background:rgba(97,112,109,.55)}
 .composure__fill{height:100%;width:100%;background:#b9c9c4;transform-origin:left center;transition:width .45s ease,background .45s ease}
-.composure.is-low .composure__fill{background:#c9a39c}
+.composure.is-unsettled .composure__fill{background:#c4b8a8}
+.composure.is-distressed .composure__fill{background:#c9a39c}
 .composure.is-critical .composure__fill{background:#be7a72}
+.composure.is-critical .composure__label{color:#c98982}
 #experience.is-playing{filter:saturate(calc(1 - var(--stress, 0) * 0.42))}
-@media(max-width:650px){.inventory{bottom:110px;right:3vw}.item-detail{bottom:160px;right:3vw}.composure{top:52px;left:3vw}.composure__track{width:64px}}
-@media(prefers-reduced-motion:reduce){.inventory,.item-detail,.composure,.vignette{transition:none}}
+#experience[data-stage="unsettled"] .vignette{opacity:1}
+#experience[data-stage="distressed"]{filter:saturate(calc(1 - var(--stress, 0) * 0.5))}
+#experience[data-stage="critical"]{filter:saturate(calc(1 - var(--stress, 0) * 0.58))}
+.steady{position:absolute;z-index:12;left:50%;bottom:18vh;transform:translateX(-50%);width:min(320px,86vw);text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s,visibility .25s}
+.steady.is-active{opacity:1;visibility:visible;pointer-events:auto}
+.steady.is-paused{opacity:.55}
+.steady__cue{margin:0;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.28em;color:#d7e4e0}
+.steady__prompt{margin:8px 0 0;font:10px/1 'Courier New',monospace;letter-spacing:.22em;color:#c98982}
+.steady__bar{position:relative;margin:14px auto 0;width:72%;height:2px;background:rgba(90,110,106,.45);overflow:visible}
+.steady__fill{display:block;height:100%;width:calc(var(--steady-progress, 0) * 100%);background:#c5d8d2;transform-origin:left center}
+.steady__marker{position:absolute;top:-4px;left:50%;width:2px;height:10px;margin-left:-1px;background:#c98982;opacity:.85;pointer-events:none}
+.steady__hint{margin:10px 0 0;font:300 12px/1.45 Arial,Helvetica,sans-serif;color:#9aada8;letter-spacing:-.01em;min-height:1.2em}
+.steady__tap{margin-top:14px;border:1px solid rgba(150,170,166,.4);background:rgba(8,16,18,.78);color:#dce8e6;font:10px/1 'Courier New',monospace;letter-spacing:.2em;padding:12px 18px}
+.steady__tap:hover,.steady__tap:focus-visible{border-color:#d2c39a;color:#f0e6c8}
+#viewport{z-index:0}
+.game-over{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:rgba(2,5,6,.94);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .7s,visibility .7s;text-align:center}
+.game-over.is-active{opacity:1;visibility:visible;pointer-events:auto}
+.game-over__brand{margin:0 0 18px;font:700 12px/1 'Courier New',monospace;letter-spacing:.4em;color:#8a9e99}
+.game-over__title{margin:0;font:300 34px/1.15 Arial,Helvetica,sans-serif;letter-spacing:-.02em;color:#dce8e6}
+.game-over__sub{margin:14px 0 0;font:10px/1 'Courier New',monospace;letter-spacing:.24em;color:#c98982}
+.game-over__actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:36px}
+.game-over__actions .primary{margin:0}
+@media(max-width:650px){.inventory{bottom:110px;right:3vw}.item-detail{bottom:160px;right:3vw}.composure{top:52px;left:3vw}.composure__track{width:64px}.steady{bottom:22vh}.game-over__title{font-size:26px}}
+@media(prefers-reduced-motion:reduce){.inventory,.item-detail,.composure,.vignette,.steady,.game-over{transition:none}}
 
 /* Office service keypad — utilitarian, no glowing cyber chrome. */
 .keypad{position:absolute;z-index:8;left:50%;bottom:12vh;width:min(280px,84vw);transform:translate(-50%,10px);padding:22px 20px 16px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.3);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}

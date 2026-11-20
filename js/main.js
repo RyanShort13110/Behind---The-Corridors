@@ -11,8 +11,12 @@ import { createInventory } from './inventory.js';
 import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import {
-  createComposure, COMPOSURE_MAX, CIGARETTE_RESTORE,
+  createComposure, COMPOSURE_MAX, CIGARETTE_RESTORE, COMPOSURE_HITS,
+  CIGARETTE_TOOLTIP, CIGARETTE_LABEL, COMPOSURE_CONFIG, STEADY_ENCOUNTERS,
+  composureStage,
 } from './composure.js';
+import { createSteadySystem } from './steady.js';
+import { createCheckpointStore } from './checkpoint.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
 import {
@@ -58,6 +62,12 @@ const el = {
   experience: $('experience'),
   keypad: $('keypad'), keypadClose: $('keypad-close'),
   keypadDisplay: $('keypad-display'), keypadGrid: $('keypad-grid'),
+  steady: $('steady'), steadyCue: $('steady-cue'),
+  steadyPrompt: $('steady-prompt'), steadyHint: $('steady-hint'),
+  steadyBar: $('steady-bar'), steadyMarker: $('steady-marker'),
+  steadyTap: $('steady-tap'),
+  gameOver: $('game-over'), gameOverRetry: $('game-over-retry'),
+  gameOverRestart: $('game-over-restart'),
 };
 
 // Mapping 0 => camera inside the rear cabin, .09 => original corridor start,
@@ -80,6 +90,10 @@ const memoryBlackStory = createMemoryBlackStory();
 const audio = createAudioDirector();
 const composure = createComposure();
 const composureHits = new Set();
+const checkpoints = createCheckpointStore();
+let steady = null;
+let gameOverActive = false;
+let gameOverBusy = false;
 let reduced = reduceQuery.matches;
 let quality = 'auto';
 let started = false;
@@ -240,9 +254,9 @@ try {
       } else if (id === 'records-polaroid') {
         recordsStory.inspectPolaroid();
         memory.photographPassed = true;
-        composureHitOnce('records-polaroid', 10);
+        // Inspect does NOT damage composure — proximity beat already did.
       } else if (id === 'altered-door') {
-        composureHitOnce('altered-door', 8);
+        // Damage comes from noticing the environmental discrepancy, not inspect.
       } else if (id === 'memory-mugs' && isMemoryChapter()) {
         memoryStoryFor().markMugsInspected();
       } else if (id === 'memory-front-door' && chapterId === 'memory-white'
@@ -303,6 +317,19 @@ try {
     },
   });
   look = createLookControls({ canvas: renderer.domElement });
+  steady = createSteadySystem({
+    root: el.steady,
+    cueEl: el.steadyCue,
+    promptEl: el.steadyPrompt,
+    hintEl: el.steadyHint,
+    barEl: el.steadyBar,
+    markerEl: el.steadyMarker,
+    buttonEl: el.steadyTap,
+    onResolve: onSteadyResolved,
+    isBlocked: () => gameOverActive || transitioning || ended
+      || interaction?.isOpen || keypad?.isOpen
+      || el.itemDetail?.classList.contains('is-open'),
+  });
   bindChapterInteractables();
   monitor = createPerformanceMonitor(renderer, resize, () => quality, el.perf);
   resize();
@@ -323,8 +350,17 @@ function bindChapterInteractables() {
   const corridor = director.get('corridor');
   const memStory = isMemoryChapter() ? memoryStoryFor() : null;
   const dragonId = memoryDragonId();
+  const chapterCig = chapterCigaretteId();
   for (const module of modules) {
     for (const spec of module?.interactables || []) {
+      // One cigarette per chapter — hide pack if already carried.
+      if (chapterCig && spec.id === chapterCig && inventory?.has(chapterCig)) {
+        if (spec.object) {
+          spec.object.visible = false;
+          spec.object.userData.taken = true;
+        }
+        continue;
+      }
       // Staging-only dragon; room props only while inside memory.
       if (isMemoryChapter() && memStory) {
         const inMem = memStory.state.phase === 'memory';
@@ -486,30 +522,370 @@ function drawKeyFobPreview(canvas) {
 }
 
 function syncComposureUi(value = composure.value) {
+  const stage = composureStage(value);
   const stress = 1 - value / COMPOSURE_MAX;
   document.documentElement.style.setProperty('--stress', stress.toFixed(3));
+  el.experience?.setAttribute('data-stage', stage.id);
   if (el.composureFill) el.composureFill.style.width = `${Math.round(value)}%`;
-  el.composure?.classList.toggle('is-low', value <= 55 && value > 25);
-  el.composure?.classList.toggle('is-critical', value <= 25);
-  audio.setComposureStress?.(stress);
+  el.composure?.classList.toggle('is-unsettled', stage.id === 'unsettled');
+  el.composure?.classList.toggle('is-distressed', stage.id === 'distressed');
+  el.composure?.classList.toggle('is-critical', stage.id === 'critical' || stage.id === 'empty');
+  audio.setComposureStress?.(stress, stage.id);
   if (scene?.fog && typeof scene.fog.density === 'number' && scene.fog.userData?.baseDensity != null) {
-    scene.fog.density = scene.fog.userData.baseDensity * (1 + stress * 0.55);
+    const fogMul = stage.id === 'critical' ? 0.72
+      : stage.id === 'distressed' ? 0.48
+        : stage.id === 'unsettled' ? 0.22 : 0;
+    scene.fog.density = scene.fog.userData.baseDensity * (1 + stress * fogMul);
   }
 }
 
 function noteFogBase() {
   if (scene?.fog && typeof scene.fog.density === 'number') {
     scene.fog.userData = scene.fog.userData || {};
-    if (scene.fog.userData.baseDensity == null) {
-      scene.fog.userData.baseDensity = scene.fog.density;
+    scene.fog.userData.baseDensity = scene.fog.density;
+  }
+}
+
+function composureHitOnce(id, amount = COMPOSURE_HITS[id]) {
+  if (gameOverActive || gameOverBusy) return;
+  if (!id || composureHits.has(id)) return;
+  if (amount == null || amount <= 0) return;
+  composureHits.add(id);
+  composure.hit(amount);
+  if (composure.isEmpty) void triggerGameOver();
+}
+
+function markComposureHit(id) {
+  if (id) composureHits.add(id);
+}
+
+function beginSteadyEncounter(id) {
+  if (gameOverActive || gameOverBusy || transitioning) return false;
+  if (composureHits.has(id) || !STEADY_ENCOUNTERS[id]) return false;
+  if (steady?.isActive) return false;
+  return steady?.begin(id) ?? false;
+}
+
+function onSteadyResolved(payload) {
+  if (!payload?.id || composureHits.has(payload.id)) return;
+  composureHitOnce(payload.id, payload.damage);
+}
+
+/** Unavoidable L01–L03 hits. STEADY encounters are started separately. */
+function syncChapterComposureHits() {
+  if (gameOverActive || gameOverBusy) return;
+  if (chapterId === 'corridor') {
+    if (story.state.breathHeard) composureHitOnce('corridor-breath');
+    if (story.state.alteredDoorNoticed) composureHitOnce('corridor-altered-door');
+  } else if (chapterId === 'office') {
+    if (officeStory.state.phoneUnanswered) composureHitOnce('office-phone-unanswered');
+    if (officeStory.state.phoneSilence) composureHitOnce('office-phone-silence');
+    if (COMPOSURE_CONFIG.enableOfficeSecondAnomaly
+        && officeStory.state.secondApproachAnomaly) {
+      composureHitOnce('office-second-anomaly');
+    }
+  } else if (chapterId === 'records') {
+    if (recordsStory.state.polaroidLine >= 1) composureHitOnce('records-polaroid-proximity');
+    if (recordsStory.state.drawersOpeningNoticed) composureHitOnce('records-drawers-open');
+    if (recordsStory.state.shadowPeekDone) composureHitOnce('records-peek');
+  } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
+    if (chapterId === 'night') {
+      if (nightStory.state.footstepHeard) composureHitOnce('night-first-step');
+      if (nightStory.state.cadenceRisen) composureHitOnce('night-cadence');
+      if (nightStory.state.footstepsStopped) composureHitOnce('night-stop');
+    } else if (chapterId === 'threshold') {
+      if (thresholdStory.state.sawFirstDamage) composureHitOnce('threshold-first-damage');
+      if (thresholdStory.state.reachedOrganic) composureHitOnce('threshold-organic');
+      if (thresholdStory.state.reachedRedHall) composureHitOnce('threshold-red-hall');
+      if (thresholdStory.state.nightmareCleared) composureHitOnce('threshold-restore');
+    } else if (chapterId === 'unseen') {
+      if (unseenStory.state.reachedBarrier) composureHitOnce('unseen-barrier');
+      if (unseenStory.state.cabinetOpen) composureHitOnce('unseen-cabinet');
+      if (unseenStory.state.roarHeard) composureHitOnce('unseen-roar-presence');
+      if (unseenStory.state.darkness) composureHitOnce('unseen-blackout');
+      if (unseenStory.state.finalClick) composureHitOnce('unseen-final-click');
     }
   }
 }
 
-function composureHitOnce(id, amount) {
-  if (composureHits.has(id)) return;
-  composureHits.add(id);
-  composure.hit(amount);
+function preserveCarryInventory() {
+  const kept = (inventory?.list() || []).filter(item =>
+    String(item.id).startsWith('cigarette') || item.id === 'key-fob');
+  inventory?.clear();
+  for (const item of kept) {
+    inventory.add(item.id, {
+      label: item.label,
+      tooltip: item.tooltip,
+      consumable: Boolean(item.consumable),
+      restoreAmount: item.restoreAmount ?? CIGARETTE_RESTORE,
+      previewColor: item.previewColor,
+    });
+  }
+  renderInventory();
+}
+
+function chapterCigaretteId(id = chapterId) {
+  if (id === 'corridor') return 'cigarette-corridor';
+  if (id === 'office') return 'cigarette-office';
+  if (id === 'records') return 'cigarette-records';
+  if (id === 'night') return 'cigarette-night';
+  if (id === 'threshold') return 'cigarette-threshold';
+  if (id === 'unseen') return 'cigarette-unseen';
+  return null;
+}
+
+function seedCompletedComposureHits() {
+  const mark = (flag, id) => { if (flag) markComposureHit(id); };
+  if (chapterId === 'corridor') {
+    mark(story.state.breathHeard, 'corridor-breath');
+    mark(story.state.alteredDoorNoticed, 'corridor-altered-door');
+    mark(story.state.enteredRearElevator, 'corridor-cascade');
+  } else if (chapterId === 'office') {
+    mark(officeStory.state.phoneUnanswered, 'office-phone-unanswered');
+    mark(officeStory.state.phoneSilence, 'office-phone-silence');
+    mark(officeStory.state.soundTriggered, 'office-latch');
+    mark(officeStory.state.secondApproachAnomaly, 'office-second-anomaly');
+  } else if (chapterId === 'records') {
+    mark(recordsStory.state.polaroidLine >= 1, 'records-polaroid-proximity');
+    mark(recordsStory.state.drawersOpeningNoticed, 'records-drawers-open');
+    mark(recordsStory.state.shadowDartDone || recordsStory.state.shadowDartPlay, 'records-dart');
+    mark(recordsStory.state.shadowPeekDone, 'records-peek');
+  } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
+    if (chapterId === 'night') {
+      mark(nightStory.state.footstepHeard, 'night-first-step');
+      mark(nightStory.state.cadenceRisen, 'night-cadence');
+      mark(nightStory.state.footstepsStopped, 'night-stop');
+    } else if (chapterId === 'threshold') {
+      mark(thresholdStory.state.sawFirstDamage, 'threshold-first-damage');
+      mark(thresholdStory.state.reachedOrganic, 'threshold-organic');
+      mark(thresholdStory.state.reachedRedHall, 'threshold-red-hall');
+      mark(thresholdStory.state.nightmareCleared, 'threshold-restore');
+    } else if (chapterId === 'unseen') {
+      mark(unseenStory.state.reachedBarrier, 'unseen-barrier');
+      mark(unseenStory.state.cabinetOpen, 'unseen-cabinet');
+      mark(unseenStory.state.roarHeard, 'unseen-roar-presence');
+      mark(unseenStory.state.darkness, 'unseen-blackout');
+      mark(unseenStory.state.finalClick, 'unseen-final-click');
+    }
+  }
+}
+
+function captureCheckpointSnapshot() {
+  return {
+    chapterId,
+    progress,
+    displayed,
+    composure: composure.value,
+    composureHits: [...composureHits],
+    inventory: (inventory?.list() || []).map(item => ({
+      id: item.id,
+      label: item.label,
+      tooltip: item.tooltip,
+      consumable: Boolean(item.consumable),
+      restoreAmount: item.restoreAmount ?? null,
+      previewColor: item.previewColor ?? null,
+    })),
+    memory: { ...memory, chaptersCompleted: [...(memory.chaptersCompleted || [])] },
+    story: { ...story.state },
+    office: { ...officeStory.state },
+    records: { ...recordsStory.state },
+  };
+}
+
+function applyInventorySnapshot(items = []) {
+  inventory?.clear();
+  for (const item of items) {
+    inventory.add(item.id, {
+      label: item.label,
+      tooltip: item.tooltip,
+      consumable: Boolean(item.consumable),
+      restoreAmount: item.restoreAmount ?? CIGARETTE_RESTORE,
+      previewColor: item.previewColor,
+    });
+  }
+  renderInventory();
+}
+
+function saveChapterStartCheckpoint() {
+  if (!['corridor', 'office', 'records'].includes(chapterId)) return;
+  for (const key of [...savedCheckpointKeys]) {
+    if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
+  }
+  checkpoints.saveChapterStart(captureCheckpointSnapshot());
+}
+
+const savedCheckpointKeys = new Set();
+
+function saveSafeCheckpoint(reason = '') {
+  if (!['corridor', 'office', 'records'].includes(chapterId)) return;
+  if (gameOverActive || transitioning || steady?.isActive) return;
+  if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
+  checkpoints.saveLatest(captureCheckpointSnapshot());
+  if (reason) {
+    savedCheckpointKeys.add(`${chapterId}:${reason}`);
+    console.info(`[Behind.] Checkpoint · ${reason}`);
+  }
+}
+
+function maybeAutoCheckpoint() {
+  if (!['corridor', 'office', 'records'].includes(chapterId)) return;
+  if (chapterId === 'corridor' && story.state.reachedDeadEnd
+      && !composureHits.has('corridor-cascade')) {
+    saveSafeCheckpoint('corridor-dead-end');
+  } else if (chapterId === 'office' && officeStory.state.hasBacktracked
+      && !officeStory.state.soundTriggered
+      && !composureHits.has('office-latch')) {
+    saveSafeCheckpoint('office-return');
+  } else if (chapterId === 'records' && recordsStory.state.drawersOpeningNoticed
+      && !recordsStory.state.shadowDartPlay
+      && !recordsStory.state.shadowDartDone
+      && !composureHits.has('records-dart')) {
+    saveSafeCheckpoint('records-pre-dart');
+  }
+}
+
+async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
+  if (!snapshot || transitioning) return false;
+  transitioning = true;
+  gameOverBusy = true;
+  steady?.cancel(true);
+  hideGameOver();
+  interaction?.close();
+  closeItemDetail();
+  keypad?.close();
+  el.veil?.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 520));
+  try {
+    const target = snapshot.chapterId;
+    if (target !== chapterId) {
+      // Retry stays chapter-local for this pass.
+      return false;
+    }
+    if (target === 'corridor') {
+      Object.assign(story.state, snapshot.story);
+      director?.reset();
+    } else if (target === 'office') {
+      Object.assign(officeStory.state, snapshot.office);
+      director?.reset();
+    } else if (target === 'records') {
+      Object.assign(recordsStory.state, snapshot.records);
+      director?.reset();
+    }
+    composureHits.clear();
+    for (const id of snapshot.composureHits || []) composureHits.add(id);
+    applyInventorySnapshot(snapshot.inventory || []);
+    Object.assign(memory, snapshot.memory || {});
+    if (Array.isArray(snapshot.memory?.chaptersCompleted)) {
+      memory.chaptersCompleted = [...snapshot.memory.chaptersCompleted];
+    }
+    // Re-offer chapter cigarette only if snapshot does not already hold it.
+    const cigId = chapterCigaretteId(target);
+    const pack = director?.get(target)?.interactables?.find(spec => spec.id === cigId);
+    if (pack?.object) {
+      const held = inventory?.has(cigId);
+      pack.object.visible = !held;
+      pack.object.userData.taken = Boolean(held);
+    }
+    bindChapterInteractables();
+    progress = displayed = snapshot.progress ?? (target === 'corridor' ? START_PROGRESS : 0);
+    if (asChapterRestart) {
+      progress = displayed = target === 'corridor' ? START_PROGRESS : 0;
+    }
+    composure.set(Math.max(1, snapshot.composure ?? COMPOSURE_CONFIG.start));
+    look?.reset();
+    window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
+    scrollTrigger?.update();
+    noteFogBase();
+    syncComposureUi();
+    seedCompletedComposureHits();
+    gameOverActive = false;
+    ended = false;
+    hideEndCard();
+    renderer?.render(scene, camera);
+    return true;
+  } finally {
+    el.veil?.classList.remove('is-active');
+    transitioning = false;
+    gameOverBusy = false;
+  }
+}
+
+function hideGameOver() {
+  el.gameOver?.classList.remove('is-active');
+  el.gameOver?.setAttribute('aria-hidden', 'true');
+}
+
+async function triggerGameOver() {
+  if (gameOverActive || gameOverBusy) return;
+  gameOverActive = true;
+  gameOverBusy = true;
+  steady?.cancel(true);
+  interaction?.close();
+  closeItemDetail();
+  keypad?.close();
+  audio.fadeForGameOver?.();
+  el.veil?.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve,
+    reduced ? 60 : COMPOSURE_CONFIG.gameOverFadeMs));
+  el.veil?.classList.remove('is-active');
+  el.gameOver?.classList.add('is-active');
+  el.gameOver?.setAttribute('aria-hidden', 'false');
+  gameOverBusy = false;
+}
+
+async function retryLatestCheckpoint() {
+  const snap = checkpoints.latest || checkpoints.chapterStart;
+  if (!snap) {
+    await restartCurrentChapterFromStart();
+    return;
+  }
+  await restoreCheckpoint(snap);
+}
+
+async function restartCurrentChapterFromStart() {
+  const snap = checkpoints.chapterStart;
+  if (snap) {
+    await restoreCheckpoint(snap, { asChapterRestart: true });
+    return;
+  }
+  // Fallback: soft chapter rewind with current inventory cigarettes preserved.
+  steady?.cancel(true);
+  hideGameOver();
+  gameOverActive = false;
+  if (chapterId === 'corridor') {
+    story.reset();
+    director?.reset();
+    progress = displayed = START_PROGRESS;
+  } else if (chapterId === 'office') {
+    officeStory.reset();
+    director?.reset();
+    progress = displayed = 0;
+  } else if (chapterId === 'records') {
+    recordsStory.reset();
+    director?.reset();
+    progress = displayed = 0;
+  }
+  const prefix = chapterId === 'corridor' ? 'corridor-'
+    : chapterId === 'office' ? 'office-' : 'records-';
+  for (const id of [...composureHits]) {
+    if (id.startsWith(prefix)) composureHits.delete(id);
+  }
+  const cigId = chapterCigaretteId();
+  if (cigId && !inventory?.has(cigId)) {
+    const pack = director?.get(chapterId)?.interactables?.find(spec => spec.id === cigId);
+    if (pack?.object) {
+      pack.object.visible = true;
+      pack.object.userData.taken = false;
+    }
+  }
+  bindChapterInteractables();
+  composure.set(COMPOSURE_CONFIG.start);
+  look?.reset();
+  window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
+  scrollTrigger?.update();
+  noteFogBase();
+  syncComposureUi();
+  saveChapterStartCheckpoint();
 }
 
 let openDetailItemId = null;
@@ -521,7 +897,9 @@ function closeItemDetail() {
   openDetailItemId = null;
   if (el.itemDetailUse) {
     el.itemDetailUse.hidden = true;
+    el.itemDetailUse.disabled = false;
     el.itemDetailUse.dataset.itemId = '';
+    el.itemDetailUse.textContent = 'USE';
   }
 }
 
@@ -550,11 +928,16 @@ function openItemDetail(item) {
     const ctx = el.itemDetailCanvas?.getContext('2d');
     ctx?.clearRect(0, 0, el.itemDetailCanvas.width, el.itemDetailCanvas.height);
   }
+  if (String(item.id).startsWith('cigarette')) {
+    el.itemDetailBody.textContent = item.tooltip || CIGARETTE_TOOLTIP;
+  }
   if (el.itemDetailUse) {
     const canUse = Boolean(item.consumable);
+    const blockedFull = canUse && String(item.id).startsWith('cigarette') && composure.isFull;
     el.itemDetailUse.hidden = !canUse;
     el.itemDetailUse.dataset.itemId = canUse ? item.id : '';
-    el.itemDetailUse.textContent = canUse ? 'USE' : 'USE';
+    el.itemDetailUse.disabled = blockedFull;
+    el.itemDetailUse.textContent = blockedFull ? 'ALREADY STEADY' : 'USE';
   }
   el.itemDetail.classList.add('is-open');
   el.itemDetail.setAttribute('aria-hidden', 'false');
@@ -581,6 +964,12 @@ function useInventoryItem(itemId) {
   const item = inventory?.get(itemId);
   if (!item?.consumable) return;
   if (String(itemId).startsWith('cigarette')) {
+    if (composure.isFull) {
+      el.itemDetailBody.textContent =
+        'Already steady. Save it for later.\n'
+        + `Restores ${item.restoreAmount ?? CIGARETTE_RESTORE} composure`;
+      return;
+    }
     inventory.remove(itemId);
     composure.restore(item.restoreAmount ?? CIGARETTE_RESTORE);
     audio.playInteract?.(itemId);
@@ -610,6 +999,7 @@ function start() {
   el.experience?.classList.add('is-playing');
   el.composure?.classList.add('is-active');
   el.composure?.setAttribute('aria-hidden', 'false');
+  saveChapterStartCheckpoint();
   noteFogBase();
   syncComposureUi();
   // Start slightly above the document bottom; space below becomes the final
@@ -719,6 +1109,12 @@ function reset() {
   audio.reset();
   composure.reset();
   composureHits.clear();
+  checkpoints.clear();
+  savedCheckpointKeys.clear();
+  steady?.cancel(true);
+  hideGameOver();
+  gameOverActive = false;
+  gameOverBusy = false;
   noteFogBase();
   hideEndCard();
   activeBeat = -1;
@@ -740,20 +1136,7 @@ async function enterOffice() {
     const { createOffice } = await import('./levels/office.js');
     interaction?.clear();
     look?.reset();
-    // Keep composure smokes; drop chapter keys that no longer apply.
-    const carried = (inventory?.list() || [])
-      .filter(item => String(item.id).startsWith('cigarette'));
-    inventory?.clear();
-    for (const item of carried) {
-      inventory.add(item.id, {
-        label: item.label,
-        tooltip: item.tooltip,
-        consumable: true,
-        restoreAmount: item.restoreAmount ?? CIGARETTE_RESTORE,
-        previewColor: item.previewColor,
-      });
-    }
-    renderInventory();
+    preserveCarryInventory();
     director.dispose();
     director = createSceneDirector();
     officeStory.reset();
@@ -773,6 +1156,7 @@ async function enterOffice() {
     scrollTrigger?.update();
     activeBeat = -1;
     lastTime = performance.now();
+    saveChapterStartCheckpoint();
     console.info('[Behind.] Level 02 entered · retained 5.5 m/s cap');
     // Render the new floor once before uncovering the viewport.
     renderer.render(scene, camera);
@@ -801,6 +1185,7 @@ async function enterRecords() {
     const { createRecords } = await import('./levels/records.js');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
+    preserveCarryInventory();
     director.dispose();
     director = createSceneDirector();
     director.add('records', module);
@@ -820,6 +1205,7 @@ async function enterRecords() {
     scrollTrigger?.update();
     activeBeat = -1;
     lastTime = performance.now();
+    saveChapterStartCheckpoint();
     renderer.render(scene, camera);
     console.info('[Behind.] Level 03 entered · key-fob exit · no forced return');
   } catch (error) {
@@ -848,12 +1234,16 @@ async function enterNightShift() {
   try {
     const { createNightShift } = await import('./levels/night.js');
     module = createNightShift(scene);
+    preserveCarryInventory();
     director.dispose();
     director = createSceneDirector();
     director.add('night', module);
     director.activate('night');
     chapterId = 'night';
     nightStory.reset();
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
     audio.enterNight();
     hideEndCard();
     el.location.textContent = 'SOUTH WING / NIGHT STAFF';
@@ -890,12 +1280,16 @@ async function enterThreshold() {
   try {
     const { createThreshold } = await import('./levels/threshold.js');
     module = createThreshold(scene);
+    preserveCarryInventory();
     director.dispose();
     director = createSceneDirector();
     director.add('threshold', module);
     director.activate('threshold');
     chapterId = 'threshold';
     thresholdStory.reset();
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
     audio.enterThreshold();
     hideEndCard();
     el.location.textContent = 'SOUTH WING / THE THRESHOLD';
@@ -932,12 +1326,16 @@ async function enterUnseen() {
   try {
     const { createUnseen } = await import('./levels/unseen.js');
     module = createUnseen(scene);
+    preserveCarryInventory();
     director.dispose();
     director = createSceneDirector();
     director.add('unseen', module);
     director.activate('unseen');
     chapterId = 'unseen';
     unseenStory.reset();
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
     audio.enterUnseen();
     hideEndCard();
     el.location.textContent = 'SERVICE LEVEL / MAINTENANCE';
@@ -997,8 +1395,13 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     next = createSceneDirector();
     interaction?.clear();
     look?.reset();
-    inventory?.clear();
-    renderInventory([]);
+    steady?.cancel(true);
+    hideGameOver();
+    gameOverActive = false;
+    gameOverBusy = false;
+    // Keep cigarettes across debug jumps so multi-chapter supply can be tested.
+    preserveCarryInventory();
+    composureHits.clear();
     if (target === 'corridor') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
@@ -1112,6 +1515,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       }
     }
     bindChapterInteractables();
+    // Checkpointed flags are already true — mark hits so they never re-tax.
+    seedCompletedComposureHits();
+    noteFogBase();
+    syncComposureUi();
     window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
     scrollTrigger?.update();
     lastTime = performance.now();
@@ -1152,13 +1559,48 @@ function continueChapter() {
 // ?debug=1&level=05 also loads Level 05 directly for bookmarked testing.
 if (DEBUG_MODE) {
   import('./dev-chapters.js').then(({ mountDevChapters }) => {
-    devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId);
+    devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
+      get: () => composure.value,
+      set: (v) => {
+        composure.set(v);
+        if (composure.isEmpty) void triggerGameOver();
+      },
+      hit: (n) => {
+        composure.hit(n);
+        if (composure.isEmpty) void triggerGameOver();
+      },
+      restore: (n) => composure.restore(n),
+      subscribe: (fn) => composure.subscribe(fn),
+      addCigarette: () => {
+        const id = `cigarette-debug-${Date.now()}`;
+        inventory?.add(id, {
+          label: CIGARETTE_LABEL,
+          tooltip: CIGARETTE_TOOLTIP,
+          consumable: true,
+          restoreAmount: CIGARETTE_RESTORE,
+          previewColor: 0x2a4a3a,
+        });
+        renderInventory();
+      },
+      testSteady: () => {
+        composureHits.delete('corridor-cascade');
+        steady?.cancel(true);
+        steady?.begin('corridor-cascade', { forceTutorial: true });
+      },
+      forceGameOver: () => {
+        composure.set(0);
+        void triggerGameOver();
+      },
+      retryCheckpoint: () => { void retryLatestCheckpoint(); },
+    });
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
 }
 
 el.begin.addEventListener('click', start);
 el.restart.addEventListener('click', reset);
 el.continue.addEventListener('click', continueChapter);
+el.gameOverRetry?.addEventListener('click', () => { void retryLatestCheckpoint(); });
+el.gameOverRestart?.addEventListener('click', () => { void restartCurrentChapterFromStart(); });
 el.itemDetailClose?.addEventListener('click', closeItemDetail);
 el.itemDetailUse?.addEventListener('click', () => {
   const id = el.itemDetailUse?.dataset?.itemId;
@@ -1279,6 +1721,15 @@ function updateNarrative(p) {
     if (near.kind === 'keypad') instruction = 'CLICK TO ENTER CODE · A / D OR SWIPE TO LOOK';
     else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
     else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
+  } else if ((inRecords || inNight || inThreshold || chapterId === 'unseen')
+      && interaction?.nearest && !interaction.isOpen && !ended) {
+    const near = interaction.nearest;
+    if (near._usable) {
+      const useLabel = interaction?.actionLabel?.(near)
+        || `USE ${interaction?.requiredItemLabel?.(near) || 'ITEM'}`;
+      instruction = `${useLabel} · CLICK TO INSPECT`;
+    } else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
+    else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
   } else if (inMemory && interaction?.nearest && !interaction.isOpen && !ended) {
     const near = interaction.nearest;
     if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
@@ -1337,7 +1788,7 @@ function frame(now) {
   lastTime = now;
   if (document.hidden) return;
 
-  if (started && !transitioning && !(ended && chapterId === 'office')) {
+  if (started && !transitioning && !gameOverActive && !(ended && chapterId === 'office')) {
     const meters = chapterMeters();
     // Apply held walk keys before reading scroll so look keys can't cancel motion.
     const walkDir = (walkKeys.forward ? 1 : 0) + (walkKeys.back ? -1 : 0);
@@ -1368,12 +1819,9 @@ function frame(now) {
       // Even with sound disabled, the on-screen description fires normally.
       if (!previouslyTriggered && officeStory.state.soundTriggered) {
         audio.playOfficeLatch();
-        composureHitOnce('office-latch', 12);
       }
     } else if (chapterId === 'records') {
       recordsStory.observe(previousDisplayed, p, dt);
-      if (recordsStory.state.shadowDartDone) composureHitOnce('records-dart', 14);
-      if (recordsStory.state.shadowPeekDone) composureHitOnce('records-peek', 12);
     } else if (chapterId === 'night') {
       const previousStepCount = nightStory.state.footstepCount;
       nightStory.observe(previousDisplayed, p, dt);
@@ -1400,13 +1848,21 @@ function frame(now) {
 
     // Always face down the corridor / rail. During return, positive Z motion
     // backs the camera through the rear elevator entrance without a turn.
+    const stage = composure.stage;
+    const sway = reduced ? 0
+      : stage.id === 'critical' ? 1
+        : stage.id === 'distressed' ? 0.55
+          : 0;
     camera.position.z = startZ - p * meters;
-    camera.position.x = reduced ? 0 : Math.sin(p * 26) * 0.025;
-    camera.position.y = 1.7 + (reduced ? 0 : Math.sin(p * 65) * 0.012);
+    camera.position.x = reduced ? 0 : Math.sin(p * 26) * 0.025
+      + (sway ? Math.sin(now * 0.0017) * 0.008 * sway : 0);
+    camera.position.y = 1.7 + (reduced ? 0 : Math.sin(p * 65) * 0.012)
+      + (sway ? Math.sin(now * 0.0023) * 0.006 * sway : 0);
     camera.rotation.set(
-      reduced ? 0 : Math.sin(p * 6) * 0.009,
+      reduced ? 0 : Math.sin(p * 6) * 0.009
+        + (sway ? Math.sin(now * 0.0019) * 0.004 * sway : 0),
       reduced ? 0 : Math.sin(p * 5) * 0.012,
-      0
+      sway && !reduced ? Math.sin(now * 0.0014) * 0.003 * sway : 0
     );
     if (chapterId === 'office') {
       const route = officeCameraPose(
@@ -1435,29 +1891,49 @@ function frame(now) {
       camera.rotation.set(route.pitch, route.yaw, 0);
     }
 
-    const uiBlocking = interaction?.isOpen || keypad?.isOpen;
-    const canInteract = (chapterId === 'corridor' || chapterId === 'office'
-      || chapterId === 'records' || isMemoryChapter())
-      && !ended && !transitioning;
+    const uiBlocking = interaction?.isOpen || keypad?.isOpen
+      || el.itemDetail?.classList.contains('is-open');
+    if (uiBlocking || document.hidden) steady?.pause();
+    else steady?.resume();
+    steady?.update(dt);
+
+    const canInteract = !ended && !transitioning && !gameOverActive && !isMemoryChapter()
+      ? true
+      : isMemoryChapter() && !ended && !transitioning && !gameOverActive;
     look?.noteWalk(p - previousDisplayed);
-    look?.setEnabled(canInteract && !uiBlocking);
+    look?.setEnabled(canInteract && !uiBlocking && !steady?.isActive);
     camera.rotation.y += look?.update(dt, reduced) ?? 0;
     const interactStory = chapterId === 'corridor' ? story.state
       : chapterId === 'office' ? officeStory.state
         : chapterId === 'records' ? recordsStory.state
-          : isMemoryChapter() ? memoryStoryFor().state : null;
+          : chapterId === 'night' ? nightStory.state
+            : chapterId === 'threshold' ? thresholdStory.state
+              : chapterId === 'unseen' ? unseenStory.state
+                : isMemoryChapter() ? memoryStoryFor().state : null;
     interaction?.update(
       dt,
-      canInteract && !uiBlocking,
+      canInteract && !uiBlocking && !steady?.isActive,
       interactStory
     );
 
+    syncChapterComposureHits();
+    maybeAutoCheckpoint();
+
+    // STEADY encounters — one attempt each; never re-fire after resolve.
+    if (chapterId === 'office' && officeStory.state.soundTriggered) {
+      beginSteadyEncounter('office-latch');
+    }
+    if (chapterId === 'records' && recordsStory.state.shadowDartPlay) {
+      beginSteadyEncounter('records-dart');
+    }
+
     if (chapterId === 'corridor') {
       director.update(p, story.state, dt, reduced);
-      if (story.state.hasBacktracked) composureHitOnce('corridor-return', 8);
       if (director.get('corridor')?.consumeHallCascadeStarted?.()) {
         audio.playHallDoorCascade();
-        composureHitOnce('corridor-cascade', 10);
+        if (!beginSteadyEncounter('corridor-cascade')) {
+          composureHitOnce('corridor-cascade');
+        }
       }
       const elev = director.get('elevator');
       audio.update(p, reduced, story.state, {

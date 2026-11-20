@@ -918,9 +918,30 @@ export function createAudioDirector() {
     nightAirGain, nightDroneGain,
   ].filter(Boolean));
 
-  /** stress 0 = calm, 1 = empty composure — thins the bed, never silences SFX. */
-  function setComposureStress(stress = 0) {
-    composureMul = 1 - Math.max(0, Math.min(1, stress)) * 0.55;
+  /**
+   * stress 0 = calm, 1 = empty composure — thins the bed, never silences SFX.
+   * Stage layers unease without fighting the established breathing mix.
+   */
+  function setComposureStress(stress = 0, stageId = 'composed') {
+    const depth = stageId === 'critical' ? 0.72
+      : stageId === 'distressed' ? 0.55
+        : stageId === 'unsettled' ? 0.28
+          : 0.12;
+    composureMul = 1 - Math.max(0, Math.min(1, stress)) * depth;
+  }
+
+  function fadeForGameOver() {
+    stopBreathing();
+    stopUnseenRoars();
+    setGain(humGain, 0, 0.9);
+    setGain(buzzGain, 0, 0.9);
+    setGain(motorGain, 0, 0.7);
+    setGain(musicGain, 0, 1.0);
+    setGain(officePadGain, 0, 0.9);
+    setGain(nightAirGain, 0, 0.9);
+    setGain(nightDroneGain, 0, 0.9);
+    setGain(phoneHigh, 0, 0.5);
+    setGain(phoneLow, 0, 0.5);
   }
 
   const setGain = (node, value, seconds = 0.12) => {
@@ -1714,6 +1735,7 @@ export function createAudioDirector() {
     playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
     playRecordsFobAccess,
     setComposureStress,
+    fadeForGameOver,
     reset, suspend, resume, dispose,
     get enabled() { return enabled; },
   };

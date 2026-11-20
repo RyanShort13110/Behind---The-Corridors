@@ -53,6 +53,25 @@
       <div id="keypad-grid" class="keypad-grid"></div>
       <p class="keypad-hint">ENTER 4-DIGIT CODE · ESC TO CLOSE</p>
     </aside>
+    <div id="steady" class="steady" aria-hidden="true" role="status" aria-live="assertive">
+      <p class="steady__cue" id="steady-cue">STEADY YOURSELF</p>
+      <p class="steady__prompt" id="steady-prompt">PRESS X</p>
+      <div class="steady__bar" id="steady-bar" aria-hidden="true">
+        <span class="steady__fill"></span>
+        <span class="steady__marker" id="steady-marker"></span>
+      </div>
+      <p class="steady__hint" id="steady-hint"></p>
+      <button type="button" class="steady__tap" id="steady-tap">STEADY</button>
+    </div>
+    <div id="game-over" class="game-over" aria-hidden="true" role="dialog" aria-labelledby="game-over-title">
+      <p class="game-over__brand">BEHIND.</p>
+      <h2 class="game-over__title" id="game-over-title">YOU LOST CONTROL.</h2>
+      <p class="game-over__sub">COMPOSURE DEPLETED</p>
+      <div class="game-over__actions">
+        <button type="button" id="game-over-retry" class="primary">RETRY CHECKPOINT</button>
+        <button type="button" id="game-over-restart" class="primary">RESTART CHAPTER</button>
+      </div>
+    </div>
     <div id="chapter-veil" aria-hidden="true"></div>
     <div id="perf" class="perf-hud" aria-hidden="true"></div>
     <div id="fallback" class="fallback" role="alert" hidden>Unable to start the 3D experience. Check the browser console for the underlying error.</div>

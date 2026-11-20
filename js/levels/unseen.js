@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { UNSEEN_SIDE_PASSAGE_Z, UNSEEN_METERS, UNSEEN_START_Z } from './unseen-story.js';
+import {
+  createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
+} from '../composure.js';
 
 /**
  * Behind. / Level 06 — The Unseen
@@ -241,6 +244,12 @@ export function createUnseen(scene) {
   for(const z of [-30.8,-29.99]) for(const x of [2.14,2.82]) {
     box(0.055,0.74,0.055,x,0.42,z,m.trim);
   }
+  // Pack on the maintenance trolley — look right at the carton.
+  const cigarette = createCigarettePack(THREE, { name: 'Unseen cigarette pack' });
+  cigarette.position.set(2.15, 0.86, -30.15);
+  cigarette.rotation.set(0.05, -0.4, 0.12);
+  world.add(cigarette);
+
   const carton = new THREE.Group();
   carton.position.set(2.48,0.845,-30.42);
   world.add(carton);
@@ -457,7 +466,12 @@ export function createUnseen(scene) {
   let panelHeight = 0;
   let cabinetAngle = 0;
   let cartonOpenTime = 0;
+  const interactables = [
+    cigaretteInteractable('cigarette-unseen', cigarette),
+  ];
+
   return {
+    interactables,
     update(progress,state,dt,reduced) {
       elapsed += dt;
       const follow = (from,to,k) => reduced ? to :
@@ -604,9 +618,12 @@ export function createUnseen(scene) {
         lamps[index].flicker=0;
         light.intensity=1.53; diffuser.emissiveIntensity=.36;
       });
+      cigarette.visible=true;
+      cigarette.userData.taken=false;
     },
     dispose() {
       scene.remove(world);
+      disposeCigaretteProp(cigarette);
       for(const geo of ownedGeometry) geo.dispose();
       for(const material of ownedMaterials) material.dispose();
     },

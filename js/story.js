@@ -22,6 +22,10 @@ export function createStory() {
     rearElevatorUnlocked: false,
     enteredRearElevator: false,
     furthestProgress: START_PROGRESS,
+    // Composure: first entry into the mid-corridor breathing zone.
+    breathHeard: false,
+    // Composure: ajar door discrepancy noticed on the return (not inspect).
+    alteredDoorNoticed: false,
   };
   return {
     state,
@@ -32,6 +36,15 @@ export function createStory() {
       if (state.reachedDeadEnd && current < previous - 0.0001) state.hasBacktracked = true;
       if (state.hasBacktracked && current < 0.20) state.rearElevatorUnlocked = true;
       if (state.rearElevatorUnlocked && current <= 0.037) state.enteredRearElevator = true;
+      if (!state.breathHeard && !state.hasBacktracked
+          && current >= 0.72 && previous < 0.72) {
+        state.breathHeard = true;
+      }
+      // Environmental discrepancy — crossing the altered bay on the way back.
+      if (!state.alteredDoorNoticed && state.hasBacktracked
+          && previous > 0.42 && current <= 0.42) {
+        state.alteredDoorNoticed = true;
+      }
     },
     reset() {
       state.hasBacktracked = false;
@@ -39,6 +52,8 @@ export function createStory() {
       state.rearElevatorUnlocked = false;
       state.enteredRearElevator = false;
       state.furthestProgress = START_PROGRESS;
+      state.breathHeard = false;
+      state.alteredDoorNoticed = false;
     },
   };
 }
