@@ -220,16 +220,16 @@ export function createHospitalReverse(scene) {
   // Blocked recess behind
   box(2.6, 2.7, 0.5, 0, 1.4, -0.4, mat.dark, endDoors);
 
-  // End wall OPEN button
+  // End wall OPEN button — closer to the rail so the hold progress can still reach it.
   const endButton = new THREE.Group();
   endButton.name = 'Ward end door OPEN button';
-  endButton.position.set(2.05, 1.35, -47.15);
+  endButton.position.set(1.35, 1.35, -45.85);
   world.add(endButton);
   box(0.22, 0.38, 0.08, 0, 0, 0, mat.panel, endButton);
   box(0.14, 0.14, 0.05, 0, 0.04, 0.05, mat.buttonDead, endButton);
   box(0.16, 0.05, 0.02, 0, -0.12, 0.05, mat.sign, endButton);
   const endHit = new THREE.Mesh(
-    new THREE.BoxGeometry(0.45, 0.55, 0.35),
+    new THREE.BoxGeometry(0.7, 0.7, 0.55),
     new THREE.MeshBasicMaterial({ visible: false })
   );
   endHit.userData.inspectHitOnly = true;
@@ -255,15 +255,17 @@ export function createHospitalReverse(scene) {
   sideRecess.scale.set(1.2, 2.6, 1.9);
   sideDoors.add(sideRecess);
 
+  // Side OPEN button inset toward the aisle so limited look can target it.
   const sideButton = new THREE.Group();
   sideButton.name = 'Ward side door OPEN button';
-  sideButton.position.set(3.28, 1.35, -16.35);
+  // Inset toward the aisle so limited look (~1.05 rad) can aim from the rail.
+  sideButton.position.set(2.15, 1.35, -16.4);
   world.add(sideButton);
   box(0.22, 0.38, 0.08, 0, 0, 0, mat.panel, sideButton);
   const sidePad = box(0.14, 0.14, 0.05, 0, 0.04, 0.05, mat.buttonDead, sideButton);
   box(0.16, 0.05, 0.02, 0, -0.12, 0.05, mat.sign, sideButton);
   const sideHit = new THREE.Mesh(
-    new THREE.BoxGeometry(0.45, 0.55, 0.35),
+    new THREE.BoxGeometry(0.85, 0.85, 0.7),
     new THREE.MeshBasicMaterial({ visible: false })
   );
   sideHit.userData.inspectHitOnly = true;
@@ -286,14 +288,16 @@ export function createHospitalReverse(scene) {
       object: endButton,
       title: 'DOOR OPEN',
       body: 'A wall-mounted press plate. The indicator is dark.',
-      radius: 4.8,
+      radius: 7.5,
+      stayAvailable: true,
     },
     {
       id: 'ward-side-button',
       object: sideButton,
       title: 'DOOR OPEN',
       body: 'A wall-mounted press plate beside the side doors.',
-      radius: 4.8,
+      radius: 7.2,
+      stayAvailable: true,
     },
   ];
 

@@ -18,7 +18,7 @@ const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 const WARD_CHAPTERS = new Set(['hospital-reverse']);
 const STORAGE_KEY = 'behind.devPanelCollapsed';
 
-export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
+export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
   panel.setAttribute('aria-label', 'Developer tools');
@@ -81,9 +81,20 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
         <option value="start">START / WARD ENTRY</option>
         <option value="before-end">BEFORE END / SEALED DOORS</option>
         <option value="reverse">REVERSE / FORCED RETREAT</option>
+        <option value="squeak">SQUEAK / WHEEL ZONE</option>
+        <option value="clank">CLANK / PRE-METAL</option>
         <option value="before-crying">BEFORE CRYING / POST CLANK</option>
         <option value="before-escape">BEFORE ESCAPE / SIDE DOOR</option>
       </select>
+    </div>
+    <div class="dev-chapters__cry" id="dev-ward-cry-row" hidden>
+      <div class="dev-chapters__title">CRY VOLUME</div>
+      <div class="dev-chapters__row">
+        <button type="button" data-cry-vol="0.45">QUIET</button>
+        <button type="button" data-cry-vol="1">REF</button>
+        <button type="button" data-cry-vol="1.35">LOUD</button>
+      </div>
+      <p class="dev-chapters__status" id="dev-cry-status" aria-live="polite">Cry: REF ×1.00</p>
     </div>
     <div class="dev-chapters__composure" id="dev-composure-row">
       <div class="dev-chapters__title">COMPOSURE</div>
@@ -141,11 +152,14 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
   const recordsCheckpointPicker = panel.querySelector('#dev-records-checkpoint-choice');
   const wardCheckpointRow = panel.querySelector('#dev-ward-checkpoint-row');
   const wardCheckpointPicker = panel.querySelector('#dev-ward-checkpoint-choice');
+  const wardCryRow = panel.querySelector('#dev-ward-cry-row');
+  const cryStatus = panel.querySelector('#dev-cry-status');
   const updateCheckpointPicker = () => {
     checkpointRow.hidden = picker.value !== 'unseen';
     memoryCheckpointRow.hidden = !MEMORY_CHAPTERS.has(picker.value);
     recordsCheckpointRow.hidden = picker.value !== 'records';
     wardCheckpointRow.hidden = !WARD_CHAPTERS.has(picker.value);
+    if (wardCryRow) wardCryRow.hidden = !WARD_CHAPTERS.has(picker.value);
   };
   picker.addEventListener('change', updateCheckpointPicker);
   let shown = '';
@@ -243,6 +257,20 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null) {
   });
   composureApi?.subscribe?.(refreshComposure);
   refreshComposure();
+
+  const refreshCryVol = () => {
+    if (!cryStatus) return;
+    const v = audioApi?.getWardCryVolume?.() ?? 1;
+    const label = v < 0.7 ? 'QUIET' : v > 1.15 ? 'LOUD' : 'REF';
+    cryStatus.textContent = `Cry: ${label} ×${Number(v).toFixed(2)}`;
+  };
+  panel.querySelectorAll('[data-cry-vol]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      audioApi?.setWardCryVolume?.(Number(btn.dataset.cryVol));
+      refreshCryVol();
+    });
+  });
+  refreshCryVol();
 
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('level');

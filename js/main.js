@@ -305,6 +305,9 @@ try {
         officeStory.takeKeyFob();
         memory.keyFobEncountered = true;
       }
+      if (entryId === 'cigarette-hospital-reverse') {
+        hospitalReverseStory.state.cigaretteTaken = true;
+      }
       if (entryId === 'memory-white-dragon' || entryId === 'memory-black-dragon') {
         memoryStoryFor().takeDragon();
         // Soft recollection beat, then fade into the living room.
@@ -582,6 +585,30 @@ function syncComposureUi(value = composure.value) {
   }
 }
 
+function pulseComposureHit(amount = 0) {
+  if (!el.composure) return;
+  const severity = amount >= 20 ? 'major' : amount >= 10 ? 'moderate' : 'minor';
+  el.composure.classList.remove('is-hit-minor', 'is-hit-moderate', 'is-hit-major');
+  // Retrigger CSS animation.
+  void el.composure.offsetWidth;
+  el.composure.classList.add(`is-hit-${severity}`);
+  window.clearTimeout(pulseComposureHit._t);
+  pulseComposureHit._t = window.setTimeout(() => {
+    el.composure?.classList.remove('is-hit-minor', 'is-hit-moderate', 'is-hit-major');
+  }, severity === 'major' ? 780 : severity === 'moderate' ? 520 : 320);
+  if (!reduced) audio.playComposureHit?.(severity);
+}
+
+/** Delayed peak clank — cancelled on chapter leave / checkpoint restore. */
+function scheduleWardClankPeak() {
+  window.clearTimeout(scheduleWardClankPeak._t);
+  scheduleWardClankPeak._t = window.setTimeout(() => audio.playWardClank(), 1100);
+}
+
+function cancelWardClankPeak() {
+  window.clearTimeout(scheduleWardClankPeak._t);
+}
+
 function noteFogBase() {
   if (scene?.fog && typeof scene.fog.density === 'number') {
     scene.fog.userData = scene.fog.userData || {};
@@ -592,9 +619,13 @@ function noteFogBase() {
 function composureHitOnce(id, amount = COMPOSURE_HITS[id]) {
   if (gameOverActive || gameOverBusy) return;
   if (!id || composureHits.has(id)) return;
-  if (amount == null || amount <= 0) return;
+  if (amount == null || amount <= 0) {
+    if (amount === 0) composureHits.add(id); // resolved clean — never re-tax
+    return;
+  }
   composureHits.add(id);
   composure.hit(amount);
+  pulseComposureHit(amount);
   if (composure.isEmpty) void triggerGameOver();
 }
 
@@ -612,8 +643,16 @@ function beginSteadyEncounter(id) {
 function onSteadyResolved(payload) {
   if (!payload?.id || composureHits.has(payload.id)) return;
   composureHitOnce(payload.id, payload.damage);
-  if (payload.id === 'ward-clank') hospitalReverseStory.markClankResolved();
-  if (payload.id === 'ward-crying') hospitalReverseStory.markCryingResolved();
+  if (payload.id === 'ward-clank') {
+    hospitalReverseStory.markClankResolved(payload.result);
+    hospitalReverseStory.state.lastDamageNote =
+      `clank:${payload.result}:${payload.damage}`;
+  }
+  if (payload.id === 'ward-crying') {
+    hospitalReverseStory.markCryingResolved(payload.result);
+    hospitalReverseStory.state.lastDamageNote =
+      `crying:${payload.result}:${payload.damage}`;
+  }
 }
 
 /** Unavoidable L01–L03 hits. STEADY encounters are started separately. */
@@ -634,11 +673,11 @@ function syncChapterComposureHits() {
     if (recordsStory.state.drawersOpeningNoticed) composureHitOnce('records-drawers-open');
     if (recordsStory.state.shadowPeekDone) composureHitOnce('records-peek');
   } else if (isHospitalReverse()) {
-    if (hospitalReverseStory.state.squeakDone || hospitalReverseStory.state.squeakArmed) {
-      composureHitOnce('ward-squeak');
+    if (hospitalReverseStory.state.squeakDone) {
+      composureHitOnce('ward-squeak', hospitalReverseStory.state.squeakDamage);
     }
     if (hospitalReverseStory.state.proximityHit) {
-      composureHitOnce('ward-proximity');
+      composureHitOnce('ward-proximity', hospitalReverseStory.state.proximityDamage);
     }
   } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
     if (chapterId === 'night') {
@@ -704,10 +743,10 @@ function seedCompletedComposureHits() {
     mark(recordsStory.state.shadowDartDone || recordsStory.state.shadowDartPlay, 'records-dart');
     mark(recordsStory.state.shadowPeekDone, 'records-peek');
   } else if (isHospitalReverse()) {
-    mark(hospitalReverseStory.state.squeakDone || hospitalReverseStory.state.squeakArmed, 'ward-squeak');
-    mark(hospitalReverseStory.state.clankTriggered || hospitalReverseStory.state.clankDone, 'ward-clank');
-    mark(hospitalReverseStory.state.cryingPeak || hospitalReverseStory.state.cryingDone, 'ward-crying');
-    mark(hospitalReverseStory.state.proximityHit, 'ward-proximity');
+    mark(hospitalReverseStory.state.squeakDone, 'ward-squeak');
+    mark(hospitalReverseStory.state.clankDone, 'ward-clank');
+    mark(hospitalReverseStory.state.cryingDone, 'ward-crying');
+    mark(hospitalReverseStory.state.proximityHit || hospitalReverseStory.state.proximitySkipped, 'ward-proximity');
   } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
     if (chapterId === 'night') {
       mark(nightStory.state.footstepHeard, 'night-first-step');
@@ -835,6 +874,8 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     } else if (target === 'hospital-reverse') {
       Object.assign(hospitalReverseStory.state, snapshot.hospital || {});
       director?.reset();
+      cancelWardClankPeak();
+      audio.stopWardCry?.(0.05);
     }
     composureHits.clear();
     for (const id of snapshot.composureHits || []) composureHits.add(id);
@@ -843,13 +884,17 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     if (Array.isArray(snapshot.memory?.chaptersCompleted)) {
       memory.chaptersCompleted = [...snapshot.memory.chaptersCompleted];
     }
-    // Re-offer chapter cigarette only if snapshot does not already hold it.
+    // Re-offer chapter cigarette only if it was not yet collected at this checkpoint.
     const cigId = chapterCigaretteId(target);
     const pack = director?.get(target)?.interactables?.find(spec => spec.id === cigId);
     if (pack?.object) {
       const held = inventory?.has(cigId);
-      pack.object.visible = !held;
-      pack.object.userData.taken = Boolean(held);
+      const takenFlag = target === 'hospital-reverse'
+        ? Boolean(hospitalReverseStory.state.cigaretteTaken)
+        : false;
+      const collected = held || takenFlag;
+      pack.object.visible = !collected;
+      pack.object.userData.taken = collected;
     }
     bindChapterInteractables();
     progress = displayed = snapshot.progress ?? (target === 'corridor' ? START_PROGRESS : 0);
@@ -1074,6 +1119,16 @@ function useInventoryItem(itemId) {
     }
     inventory.remove(itemId);
     composure.restore(item.restoreAmount ?? CIGARETTE_RESTORE);
+    if (el.composure) {
+      el.composure.classList.remove('is-restoring');
+      void el.composure.offsetWidth;
+      el.composure.classList.add('is-restoring');
+      window.clearTimeout(useInventoryItem._restoreT);
+      useInventoryItem._restoreT = window.setTimeout(() => {
+        el.composure?.classList.remove('is-restoring');
+      }, 720);
+    }
+    syncComposureUi();
     audio.playInteract?.(itemId);
     closeItemDetail();
     renderInventory();
@@ -1302,6 +1357,8 @@ async function enterRecords() {
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
+    interaction?.clear();
+    look?.reset(); // Clear sticky A/D look from Office so Records faces forward.
     director.dispose();
     director = createSceneDirector();
     director.add('records', module);
@@ -1351,6 +1408,8 @@ async function enterNightShift() {
     const { createNightShift } = await import('./levels/night.js');
     module = createNightShift(scene);
     preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
     director.dispose();
     director = createSceneDirector();
     director.add('night', module);
@@ -1397,6 +1456,8 @@ async function enterThreshold() {
     const { createThreshold } = await import('./levels/threshold.js');
     module = createThreshold(scene);
     preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
     director.dispose();
     director = createSceneDirector();
     director.add('threshold', module);
@@ -1443,6 +1504,8 @@ async function enterUnseen() {
     const { createUnseen } = await import('./levels/unseen.js');
     module = createUnseen(scene);
     preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
     director.dispose();
     director = createSceneDirector();
     director.add('unseen', module);
@@ -1544,7 +1607,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'hospital-reverse') {
-      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-2');
+      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-polish-2');
       hospitalReverseStory.reset();
       next.add('hospital-reverse', createHospitalReverse(scene));
     } else {
@@ -1576,6 +1639,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     memory.extraStepHeard = false;
     memory.keyPassed = false;
     keypad?.close();
+    cancelWardClankPeak();
     audio.reset();
     if (target === 'office') audio.enterOffice();
     else if (target === 'records') audio.enterRecords();
@@ -1601,6 +1665,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     if (target === 'hospital-reverse') {
       const seek = hospitalReverseStory.seekCheckpoint(checkpoint);
       progress = displayed = seek.progress ?? 0;
+      look?.setMaxYaw(1.05); // enough yaw for the side OPEN button from the rail
       camera.position.set(0, 1.7, HOSPITAL_REVERSE_START_Z - progress * HOSPITAL_REVERSE_METERS);
       camera.rotation.set(0, 0, 0);
     }
@@ -1699,6 +1764,7 @@ if (DEBUG_MODE) {
       },
       hit: (n) => {
         composure.hit(n);
+        pulseComposureHit(n);
         if (composure.isEmpty) void triggerGameOver();
       },
       restore: (n) => composure.restore(n),
@@ -1724,7 +1790,7 @@ if (DEBUG_MODE) {
         void triggerGameOver();
       },
       retryCheckpoint: () => { void retryLatestCheckpoint(); },
-    });
+    }, audio);
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
 }
 
@@ -1984,19 +2050,21 @@ function frame(now) {
     } else if (isHospitalReverse()) {
       const wasSideReady = hospitalReverseStory.state.sideDoorReady;
       const wasSqueak = hospitalReverseStory.state.squeakArmed;
+      const wasClankWarn = hospitalReverseStory.state.clankWarning;
       const wasClank = hospitalReverseStory.state.clankTriggered;
       const wasProx = hospitalReverseStory.state.proximityHit;
       const wasCry = hospitalReverseStory.state.cryingStarted;
+      const wasComplete = hospitalReverseStory.state.completed;
       hospitalReverseStory.observe(previousDisplayed, p, dt);
       if (!wasSqueak && hospitalReverseStory.state.squeakArmed) {
         audio.playWardSqueak();
       }
-      if (!wasClank && hospitalReverseStory.state.clankTriggered) {
-        audio.playWardClank();
+      if (!wasClankWarn && hospitalReverseStory.state.clankWarning) {
+        audio.playWardClankWarn?.();
       }
-      if (!wasCry && hospitalReverseStory.state.cryingStarted) {
-        // Kick the cry bed immediately; updateHospitalReverse continues it.
-        audio.updateHospitalReverse(p, hospitalReverseStory.state);
+      if (!wasClank && hospitalReverseStory.state.clankTriggered) {
+        // Peak clank lands near the STEADY perfect window (Ward-local timing).
+        scheduleWardClankPeak();
       }
       if (!wasProx && hospitalReverseStory.state.proximityHit) {
         audio.playWardProximity();
@@ -2004,21 +2072,40 @@ function frame(now) {
       if (!wasSideReady && hospitalReverseStory.state.sideDoorReady) {
         bindChapterInteractables();
       }
+      if (!wasComplete && hospitalReverseStory.state.completed) {
+        audio.stopWardCry?.(0.6);
+      }
       if (typeof window !== 'undefined') {
         const s = hospitalReverseStory.state;
         window.__wardDebug = {
           p: Number(p.toFixed(3)),
+          composure: Math.round(composure.value),
+          moving: s.movingIntentional,
+          dir: s.direction,
+          threat: s.activeThreat || '',
+          threatI: s.activeThreat === 'crying' ? Number(s.cryingIntensity.toFixed(2))
+            : s.activeThreat === 'squeak' ? Number(Math.min(1, s.squeakElapsed / 2).toFixed(2)) : 0,
           reverse: s.reverseStarted,
-          reachedEnd: s.reachedEnd,
-          endTried: s.endDoorTried,
           squeak: s.squeakActive,
           squeakDone: s.squeakDone,
+          squeakResult: s.squeakResult,
+          squeakDmg: s.squeakDamage,
+          clankWarn: s.clankWarning,
           clank: s.clankTriggered,
+          clankResult: s.clankResult,
           cry: s.cryingStarted,
           cryDone: s.cryingDone,
           cryI: Number(s.cryingIntensity.toFixed(2)),
+          cryResult: s.cryingResult,
+          cryMoved: s.cryingMovedDuringPeak,
+          cryVol: audio.getWardCryVolume?.() ?? 1,
           prox: s.proximityHit,
+          proxDmg: s.proximityDamage,
+          proxSkip: s.proximitySkipped,
           sideReady: s.sideDoorReady,
+          cigTaken: s.cigaretteTaken,
+          cigHeld: Boolean(inventory?.has('cigarette-hospital-reverse')),
+          lastDmg: s.lastDamageNote,
           caption: s.caption,
         };
       }

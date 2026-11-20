@@ -207,26 +207,27 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 ## Hospital reverse prototype — The Ward
 
-**PROTOTYPE / EXPERIMENTAL** — not confirmed final story placement; not in ordinary L01–L06 progression.
+**PROTOTYPE / EXPERIMENTAL** — not confirmed final story placement; not in ordinary L01–L06 progression. Current polish models **warning → escalating threat → player response → consequence**; not a finalized story chapter.
 
 **Design question:** Can reverse-movement horror carry real gameplay stakes when the player must retreat into unseen space, using sound as the primary warning system?
 
 **IMPLEMENTED (dev only):** `?debug=1&level=hospital-reverse`
 
-- Modules: `js/levels/hospital-reverse.js`, `hospital-reverse-story.js`
+- Modules: `js/levels/hospital-reverse.js`, `hospital-reverse-story.js` (balance: `WARD_BALANCE`)
 - Abandoned hospital ward hallway on the standard scroll rail (no free-walk, no combat, no visible monster)
 - Forward pass is calm; far automatic doors fail via wall OPEN button → forced retreat
-- Reverse audio encounters:
-  1. Wheel squeak — stopping quiets it (stop can be safe)
-  2. Metallic clank — STEADY (`ward-clank`)
-  3. Crying that intensifies over time even while standing still (stop is NOT safe) — STEADY (`ward-crying`)
-  4. Proximity beat — unavoidable composure hit (`ward-proximity`)
+- Reverse audio encounters (composure 0–100; cigarette +40; one pack per chapter):
+  1. **Wheel squeak** — intensifies while reversing; stop promptly = 0 / hesitate = 4 / ignore zone = 12; never repeats after resolve
+  2. **Metallic clank** — faint rattle/scrape telegraph, then peak clank coordinated with Ward-local STEADY (`ward-clank`: perfect 5 / partial 11 / miss 22)
+  3. **Crying** — approaches over time even while still; STEADY at peak (`ward-crying`); side OPEN available once cry is established (not locked behind taking damage); pre-peak escape can soft-resolve
+  4. **Proximity** — near-contact only if still endangered; skipped after clean escape or perfect STEADY + retreat movement; otherwise graded (still-perfect residual ~5, partial ~8, miss ≤16, max design cap 18) — avoids double-penalizing one continuous cry threat
 - Subtle one-way reverse mutations (moved gurney, wheelchair, open bay door, sheet-covered bed, warmer light)
-- Escape via a working side-door wall OPEN button after the crying peak
-- One cigarette pickup (`cigarette-hospital-reverse`, +40)
-- Checkpoints: `start` / `before-end` / `reverse` / `before-crying` / `before-escape`
+- Escape: side-door OPEN with limited look (~1.05 rad); door animates ~1.15s before chapter complete
+- Cigarette collected-state tracked separately from inventory (`cigaretteTaken`) for fair checkpoint restore
+- Dev: checkpoints `start` / `before-end` / `reverse` / `squeak` / `clank` / `before-crying` / `before-escape`; cry-volume QUIET/REF/LOUD; `window.__wardDebug`
+- Breathing volume baseline remains `0.07` (approved)
 
-**OPEN / PROVISIONAL:** Whether this becomes a signature mid-game chapter, a memory space, or remains a mechanics sandbox.
+**OPEN / PROVISIONAL:** Whether this becomes a signature mid-game chapter, a memory space, or remains a mechanics sandbox. Encounter damage values are playtest knobs.
 
 ---
 

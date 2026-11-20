@@ -41,9 +41,10 @@ body.debug-performance .perf-hud{display:block}
 .dev-chapters__checkpoint[hidden]{display:none}
 .dev-chapters__checkpoint label{font-size:9px;letter-spacing:.12em;color:#9dbab0}
 .dev-chapters__checkpoint select{width:100%}
-.dev-chapters__composure{margin-top:10px;padding-top:8px;border-top:1px solid #2a403c}
-.dev-chapters__composure .dev-chapters__row{flex-wrap:wrap}
-.dev-chapters__composure button{flex:1;min-width:48px}
+.dev-chapters__composure,.dev-chapters__cry{margin-top:10px;padding-top:8px;border-top:1px solid #2a403c}
+.dev-chapters__cry[hidden]{display:none}
+.dev-chapters__composure .dev-chapters__row,.dev-chapters__cry .dev-chapters__row{flex-wrap:wrap}
+.dev-chapters__composure button,.dev-chapters__cry button{flex:1;min-width:48px}
 
 /* Level 01 inspect panel — sparse, cold, no collectible UI energy. */
 .inspect{position:absolute;z-index:6;left:50%;bottom:14vh;width:min(420px,86vw);transform:translate(-50%,12px);padding:22px 24px 18px;background:rgba(4,9,11,.88);border:1px solid rgba(150,170,166,.28);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
@@ -95,12 +96,27 @@ body.debug-performance .perf-hud{display:block}
 .composure{position:absolute;z-index:4;top:64px;left:4vw;display:flex;align-items:center;gap:10px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .55s,visibility .55s}
 .composure.is-active{opacity:1;visibility:visible}
 .composure__label{font:10px/1 'Courier New',monospace;letter-spacing:.2em;color:#8a9e99}
-.composure__track{width:88px;height:1px;background:rgba(97,112,109,.55)}
+.composure__track{width:96px;height:3px;background:rgba(97,112,109,.42);box-shadow:inset 0 0 0 1px rgba(120,140,136,.18)}
 .composure__fill{height:100%;width:100%;background:#b9c9c4;transform-origin:left center;transition:width .45s ease,background .45s ease}
 .composure.is-unsettled .composure__fill{background:#c4b8a8}
 .composure.is-distressed .composure__fill{background:#c9a39c}
 .composure.is-critical .composure__fill{background:#be7a72}
 .composure.is-critical .composure__label{color:#c98982}
+.composure.is-critical .composure__track{background:rgba(140,80,72,.35)}
+.composure.is-hit-minor .composure__fill{animation:composure-hit-minor .32s ease-out}
+.composure.is-hit-moderate .composure__fill{animation:composure-hit-moderate .5s ease-out}
+.composure.is-hit-major .composure__fill{animation:composure-hit-major .72s ease-out}
+.composure.is-restoring .composure__fill{animation:composure-restore .7s ease-out}
+@keyframes composure-hit-minor{0%{filter:brightness(1.35)}100%{filter:none}}
+@keyframes composure-hit-moderate{0%{filter:brightness(1.55);transform:scaleX(1.02)}40%{filter:brightness(1.15)}100%{filter:none;transform:none}}
+@keyframes composure-hit-major{0%{filter:brightness(1.7);opacity:.85}35%{filter:brightness(1.2);opacity:1}100%{filter:none;opacity:1}}
+@keyframes composure-restore{0%{filter:brightness(1.45)}100%{filter:none}}
+@media(prefers-reduced-motion:reduce){
+  .composure.is-hit-minor .composure__fill,
+  .composure.is-hit-moderate .composure__fill,
+  .composure.is-hit-major .composure__fill,
+  .composure.is-restoring .composure__fill{animation:none}
+}
 #experience.is-playing{filter:saturate(calc(1 - var(--stress, 0) * 0.42))}
 #experience[data-stage="unsettled"] .vignette{opacity:1}
 #experience[data-stage="distressed"]{filter:saturate(calc(1 - var(--stress, 0) * 0.5))}

@@ -133,6 +133,7 @@ export function createInteractionSystem({
       previewColor = null, kind = 'inspect',
       requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
       consumesItem = true, consumable = false, restoreAmount = null,
+      stayAvailable = false,
       sceneRoot, pickMeshes,
     } = spec;
     void sceneRoot;
@@ -142,7 +143,7 @@ export function createInteractionSystem({
       id, object, title, body, tooltip, radius, kind,
       onlyAfterBacktrack, onlyAfterSecondApproach, takeable, itemId, itemLabel, previewColor,
       requiresItem, requiresItemLabel, lockedBody, unlockedBody, consumesItem,
-      consumable, restoreAmount,
+      consumable, restoreAmount, stayAvailable,
       taken: false, unlocked: false, inspected: false,
       lines, material, opacity: 0,
       pickMeshes: meshes,
@@ -163,7 +164,9 @@ export function createInteractionSystem({
     // Keypad stays until the service door unlocks.
     if (entry.kind === 'keypad' && story?.keypadUnlocked) return false;
     // Inspect-only props: one look clears the highlight (lighter, plaques, etc.).
+    // `stayAvailable` keeps actionable door buttons usable after an early inspect.
     if (entry.kind !== 'keypad' && entry.inspected && !entry.takeable
+        && !entry.stayAvailable
         && !(entry.requiresItem && !entry.unlocked)) {
       return false;
     }

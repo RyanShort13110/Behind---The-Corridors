@@ -933,6 +933,7 @@ export function createAudioDirector() {
   function fadeForGameOver() {
     stopBreathing();
     stopUnseenRoars();
+    stopWardCry(0.5);
     setGain(humGain, 0, 0.9);
     setGain(buzzGain, 0, 0.9);
     setGain(motorGain, 0, 0.7);
@@ -1105,6 +1106,7 @@ export function createAudioDirector() {
   function enterOffice() {
     // Called only after the rear elevator has fully occluded the camera.
     stopBreathing();
+    stopWardCry(0.2);
     recordsMusicActive = false;
     setGain(motorGain, 0);
     setGain(buzzGain, 0);
@@ -1224,6 +1226,7 @@ export function createAudioDirector() {
 
   function enterRecords() {
     stopBreathing();
+    stopWardCry(0.2);
     officeMusicActive = false;
     recordsMusicActive = true;
     recordsNextNote = 0;
@@ -1299,6 +1302,7 @@ export function createAudioDirector() {
 
   function enterNight() {
     stopBreathing();
+    stopWardCry(0.2);
     recordsMusicActive = false;
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
@@ -1358,6 +1362,7 @@ export function createAudioDirector() {
     setGain(nightAirGain, 0, 0.025);
     setGain(nightDroneGain, 0, 0.025);
     stopBreathing();
+    stopWardCry(0.2);
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
     setGain(buzzGain, 0);
@@ -1399,6 +1404,7 @@ export function createAudioDirector() {
     stopUnseenRoars();
     if (enabled) ensureUnseenSound();
     stopBreathing();
+    stopWardCry(0.2);
     setGain(humGain, 0);
     setGain(buzzGain, 0);
     setGain(motorGain, 0);
@@ -1602,6 +1608,7 @@ export function createAudioDirector() {
 
   function enterMemoryStaging() {
     stopBreathing();
+    stopWardCry(0.2);
     stopMemoryRain(0.3);
     officeMusicActive = false;
     silenceHorrorScore(0.35);
@@ -1689,6 +1696,8 @@ export function createAudioDirector() {
   let wardCryNextPhrase = 0;
   let wardCryActive = false;
   let wardSqueakUntil = 0;
+  /** Dev cry loudness multiplier — 1 = current reference. */
+  let wardCryVolume = 1;
 
   function enterHospitalReverse() {
     stopBreathing();
@@ -1743,7 +1752,7 @@ export function createAudioDirector() {
     const end = f0 * (0.8 + Math.random() * 0.08);
     const dur = 0.58 + Math.random() * 0.26 + near * 0.14;
     // Wide distance span: whisper-far → close wail (peak kept restrained).
-    const level = 0.004 + near * 0.085 + i * 0.008;
+    const level = (0.004 + near * 0.085 + i * 0.008) * Math.max(0.15, wardCryVolume);
 
     const osc = ctx.createOscillator();
     const partial = ctx.createOscillator();
@@ -1857,10 +1866,11 @@ export function createAudioDirector() {
     const duck = (ctx.currentTime < sfxBusyUntil) || (state?.cryingIntensity > 0.25);
     setGain(musicGain, duck ? 0.02 : 0.055, 0.5);
 
-    // Squeak loops softly while active and the player is still moving.
+    // Squeak loops/intensifies while active and the player is still moving.
     if (state?.squeakActive && state.squeakMoving && ctx.currentTime > wardSqueakUntil) {
-      playWardSqueak();
-      wardSqueakUntil = ctx.currentTime + 0.55;
+      const grow = Math.min(1, 0.28 + (state.squeakElapsed || 0) * 0.22);
+      playWardSqueak(grow);
+      wardSqueakUntil = ctx.currentTime + Math.max(0.38, 0.62 - grow * 0.2);
     }
 
     // Keep sobbing while the encounter is live; after STEADY resolves, linger
@@ -1875,7 +1885,7 @@ export function createAudioDirector() {
       wardCryIntensity = state.cryingDone ? Math.min(raw, 0.55) : raw;
       const near = wardCryIntensity * wardCryIntensity;
       // Master tracks distance; start very quiet, swell as it closes.
-      setGain(wardCryMaster, 0.35 + near * 0.65, 0.35);
+      setGain(wardCryMaster, (0.35 + near * 0.65) * Math.max(0.15, wardCryVolume), 0.35);
       if (wardCryDistance) {
         const cutoff = 850 + near * 3600;
         wardCryDistance.frequency.setTargetAtTime(cutoff, ctx.currentTime, 0.25);
@@ -1901,12 +1911,36 @@ export function createAudioDirector() {
     }
   }
 
-  function playWardSqueak() {
+  function setWardCryVolume(mult = 1) {
+    wardCryVolume = Math.max(0.15, Math.min(1.6, Number(mult) || 1));
+    if (wardCryMaster && wardCryActive) {
+      setGain(wardCryMaster, (0.35 + wardCryIntensity * wardCryIntensity * 0.65) * wardCryVolume, 0.15);
+    }
+    return wardCryVolume;
+  }
+
+  function getWardCryVolume() {
+    return wardCryVolume;
+  }
+
+  function playWardSqueak(intensity = 0.35) {
     if (!enabled || !ctx) return;
     resume();
-    // Soft rubber wheel — behind the player (rear pan ~0, slight left).
-    playNoiseBurst({ duration: 0.32, band: 340, q: 1.4, level: 0.028, pan: -0.08 });
-    playTone({ freq: 190, freq2: 140, duration: 0.26, level: 0.018, type: 'triangle', pan: 0.05 });
+    const i = Math.max(0.2, Math.min(1, intensity));
+    // Soft rubber wheel — behind the player; grows while they keep reversing.
+    playNoiseBurst({ duration: 0.32, band: 340, q: 1.4, level: 0.016 + i * 0.022, pan: -0.08 });
+    playTone({ freq: 190, freq2: 140, duration: 0.26, level: 0.01 + i * 0.014, type: 'triangle', pan: 0.05 });
+  }
+
+  function playWardClankWarn() {
+    if (!enabled || !ctx) return;
+    resume();
+    // Faint bed-frame rattle / scrape — telegraph only.
+    playNoiseBurst({ duration: 0.18, band: 420, q: 1.3, level: 0.012, pan: 0.18 });
+    playTone({ freq: 160, freq2: 120, duration: 0.2, level: 0.008, type: 'triangle', pan: 0.14 });
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.12, band: 280, q: 0.9, level: 0.01, pan: -0.1 });
+    }, 160);
   }
 
   function playWardClank() {
@@ -1917,6 +1951,20 @@ export function createAudioDirector() {
     window.setTimeout(() => {
       playNoiseBurst({ duration: 0.14, band: 900, q: 1.1, level: 0.032, pan: -0.15 });
     }, 90);
+  }
+
+  function playComposureHit(severity = 'minor') {
+    if (!enabled || !ctx) return;
+    resume();
+    if (severity === 'major') {
+      playNoiseBurst({ duration: 0.22, band: 180, q: 0.55, level: 0.018, pan: 0 });
+      playTone({ freq: 72, duration: 0.35, level: 0.014, type: 'sine', pan: 0 });
+    } else if (severity === 'moderate') {
+      playNoiseBurst({ duration: 0.14, band: 240, q: 0.7, level: 0.012, pan: 0.05 });
+      playTone({ freq: 96, duration: 0.22, level: 0.01, type: 'sine', pan: 0 });
+    } else {
+      playTone({ freq: 140, duration: 0.1, level: 0.006, type: 'sine', pan: 0.04 });
+    }
   }
 
   function playWardProximity() {
@@ -2015,8 +2063,10 @@ export function createAudioDirector() {
     playMemoryDoorLeave,
     playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
     playRecordsFobAccess,
-    playWardSqueak, playWardClank, playWardProximity,
+    playWardSqueak, playWardClankWarn, playWardClank, playWardProximity,
     playWardDoorButton, playWardDoorFail, playWardDoorOpen,
+    playComposureHit,
+    setWardCryVolume, getWardCryVolume, stopWardCry,
     setComposureStress,
     fadeForGameOver,
     reset, suspend, resume, dispose,
