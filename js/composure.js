@@ -58,10 +58,10 @@ export const COMPOSURE_HITS = Object.freeze({
   'ward-clank': 0, // atmospheric scare — no composure damage
   'ward-crying': 22,
   'ward-proximity': 16,
-  // Provisional — gated by enableLateChapterDamage
-  'night-first-step': 18,
-  'night-cadence': 18,
-  'night-stop': 19,
+  // Provisional — gated by enableLateChapterDamage (absence beat, not pursuit)
+  'night-first-step': 10,
+  'night-cadence': 12,
+  'night-stop': 10,
   'threshold-first-damage': 12,
   'threshold-organic': 18,
   'threshold-red-hall': 22,

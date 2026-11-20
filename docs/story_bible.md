@@ -380,21 +380,21 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 - When and how should the key fob unlock something in Records without confirming employment?
 - What memories (if any) do the stuffed dragons unlock — and how do the two relate?
 
-## Chapter 04: The Night Shift — Prototype 004.1 / Act II begins
+## Chapter 04: The Night Shift — Prototype 004.2 / Act II begins
 
-**Emotion:** The possibility of an unseen companion; unsettled recognition without proof.  
+**Emotion:** Loneliness and absence in a place that once held ordinary overnight life — grief suggested, never explained.  
 **Entry:** The Records' already-open doorway leads into an older, more domestic overnight-staff wing. No additional elevator.  
-**Visual anchors:** Kitchenette and lone cup by the sink, break table, a worn lounge sofa, a lit floor lamp, and a passage of closed staff rooms. The final door is open rather than locked.
+**Visual anchors:** Warm kitchenette (cups, tea towel), break table with a pushed-out empty chair, lounge sofa, floor lamp, jacket on the coat stand, closed staff rooms beyond. The final door is open rather than locked.
 
-**Primary event:** Soft, muted footsteps begin around the lounge and seem to keep pace with the visitor. They follow movement but do not loop while the player is stationary; one extra step may sound shortly after the visitor stops. The footsteps fall silent permanently near the final doorway. Sound-off players receive the initial cue and the later silence cue in captions. Two corridor fixtures behind the camera dim and stay dim. Nothing human is ever shown.
+**Primary event (004.2):** No following footsteps (that cadence belongs to The Ward). Past the lounge, the floor lamp dies beside the empty chair; a soft settle marks that someone was just there. Early lighting is warm/domestic; the deeper hall cools and thins. Sound-off players still get lamp / chair / hush captions.
 
-**Dialogue:** “Footsteps. Behind me.” / “The footsteps have stopped.” The text never declares that a spirit is following the protagonist. The protagonist does not name a person or explain the cause.
+**Dialogue (sparse):** “Someone left a cup by the sink.” / “They kept it almost like a living room.” / “The lamp is going out.” / “That chair is still warm.” / “Colder back here.” / “Just the exit light now.” Never name a person, diagnose grief, or claim a haunting.
 
-**Pacing:** No mandatory backtrack. The player may retreat to inspect the extinguished fixtures, but can continue forward. Leave periods of silence before and after the event.
+**Pacing:** No mandatory backtrack, QTEs, jumpscares, or chase. Forward path stays open.
 
-**Motifs:** Do not add the lighter or face-down photograph here; their repetition is stronger if it has breathing room. The house key remains available for Chapter 05.
+**Motifs:** Do not add the lighter or face-down photograph here. The house key remains available for Chapter 05.
 
-**Production status:** First procedural implementation, not a narrative lock. No claims of a 45–60 minute playtime until real playtests establish it.
+**Production status:** First-pass emotional redesign on `staging` (004.2). Playtest before merging to `main`.
 
 ## Chapter 05: The Threshold — Prototype 005.0
 

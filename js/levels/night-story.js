@@ -1,55 +1,57 @@
 /**
  * Behind. — Chapter 04 / The Night Shift.
- * A quiet follower matches the visitor's movement in the staff wing,
- * adds one unsettling extra step if they stop, then falls silent near the exit.
- * Position (not time) triggers the beginning and ending, so sound-off players
- * experience the same narrative and nobody can miss the stop cue.
+ * Domestic overnight-staff wing. Early stretch feels almost familiar;
+ * later it cools into absence. One restrained lamp/chair beat replaces
+ * the old following-footsteps scare (Ward already owns that cadence).
  */
 export const NIGHT_METERS = 72;
 export const NIGHT_START_Z = 4.6;
 export const NIGHT_END_PROGRESS = 0.979;
-export const NIGHT_FOLLOW_START = 0.40;
-export const NIGHT_FOLLOW_STOP = 0.875; // ~7.5m before the chapter's end
 
-const STEP_INTERVAL_SECONDS = 0.82;
-const FINAL_STEP_INTERVAL_SECONDS = 0.23;
-const MIN_DISTANCE_PER_STEP_METERS = 0.78;
-const FINAL_DISTANCE_PER_STEP_METERS = 0.28;
-const EXTRA_STEP_DELAY_SECONDS = 0.62;
-const FINAL_EXTRA_STEP_DELAY_SECONDS = 0.20;
+/** Lounge / kitchenette still ahead — warm, ordinary. */
+export const NIGHT_LOUNGE_END = 0.38;
+/** Empty-chair / lamp moment arms here (past the lounge seating). */
+export const NIGHT_ABSENCE_START = 0.44;
+/** Lamp finishes dying; residual chair light fades. */
+export const NIGHT_LAMP_OUT = 0.52;
+/** Hall reads colder / emptier after this. */
+export const NIGHT_COLD_START = 0.62;
+/** Quiet stretch before the open exit. */
+export const NIGHT_HUSH = 0.88;
+
 const MOVEMENT_EPSILON = 0.000018;
-
 const clamp01 = n => Math.max(0, Math.min(1, n));
-const smooth = t => t * t * (3 - 2 * t);
-const lerp = (a, b, t) => a + (b - a) * t;
 
 export function createNightStory() {
   const state = {
-    armed: false,
-    footstepHeard: false,      // First step has been emitted, never re-arms
-    footstepReason: '',
-    footstepCount: 0,          // Incremented only when a NEW sound is due
-    eventElapsed: 0,          // Time since first step (for initial caption)
-    footstepsStopped: false,  // Latches on near the exit, even on retreat
-    stoppedElapsed: 0,
-    stepElapsed: 0,
-    travelSinceStep: 0,
-    idleElapsed: 0,
-    extraStepReady: false,
-    hallDarkened: false,
+    direction: 'forward',
     hasRetreated: false,
     completed: false,
-    direction: 'forward',
-    followPace: 0,
-    cadenceRisen: false, // composure: follower pace crosses mid-stretch once
-  };
 
-  const step = reason => {
-    state.footstepCount++;
-    state.footstepReason = reason;
-    state.stepElapsed = 0;
-    state.travelSinceStep = 0;
-    state.idleElapsed = 0;
+    // Absence beat (replaces follower footsteps)
+    absenceArmed: false,
+    absenceElapsed: 0,
+    lampDying: false,
+    lampOut: false,
+    chairSettled: false, // one soft settle SFX latch
+    coldHall: false,
+    hush: false,
+    hushElapsed: 0,
+
+    // Warmth 1 → 0 for lighting/audio (derived each observe)
+    warmth: 1,
+
+    // Legacy aliases kept so older debug / memory hooks stay harmless
+    footstepHeard: false,
+    footstepsStopped: false,
+    footstepCount: 0,
+    footstepReason: '',
+    followPace: 0,
+    cadenceRisen: false,
+    hallDarkened: false,
+    armed: false,
+    eventElapsed: 0,
+    stoppedElapsed: 0,
   };
 
   return {
@@ -57,118 +59,158 @@ export function createNightStory() {
     observe(previous, current, dt = 0) {
       dt = Math.max(0, dt);
       const delta = current - previous;
-      const moved = Math.abs(delta) > MOVEMENT_EPSILON;
-      const followPhase = smooth(clamp01((current - NIGHT_FOLLOW_START) /
-        (NIGHT_FOLLOW_STOP - NIGHT_FOLLOW_START)));
-      state.followPace = state.footstepsStopped ? 1 : followPhase;
-      if (!state.cadenceRisen && state.footstepHeard && !state.footstepsStopped
-          && state.followPace >= 0.55) {
-        state.cadenceRisen = true;
-      }
       if (delta > MOVEMENT_EPSILON) state.direction = 'forward';
       if (delta < -MOVEMENT_EPSILON) {
         state.direction = 'backward';
-        if (current > NIGHT_FOLLOW_START) state.hasRetreated = true;
+        if (current > NIGHT_ABSENCE_START) state.hasRetreated = true;
       }
 
-      // The footsteps never resume once the player reaches the final stretch.
-      // This must happen BEFORE considering another step in the same frame.
-      if (!state.footstepsStopped && current >= NIGHT_FOLLOW_STOP) {
-        state.footstepsStopped = true;
-        state.stoppedElapsed = 0;
-        state.extraStepReady = false;
+      // Warm early → cold late (smooth, no jumpscare timing).
+      if (current < NIGHT_LOUNGE_END) {
+        state.warmth = 1;
+      } else if (current < NIGHT_COLD_START) {
+        state.warmth = 1 - clamp01(
+          (current - NIGHT_LOUNGE_END) / (NIGHT_COLD_START - NIGHT_LOUNGE_END)
+        ) * 0.55;
+      } else {
+        state.warmth = 0.45 * (1 - clamp01(
+          (current - NIGHT_COLD_START) / (NIGHT_HUSH - NIGHT_COLD_START)
+        ));
       }
 
-      if (!state.footstepHeard && !state.footstepsStopped &&
-          current >= NIGHT_FOLLOW_START) {
+      if (!state.absenceArmed && current >= NIGHT_ABSENCE_START) {
+        state.absenceArmed = true;
         state.armed = true;
-        state.footstepHeard = true;
+        state.lampDying = true;
+        state.hallDarkened = true; // reuse: rear fixtures ease down
+        state.absenceElapsed = 0;
         state.eventElapsed = 0;
-        state.hallDarkened = true;
-        // An initial, faint step establishes that someone else is walking.
-        step('first');
-        state.extraStepReady = moved;
-      } else if (state.footstepHeard && !state.footstepsStopped) {
-        state.eventElapsed += dt;
-        state.stepElapsed += dt;
-        if (moved) {
-          state.travelSinceStep += Math.abs(delta) * NIGHT_METERS;
-          state.idleElapsed = 0;
-          state.extraStepReady = true;
-          // Cadence follows actual travel. No time-based machine-gun loop
-          // when the player isn't advancing the scroll position.
-          const stepInterval = lerp(STEP_INTERVAL_SECONDS, FINAL_STEP_INTERVAL_SECONDS, state.followPace);
-          const distancePerStep = lerp(MIN_DISTANCE_PER_STEP_METERS, FINAL_DISTANCE_PER_STEP_METERS, state.followPace);
-          if (state.stepElapsed >= stepInterval &&
-              state.travelSinceStep >= distancePerStep) {
-            step('following');
-          }
-        } else if (state.extraStepReady) {
-          state.idleElapsed += dt;
-          // ONE delayed footfall after the protagonist stops moving. Then
-          // complete silence until they move again; no perpetual idle loop.
-          const extraDelay = lerp(EXTRA_STEP_DELAY_SECONDS, FINAL_EXTRA_STEP_DELAY_SECONDS, state.followPace);
-          if (state.idleElapsed >= extraDelay &&
-              state.stepElapsed >= 0.22) {
-            step('extra');
-            state.extraStepReady = false;
-          }
-        }
+        // Soft composure alias — "something changed" without a chase.
+        state.footstepHeard = true;
       }
 
-      if (state.footstepsStopped) {
+      if (state.absenceArmed && !state.lampOut) {
+        state.absenceElapsed += dt;
+        state.eventElapsed += dt;
+        if (current >= NIGHT_LAMP_OUT || state.absenceElapsed >= 4.2) {
+          state.lampOut = true;
+          state.lampDying = false;
+          state.chairSettled = true;
+          state.cadenceRisen = true;
+          // Align caption window if progress crossed the threshold early.
+          if (state.absenceElapsed < 4.0) state.absenceElapsed = 4.0;
+        }
+      } else if (state.lampOut) {
+        state.absenceElapsed += dt;
+        state.eventElapsed += dt;
+      }
+
+      if (!state.coldHall && current >= NIGHT_COLD_START) {
+        state.coldHall = true;
+      }
+
+      if (!state.hush && current >= NIGHT_HUSH) {
+        state.hush = true;
+        state.footstepsStopped = true;
+        state.hushElapsed = 0;
+        state.stoppedElapsed = 0;
+      }
+      if (state.hush) {
+        state.hushElapsed += dt;
         state.stoppedElapsed += dt;
       }
+
       if (current >= NIGHT_END_PROGRESS) state.completed = true;
     },
     reset() {
       Object.assign(state, {
-        armed: false, footstepHeard: false, footstepReason: '',
-        footstepCount: 0, eventElapsed: 0, footstepsStopped: false,
-        stoppedElapsed: 0, stepElapsed: 0, travelSinceStep: 0,
-        idleElapsed: 0, extraStepReady: false, hallDarkened: false,
-        hasRetreated: false, completed: false, direction: 'forward',
+        direction: 'forward',
+        hasRetreated: false,
+        completed: false,
+        absenceArmed: false,
+        absenceElapsed: 0,
+        lampDying: false,
+        lampOut: false,
+        chairSettled: false,
+        coldHall: false,
+        hush: false,
+        hushElapsed: 0,
+        warmth: 1,
+        footstepHeard: false,
+        footstepsStopped: false,
+        footstepCount: 0,
+        footstepReason: '',
         followPace: 0,
         cadenceRisen: false,
+        hallDarkened: false,
+        armed: false,
+        eventElapsed: 0,
+        stoppedElapsed: 0,
       });
     },
   };
 }
 
-// The sink is around p=.246; put its observation while it is still AHEAD of
-// the camera, not after the visitor has walked past it.
 const firstPass = [
-  { to: 0.14, line: 'This floor feels different.' },
-  { to: 0.235, line: 'Someone left a cup by the sink.' },
-  { to: 0.39, line: '' },
+  { to: 0.12, line: 'This floor feels different.' },
+  { to: 0.22, line: 'Someone left a cup by the sink.' },
+  { to: 0.34, line: 'They kept it almost like a living room.' },
+  { to: 0.43, line: '' },
   { to: 0.70, line: '' },
   { to: 0.86, line: '' },
   { to: 1.01, line: '' },
 ];
 
 export function nightNarrative(progress, state) {
-  if (state.completed) return {
-    chapter: '04 — THE NIGHT SHIFT', line: '', instruction: ' ',
-  };
-  if (state.footstepsStopped) {
+  if (state.completed) {
+    return { chapter: '04 — THE NIGHT SHIFT', line: '', instruction: ' ' };
+  }
+
+  if (state.hush) {
     return {
       chapter: '04 — THE NIGHT SHIFT',
-      // Give the silence a moment to be heard before naming it.
-      line: state.stoppedElapsed >= 0.40 ? 'The footsteps have stopped.' : '',
+      line: state.hushElapsed >= 0.55 ? 'Just the exit light now.' : '',
       instruction: 'SCROLL UP TO CONTINUE ↑',
     };
   }
-  if (state.footstepHeard && state.eventElapsed < 3.0) {
+
+  // Lamp / empty-chair beat — sparse, no diagnosis.
+  if (state.absenceArmed && !state.lampOut && state.absenceElapsed < 3.2) {
     return {
       chapter: '04 — THE NIGHT SHIFT',
-      line: 'Footsteps. Behind me.',
+      line: 'The lamp is going out.',
       instruction: 'SCROLL UP TO CONTINUE ↑',
     };
   }
-  if (state.direction === 'backward' && state.footstepHeard) return {
-    chapter: '04 — THE NIGHT SHIFT',
-    line: '', instruction: 'SCROLL UP TO CONTINUE ↑',
-  };
+  if (state.lampOut && state.absenceElapsed >= 4.0 && state.absenceElapsed < 7.2) {
+    return {
+      chapter: '04 — THE NIGHT SHIFT',
+      line: 'That chair is still warm.',
+      instruction: 'SCROLL UP TO CONTINUE ↑',
+    };
+  }
+
+  if (state.coldHall && progress < 0.78 && progress > NIGHT_COLD_START) {
+    const line = progress < 0.70 ? 'Colder back here.' : '';
+    return {
+      chapter: '04 — THE NIGHT SHIFT',
+      line,
+      instruction: 'SCROLL UP TO CONTINUE ↑',
+    };
+  }
+
+  if (state.direction === 'backward' && state.absenceArmed) {
+    return {
+      chapter: '04 — THE NIGHT SHIFT',
+      line: '',
+      instruction: 'SCROLL UP TO CONTINUE ↑',
+    };
+  }
+
   const line = firstPass.find(beat => progress < beat.to)?.line ?? '';
-  return { chapter: '04 — THE NIGHT SHIFT', line, instruction: 'SCROLL UP TO CONTINUE ↑' };
+  return {
+    chapter: '04 — THE NIGHT SHIFT',
+    line,
+    instruction: 'SCROLL UP TO CONTINUE ↑',
+  };
 }

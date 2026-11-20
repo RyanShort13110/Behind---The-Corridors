@@ -681,9 +681,15 @@ function syncChapterComposureHits() {
     }
   } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
     if (chapterId === 'night') {
-      if (nightStory.state.footstepHeard) composureHitOnce('night-first-step');
-      if (nightStory.state.cadenceRisen) composureHitOnce('night-cadence');
-      if (nightStory.state.footstepsStopped) composureHitOnce('night-stop');
+      if (nightStory.state.absenceArmed || nightStory.state.footstepHeard) {
+        composureHitOnce('night-first-step');
+      }
+      if (nightStory.state.lampOut || nightStory.state.cadenceRisen) {
+        composureHitOnce('night-cadence');
+      }
+      if (nightStory.state.hush || nightStory.state.footstepsStopped) {
+        composureHitOnce('night-stop');
+      }
     } else if (chapterId === 'threshold') {
       if (thresholdStory.state.sawFirstDamage) composureHitOnce('threshold-first-damage');
       if (thresholdStory.state.reachedOrganic) composureHitOnce('threshold-organic');
@@ -749,9 +755,9 @@ function seedCompletedComposureHits() {
     mark(hospitalReverseStory.state.proximityHit || hospitalReverseStory.state.proximitySkipped, 'ward-proximity');
   } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
     if (chapterId === 'night') {
-      mark(nightStory.state.footstepHeard, 'night-first-step');
-      mark(nightStory.state.cadenceRisen, 'night-cadence');
-      mark(nightStory.state.footstepsStopped, 'night-stop');
+      mark(nightStory.state.absenceArmed || nightStory.state.footstepHeard, 'night-first-step');
+      mark(nightStory.state.lampOut || nightStory.state.cadenceRisen, 'night-cadence');
+      mark(nightStory.state.hush || nightStory.state.footstepsStopped, 'night-stop');
     } else if (chapterId === 'threshold') {
       mark(thresholdStory.state.sawFirstDamage, 'threshold-first-damage');
       mark(thresholdStory.state.reachedOrganic, 'threshold-organic');
@@ -1405,7 +1411,7 @@ async function enterNightShift() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createNightShift } = await import('./levels/night.js');
+    const { createNightShift } = await import('./levels/night.js?v=night-absence-1');
     module = createNightShift(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1593,7 +1599,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createRecords } = await import('./levels/records.js?v=drawer-ajar-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js');
+      const { createNightShift } = await import('./levels/night.js?v=night-absence-1');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
       const { createThreshold } = await import('./levels/threshold.js');
@@ -1972,7 +1978,7 @@ function updateNarrative(p) {
     if (state.completed && !ended) showEndCard('records');
     else if (p < 0.94 && ended) hideEndCard();
   } else if (inNight) {
-    memory.extraStepHeard ||= state.footstepHeard;
+    memory.extraStepHeard ||= state.absenceArmed || state.footstepHeard;
     if (state.completed && p >= NIGHT_END_PROGRESS && !ended) showEndCard('night');
     else if (p < NIGHT_END_PROGRESS - 0.035 && ended) hideEndCard();
   } else if (inThreshold) {
@@ -2031,12 +2037,15 @@ function frame(now) {
     } else if (chapterId === 'records') {
       recordsStory.observe(previousDisplayed, p, dt);
     } else if (chapterId === 'night') {
-      const previousStepCount = nightStory.state.footstepCount;
+      const wasLampDying = nightStory.state.lampDying;
+      const wasLampOut = nightStory.state.lampOut;
       nightStory.observe(previousDisplayed, p, dt);
-      // A step event is emitted by story state ONLY when the player moves or
-      // once after stopping. Nothing is queued past the near-exit silence.
-      if (nightStory.state.footstepCount > previousStepCount) {
-        audio.playNightStep(nightStory.state.followPace, nightStory.state.footstepReason);
+      // Absence beat SFX — no follower footsteps (Ward owns that cadence).
+      if (!wasLampDying && nightStory.state.lampDying) {
+        audio.playNightLampDying?.();
+      }
+      if (!wasLampOut && nightStory.state.lampOut) {
+        audio.playNightChairSettle?.();
       }
     } else if (chapterId === 'threshold') {
       thresholdStory.observe(previousDisplayed, p);

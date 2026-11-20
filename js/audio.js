@@ -699,10 +699,9 @@ export function createAudioDirector() {
     elevOpenPrev = openAmount;
   }
 
-  // Level 04 / The Night Shift. Nothing plays until the FIRST footstep.
-  // A looping, band-limited air texture and a slightly unstable low tone
-  // gather in intensity beneath the existing directional footsteps. Keeping
-  // both sources persistent avoids buffer churn and mid-loop startup clicks.
+  // Level 04 / The Night Shift. Soft room air — warm early, thinner later.
+  // No pursuit footsteps (Ward owns that cadence). Keeping both sources
+  // persistent avoids buffer churn and mid-loop startup clicks.
   function ensureNightAmbience() {
     if (!ctx || nightAirSource) return;
     const duration = 3.6;
@@ -1325,40 +1324,51 @@ export function createAudioDirector() {
     setGain(motorGain, 0, 0.3);
     setGain(phoneHigh, 0, 0.2);
     setGain(phoneLow, 0, 0.2);
-    // The final footstep cutoff is latched in the STORY, not timed here.
-    // Backtracking or standing still afterward cannot restart the sound.
-    if (state.footstepsStopped) {
-      // An abrupt hush is the reward: no lingering electric room tone either.
-      setGain(nightAirGain, 0, 0.018);
-      setGain(nightDroneGain, 0, 0.018);
-      setGain(humGain, 0, 0.018);
-      setGain(buzzGain, 0, 0.018);
-      return;
-    }
-    if (state.footstepHeard) {
-      ensureNightAmbience();
-      const pace = Math.max(0, Math.min(1, state.followPace));
-      const t = ctx.currentTime;
-      // Begin almost inaudibly with the first step, then swell along with the
-      // accelerating pursuit. The curved ramp delays obvious volume until the
-      // footsteps become urgent, while preserving the existing peak balance.
-      const buildup = Math.pow(pace, 1.45);
-      const swell = .86 + .14 * Math.sin(t * 1.17);
-      setGain(nightAirGain, (.0007 + .0663 * buildup) * swell, .25);
-      setGain(nightDroneGain, (.0002 + .0278 * buildup) * swell, .25);
-      nightAirFilter.frequency.setTargetAtTime(315 + pace * 185, t, .34);
-      nightDroneSource.frequency.setTargetAtTime(43 + pace * 6.5 + Math.sin(t * .49) * 1.2, t, .34);
-      // Existing institutional hum withdraws as the new atmosphere takes over.
-      setGain(humGain, .0028, .3);
-      setGain(buzzGain, .00015, .28);
+    ensureNightAmbience();
+    const warmth = Math.max(0, Math.min(1, state?.warmth ?? 1));
+    const t = ctx.currentTime;
+    // Soft domestic air early; thins and cools as the wing empties.
+    const air = (0.012 + warmth * 0.028) * (0.9 + 0.1 * Math.sin(t * 0.37));
+    const drone = (0.004 + warmth * 0.012) * (0.92 + 0.08 * Math.sin(t * 0.21));
+    if (state?.hush) {
+      setGain(nightAirGain, air * 0.25, 0.45);
+      setGain(nightDroneGain, drone * 0.2, 0.45);
+      setGain(humGain, 0.0015, 0.4);
+      setGain(buzzGain, 0.00008, 0.4);
     } else {
-      // Earlier in the level, retain the ordinary air system and no horror bed.
-      setGain(nightAirGain, 0, .13);
-      setGain(nightDroneGain, 0, .13);
-      const quiet = progress > .34 ? .55 : 1;
-      setGain(humGain, .0075 * quiet, .42);
-      setGain(buzzGain, .0004 * quiet, .32);
+      setGain(nightAirGain, air, 0.4);
+      setGain(nightDroneGain, drone, 0.4);
+      setGain(humGain, 0.003 + warmth * 0.005, 0.4);
+      setGain(buzzGain, 0.00012 + warmth * 0.0002, 0.35);
     }
+    if (nightAirFilter) {
+      nightAirFilter.frequency.setTargetAtTime(260 + warmth * 120, t, 0.4);
+    }
+    if (nightDroneSource) {
+      nightDroneSource.frequency.setTargetAtTime(38 + warmth * 8, t, 0.45);
+    }
+  }
+
+  /** Soft lamp filament fade — absence beat, not a scare sting. */
+  function playNightLampDying() {
+    if (!enabled || !ctx) return;
+    resume();
+    const t = ctx.currentTime;
+    playTone({ freq: 190, freq2: 95, duration: 0.55, level: 0.01, type: 'sine', pan: 0.35 });
+    window.setTimeout(() => {
+      if (!enabled || !ctx) return;
+      playNoiseBurst({ duration: 0.18, band: 420, q: 0.55, level: 0.008, pan: 0.32 });
+    }, 120);
+    markSfx(0.7);
+  }
+
+  /** Fabric / chair settle when the lamp dies — someone was just there. */
+  function playNightChairSettle() {
+    if (!enabled || !ctx) return;
+    resume();
+    playNoiseBurst({ duration: 0.28, band: 280, q: 0.7, level: 0.014, pan: 0.18 });
+    playTone({ freq: 96, freq2: 64, duration: 0.35, level: 0.01, type: 'triangle', pan: 0.16 });
+    markSfx(0.45);
   }
 
   function enterThreshold() {
@@ -2346,6 +2356,7 @@ export function createAudioDirector() {
     playRecordsFobAccess,
     playWardSqueak, playWardClankWarn, playWardClank, playWardProximity,
     playWardDoorButton, playWardDoorFail, playWardDoorOpen,
+    playNightLampDying, playNightChairSettle,
     playComposureHit,
     setWardCryVolume, getWardCryVolume, stopWardCry, cancelWardDelayedSfx,
     get wardCryUsesHrtf() { return wardCryUseHrtf; },
