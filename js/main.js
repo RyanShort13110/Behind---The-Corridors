@@ -88,8 +88,8 @@ const el = {
 // 1 => far dead end. Keeping native scroll allows keyboard/trackpad controls.
 const CORRIDOR_METERS = 50;
 const REAR_CABIN_CAMERA_Z = 6;
-const MAX_WALK_SPEED = 4.0;
-const SCROLL_LEAD_SECONDS = 0.25;
+const MAX_WALK_SPEED = 5.5;
+const SCROLL_LEAD_SECONDS = 0.35;
 const MAX_SCROLL_LEAD = MAX_WALK_SPEED * SCROLL_LEAD_SECONDS / CORRIDOR_METERS;
 const clamp = v => Math.max(0, Math.min(1, v));
 const reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1198,7 +1198,7 @@ function start() {
     });
     window.ScrollTrigger.refresh();
   }
-  console.info('[Behind.] 001.8 started · 4.0 m/s · sound 0.065 · return-pass narration');
+  console.info('[Behind.] 001.8 started · 5.5 m/s · sound 0.065 · return-pass narration');
 }
 
 function setEndCard(which) {
@@ -1346,7 +1346,7 @@ async function enterOffice() {
     activeBeat = -1;
     lastTime = performance.now();
     saveChapterStartCheckpoint();
-    console.info('[Behind.] Level 02 entered · retained 4.0 m/s cap');
+    console.info('[Behind.] Level 02 entered · retained 5.5 m/s cap');
     // Render the new floor once before uncovering the viewport.
     renderer.render(scene, camera);
   } catch (error) {
@@ -1448,7 +1448,7 @@ async function enterNightShift() {
     activeBeat = -1;
     lastTime = performance.now();
     renderer.render(scene, camera);
-    console.info('[Behind.] Level 04 entered · no jump scares · 4.0 m/s cap');
+    console.info('[Behind.] Level 04 entered · no jump scares · 5.5 m/s cap');
   } catch (error) {
     if (chapterId === 'records') module?.dispose?.();
     console.error('[Behind.] Night Shift transition failed:', error);
@@ -1496,7 +1496,7 @@ async function enterThreshold() {
     activeBeat = -1;
     lastTime = performance.now();
     renderer.render(scene, camera);
-    console.info('[Behind.] Level 05 entered · 4.0 m/s max · procedural corruption');
+    console.info('[Behind.] Level 05 entered · 5.5 m/s max · procedural corruption');
   } catch (error) {
     if (chapterId === 'night') module?.dispose?.();
     console.error('[Behind.] Threshold transition failed:', error);
