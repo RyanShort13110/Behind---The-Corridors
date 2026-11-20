@@ -1898,7 +1898,7 @@ function narrativeFor(p, state) {
   } else if (state.hasBacktracked) {
     chapter = '01 — THE RETURN';
     const returnBeat = returnBeats.find(item => p >= item.min);
-    if (returnBeat) line = returnBeat.line;
+    line = returnBeat?.line ?? ''; // No forward-pass dialogue on the return.
     instruction = p < 0.32 ? 'KEEP SCROLLING DOWN ↓' : 'SCROLL DOWN TO RETURN ↓';
   }
   return { beatIndex, chapter, line, instruction };
