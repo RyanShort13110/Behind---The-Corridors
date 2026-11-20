@@ -156,7 +156,7 @@ export function createNightStory() {
  * lamp fade, the room cool and the exit ahead without further narration.
  * Keep instructions even while the narrative subtitle is absent.
  */
-export function nightNarrative(_progress, state) {
+export function nightNarrative(progress, state) {
   const chapter = '04 — THE NIGHT SHIFT';
   if (state.completed) return { chapter, line: '', instruction: ' ' };
 
@@ -166,7 +166,8 @@ export function nightNarrative(_progress, state) {
 
   return {
     chapter,
-    line: afterChair ? 'I thought someone was here.' : '',
+    line: afterChair ? 'I thought someone was here.'
+      : progress < 0.12 && !state.absenceArmed ? 'This floor feels different.' : '',
     instruction: 'SCROLL UP TO CONTINUE ↑',
   };
 }
