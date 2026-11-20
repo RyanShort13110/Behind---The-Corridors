@@ -35,6 +35,7 @@ export function createOfficeStory() {
     lighterInspected: false, // clicked the prop; carries into later chapters via memory
     stickyTaken: false,
     keyFobInspected: false,
+    keyFobTaken: false,
   };
 
   return {
@@ -60,7 +61,9 @@ export function createOfficeStory() {
           current >= OFFICE_REINVESTIGATE) {
         state.secondApproachStarted = true;
       }
+      // Records exit needs the fob — never complete Office without it.
       if (state.secondApproachStarted && state.keypadUnlocked
+          && state.keyFobTaken
           && current >= OFFICE_EXIT_PROGRESS) {
         state.completed = true;
       }
@@ -68,6 +71,10 @@ export function createOfficeStory() {
     unlockKeypad() {
       state.keypadUnlocked = true;
       state.serviceDoorOpen = true;
+    },
+    takeKeyFob() {
+      state.keyFobTaken = true;
+      state.keyFobInspected = true;
     },
     reset() {
       for (const key of Object.keys(state)) {
@@ -116,10 +123,14 @@ export function officeNarrative(progress, state) {
     return {
       chapter: '02 — THE INVESTIGATION',
       line: unlocked
-        ? (progress < OFFICE_BRANCH_START ? 'Okay. Go.' : '')
+        ? (!state.keyFobTaken && progress >= OFFICE_BRANCH_START
+          ? 'Something was on that desk.'
+          : (progress < OFFICE_BRANCH_START ? 'Okay. Go.' : ''))
         : investigation.find(beat => progress < beat.to)?.line ?? '',
       instruction: unlocked
-        ? 'SCROLL UP TO ENTER THE PASSAGE ↑'
+        ? (state.keyFobTaken
+          ? 'SCROLL UP TO ENTER THE PASSAGE ↑'
+          : 'TAKE THE KEY FOB · THEN ENTER THE PASSAGE')
         : (progress < OFFICE_BRANCH_START
           ? 'SCROLL UP TO INVESTIGATE ↑' : 'ENTER THE CODE ON THE KEYPAD'),
     };

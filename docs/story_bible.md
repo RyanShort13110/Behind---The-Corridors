@@ -1,6 +1,6 @@
 # BEHIND. — Living Story Bible
 
-**Status:** Working draft / synchronized with playable Levels 01–03, November 2026. Ordinary progression stops after Records while Levels 04–06 are revamped (`?debug=1` still reaches them).  
+**Status:** Working draft / synchronized with playable Levels 01–03, November 2026. Records exit requires the Office key fob.  
 **Genre:** Interactive first-person psychological horror web film  
 **Target:** Approximately 10 chapters, 45–60+ minutes in its eventual complete form  
 **Creative rule:** *The building doesn't chase you. It waits for you to look away.*
@@ -60,9 +60,8 @@ The specific number of floors and chapter names can change if pacing requires it
 
 ### Orange key fob
 
-**ESTABLISHED CANON (intent):** Plain orange plastic fob with a worn metal ring. Collectible without implying the protagonist worked here or owned it. Intended for unlocking a door in the following room (Records).  
-**IMPLEMENTED (L02):** Takeable into inventory (`key-fob`). Inspect: “Orange plastic. The metal ring is worn.” Sets `memory.keyFobEncountered` / `keyFobInspected`. Inventory is **not** cleared on the Office → Records transition in the current `enterRecords` path.  
-**OPEN / PROVISIONAL / gap:** Records currently has **no** fob use-target or locked door unlock. Pickup exists; door-unlocking behavior is **not** implemented yet. Do not document consumption or unlock state as live mechanics until wired.
+**ESTABLISHED CANON:** Plain orange plastic fob with a worn metal ring. Collectible without implying the protagonist worked here or owned it.  
+**IMPLEMENTED (L02→L03):** Takeable in the Office (`key-fob`). Inspect: “Orange plastic. The metal ring is worn.” Inventory is preserved into Records. Office cannot complete / leave for Records without taking the fob (softlock prevention). In Records, the fob unlocks a wall card reader at the far exit door. The fob **remains in inventory** after use. No lore explains why it works.
 
 ### Brass key (Level 01)
 
@@ -245,27 +244,24 @@ Instructional UI still teaches backtracking; control text is not protagonist dia
 
 ---
 
-## Chapter 03: The Records — first playable construction pass
+## Chapter 03: The Records
 
-**Emotion:** Avoidance, something unspoken, and the first brief moment in which the protagonist seems to know more than the player.  
-**Entry:** A side service passage near the Office meeting room. The handoff uses a brief occlusion, NOT another elevator.  
-**Architecture:** Lower ceiling, older cabinets with repeating file drawers, receiving counter, a quiet sorting station, box storage, and an already-open passage onward.  
-**Motif:** The face-down photograph rests on the sorting surface around the middle of the level. The camera never turns to see its contents, and no front artwork is created or loaded. The protagonist thinks only: **“Leave it.”**  
-**Environmental memory:** A right-side drawer is visibly ajar on the first pass. After the player passes it, it settles shut out of view. Backtracking may reveal the discrepancy, but is not required.  
-**Exit:** A partially open doorway into another administrative space.  
-**Build gate (temporary):** Completing Records shows the end card with **no** Continue into Night Shift. Levels 04–06 remain in the build for `?debug=1` only while they are revamped.
+**Emotion:** Grief-adjacent avoidance and involuntary recognition — the first hint that discomfort may be personal, without naming why.  
+**Entry:** A side service passage near the Office meeting room. Brief occlusion handoff, not another elevator.  
+**Architecture:** Lower ceiling, older filing cabinets, receiving counter, quiet sorting station, box storage, locked far exit with an ordinary wall card reader.  
+**Motif — face-down Polaroid:** Rests on the sorting surface mid-floor. Camera never reveals the front; no artwork, name, or pickup. No forced camera glance — discovery is via A/D look. Dialogue (one-shot, with a short pause): **“A Polaroid?”** then **“No. I won’t look. I can’t.”** Curiosity, then refusal. Do not connect the Polaroid to any off-screen person in player-facing text.  
+**Environmental memory:** A right-side drawer is ajar on first approach; after the camera passes, it is closed. No close animation or sound. Optional backtrack may yield **“That was open.”** Not required for progression. Separately, drawers on the last filing cabinets toward the exit ease open ahead of the player mid-hall (quiet, no dialogue, no sting).  
+**Other dialogue (one-shots):** Entering — silence. First cabinets — **“How far back does all this go?”** Approach locked exit — **“Another locked door.”** Unlock / exit — silence.  
+**Exit (IMPLEMENTED):** Far door locked until the Office key fob is used on the card reader. Soft beep + latch + quiet hinge. Progress cannot complete the chapter while the door is locked. Unlock opens the path into Night Shift.  
+**Audio direction:** Near-silence — faint sustained tones, sparse unresolved two-note fragments, long rests; low HVAC / thin ballast; rare distant metal settle. Duck music slightly at the Polaroid. No stings, whispers, footsteps, or crash references.
 
 ### Why Level 03 breaks the Level 01–02 return pattern
 
-A third compulsory out-and-back journey would make backward movement feel like a formula rather than an unsettling choice. In this chapter, the player can leave by continuing forward, or return to investigate details. The architecture remembers either way.
+A third compulsory out-and-back journey would make backward movement feel like a formula rather than an unsettling choice. The player may continue forward after unlocking the exit, or optionally return to notice the drawer.
 
 ### Narrative discipline
 
-Do not explain why the protagonist says “Leave it.” Avoid showing a recognizable image, a name, a case number, blood, ghost silhouettes, or a diagnostic report that spells out what happened. Proximity to the photograph is recorded as `photoPassed`, not as proof it was noticed. The faded notices and index labels remain generic/unreadable.
-
-### Verified gap vs L02 inventory
-
-**OPEN / PROVISIONAL:** Key fob is intended to unlock a door here. **Not implemented** in Records yet (no interactable `requiresItem: 'key-fob'`). Document intent separately from build state.
+Do not explain the Polaroid lines. Avoid recognizable images, names, case numbers, blood, ghost silhouettes, or reports that spell out what happened. Proximity is `photoPassed`, not proof of notice. Faded notices stay generic/unreadable. Writer-only partner backstory stays out of this bible.
 
 ## Narrative invariants
 
@@ -377,3 +373,4 @@ Do not delete or reorder chapters in code based on this table alone.
 | 2026-11 | **Dialogue Revision 001** for Levels 01–02; story bible sync; key fob collectible; stuffed dragons planned. |
 | 2026-11 | **Memory Environments:** white-dragon bedroom prototype (dev-only); unreliable-memory principle; restructuring review table added. |
 | 2026-11 | **Memory Level Narrative Overhaul:** shared remembered living room (white afternoon / black night); grief-centered emotional canon; writer-only spoilers kept out of public bible; rail locomotion preserved; black memory prototype built. |
+| 2026-11 | **Records revision:** Polaroid two-beat dialogue; sparse near-silence score; key-fob card-reader exit; Office softlock prevention (fob required to leave). |

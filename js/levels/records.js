@@ -22,6 +22,7 @@ export function createRecords(scene) {
     cabinetFront: new THREE.MeshStandardMaterial({ color: 0x777a6e, roughness: 0.74, metalness: 0.10 }),
     darkMetal: new THREE.MeshStandardMaterial({ color: 0x353c39, roughness: 0.62, metalness: 0.26 }),
     paper: new THREE.MeshStandardMaterial({ color: 0xa3a08a, roughness: 0.95 }),
+    paperBright: new THREE.MeshStandardMaterial({ color: 0xc9c4a8, roughness: 0.92 }),
     cardboard: new THREE.MeshStandardMaterial({ color: 0x81745d, roughness: 1 }),
     wood: new THREE.MeshStandardMaterial({ color: 0x584c3b, roughness: 0.9 }),
     photoEdge: new THREE.MeshStandardMaterial({ color: 0xd2c7aa, roughness: 0.91 }),
@@ -77,35 +78,65 @@ export function createRecords(scene) {
   box(0.83, 0.42, 0.048, -5.045, 2.06, -7.8, mat.paper);
   // This notice is faded beyond legibility by design, not a story clue.
 
-  // Cabinet stacks: repeating rows of file drawers, each with an inset front
-  // and shallow metal handle. All except ONE are static and batch together.
+  // Cabinet stacks: repeating rows of file drawers with inset fronts.
+  // One starts ajar (discrepancy). Two ahead of the Polaroid ease open on approach.
   const movingDrawer = new THREE.Group();
   movingDrawer.name = 'File drawer / open on arrival';
   world.add(movingDrawer);
+  // A few rows past the sorting table, still well short of the exit shelves.
+  // Fully open before the player reaches the table so the bodies/folders read
+  // clearly ahead down the aisle (front plates alone are edge-on and invisible).
+  // row 8 → z≈-35.2, row 9 → z≈-38.2, row 10 → z≈-41.2
+  const distantOpeners = [
+    { side: -1, row: 8, tray: 1, open: 0.42, startAt: 0.32, endAt: 0.46, group: null },
+    { side: 1, row: 9, tray: 2, open: 0.46, startAt: 0.36, endAt: 0.50, group: null },
+    { side: -1, row: 10, tray: 0, open: 0.40, startAt: 0.40, endAt: 0.54, group: null },
+  ];
+  for (const spec of distantOpeners) {
+    const group = new THREE.Group();
+    group.name = `File drawer / opens at approach ${spec.row}`;
+    world.add(group);
+    spec.group = group;
+  }
+  const isDiscrepancy = (side, row, tray) => side === 1 && row === 4 && tray === 2;
+  const findOpener = (side, row, tray) =>
+    distantOpeners.find(d => d.side === side && d.row === row && d.tray === tray);
+
   for (let row = 0; row < 13; row++) {
     const z = -11.2 - row * 3.0;
     for (const side of [-1, 1]) {
       const x = side * 3.56;
       box(1.28, 2.5, 1.24, x, 1.30, z, mat.cabinet);
       box(1.32, 0.07, 1.35, x, 2.57, z, mat.darkMetal);
-      // Cabinet front faces toward the central aisle.
       const frontX = side * 2.90;
       for (let tray = 0; tray < 4; tray++) {
         const y = 0.47 + tray * 0.55;
-        const isDrawer = side === 1 && row === 4 && tray === 2;
-        if (isDrawer) {
-          // Independent mesh, moves from slightly open to closed after camera
-          // passes the sorting station. It's never moved while still ahead.
+        const discrepancy = isDiscrepancy(side, row, tray);
+        const opener = findOpener(side, row, tray);
+        if (discrepancy) {
+          // Starts slightly open; settles flush after the Polaroid pass.
           movingDrawer.position.set(0, 0, 0);
           box(0.11, 0.47, 1.03, 2.58, y, z, mat.cabinetFront, movingDrawer);
           box(0.14, 0.07, 0.22, 2.485, y, z, mat.darkMetal, movingDrawer);
+        } else if (opener) {
+          // Built flush; group.position.x animates toward the aisle (open).
+          // Include a drawer body + folder so the open state reads when looking
+          // straight down the hall (front plate alone is edge-on and invisible).
+          const faceX = frontX;
+          box(0.11, 0.47, 1.03, faceX, y, z, mat.cabinetFront, opener.group);
+          box(0.14, 0.07, 0.22, faceX - side * 0.07, y, z, mat.darkMetal, opener.group);
+          // Deep body stays nested in the carcass when ajar (~0.4m pull) so it
+          // never reads as a floating slab. Folders sit just behind the face.
+          box(0.78, 0.36, 0.90, faceX + side * 0.42, y - 0.02, z, mat.cabinet, opener.group);
+          box(0.32, 0.02, 0.36, faceX + side * 0.18, y + 0.16, z + 0.05, mat.paperBright, opener.group);
+          box(0.28, 0.02, 0.32, faceX + side * 0.20, y + 0.18, z - 0.04, mat.paperBright, opener.group);
         } else {
           box(0.075, 0.47, 1.04, frontX, y, z, mat.cabinetFront);
           box(0.12, 0.066, 0.22, frontX - side * 0.065, y, z, mat.darkMetal);
         }
-        // Card index slots in simple muted enamel, no readable dossiers.
-        if (tray % 2 === 0 && !isDrawer)
+        if (tray % 2 === 0 && !discrepancy && !opener) {
           box(0.015, 0.08, 0.18, frontX - side * 0.12, y - 0.11, z, mat.label);
+        }
       }
     }
   }
@@ -168,16 +199,36 @@ export function createRecords(scene) {
     }
   }
 
-  // A narrower UNLOCKED doorway, already ajar, ends the floor. No third
-  // repeated lock-and-backtrack puzzle. The chapter ends as we reach it.
+  // Exit: ordinary locked double door + wall card reader (Office key fob).
   box(0.13, 2.96, 0.15, -1.22, 1.48, -56.8, mat.darkMetal);
-  box(0.13, 2.96, 0.15,  1.22, 1.48, -56.8, mat.darkMetal);
+  box(0.13, 2.96, 0.15, 1.22, 1.48, -56.8, mat.darkMetal);
   box(2.57, 0.16, 0.15, 0, 3.00, -56.8, mat.darkMetal);
-  box(0.80, 2.83, 0.06, -0.88, 1.43, -56.64, mat.wood);
-  box(0.55, 2.83, 0.065, 1.02, 1.43, -56.9, mat.wood);
-  // Thin frosted panel beyond the gap; an ordinary continuation, not a portal.
+  // Leaf hinges from the right jamb; starts closed across the aisle.
+  const exitDoor = new THREE.Group();
+  exitDoor.name = 'Records exit door';
+  exitDoor.position.set(1.05, 0, -56.72);
+  world.add(exitDoor);
+  box(1.12, 2.72, 0.07, -0.56, 1.36, 0, mat.wood, exitDoor);
+  box(0.04, 0.08, 0.05, -1.02, 1.28, 0.05, mat.darkMetal, exitDoor);
+  // Beyond the door — quiet continuation, not a portal.
   box(1.54, 2.76, 0.05, 0, 1.40, -60.9, mat.glass);
   box(0.87, 0.035, 0.26, 0.74, 3.07, -57.3, mat.light);
+
+  // Wall-mounted access reader — ordinary office hardware, not sci-fi.
+  const reader = new THREE.Group();
+  reader.name = 'Records card reader';
+  reader.position.set(-1.55, 1.35, -56.55);
+  world.add(reader);
+  box(0.18, 0.28, 0.06, 0, 0, 0, mat.darkMetal, reader);
+  box(0.12, 0.08, 0.02, 0, 0.06, 0.035, mat.label, reader);
+  const readerLed = box(0.04, 0.03, 0.015, 0, -0.08, 0.035, mat.darkMetal, reader);
+  const readerHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.45, 0.55, 0.4),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  readerHit.position.set(0, 0, 0.1);
+  readerHit.userData.inspectHitOnly = true;
+  reader.add(readerHit);
 
   // Softer, older fluorescents; no deliberate flashes on this floor.
   for (const z of [-3, -12, -21, -31, -41, -51, -58]) {
@@ -199,21 +250,66 @@ export function createRecords(scene) {
     world.add(mesh);
   }
 
+  const interactables = [
+    {
+      id: 'records-fob-reader',
+      object: readerHit,
+      radius: 4.6,
+      title: 'CARD READER',
+      body: 'A small wall reader. The LED is dark.',
+      lockedBody: 'A small wall reader. Needs a fob.',
+      unlockedBody: 'The LED is steady. The door is unlocked.',
+      requiresItem: 'key-fob',
+      requiresItemLabel: 'KEY FOB',
+      consumesItem: false,
+    },
+  ];
+
   return {
+    interactables,
     update(progress, state, dt, reduced) {
-      // Closing occurs after passing the drawer; its visible position is still
-      // ahead of the camera only on first approach, and on return it's shut.
+      // Discrepancy drawer: open on arrival, flush after the Polaroid pass.
       const closedOffset = state.drawerSettled ? 0.32 : 0;
       movingDrawer.position.x = reduced
         ? closedOffset
         : movingDrawer.position.x + (closedOffset - movingDrawer.position.x)
             * (1 - Math.exp(-dt * 2.4));
+
+      // Distant drawers ease open ahead of the player as they near the table.
+      // No sound — quiet motion in the periphery.
+      for (const spec of distantOpeners) {
+        const t = Math.max(0, Math.min(1,
+          (progress - spec.startAt) / Math.max(0.001, spec.endAt - spec.startAt)));
+        const eased = t * t * (3 - 2 * t);
+        // Toward aisle: left cabinets +X, right cabinets -X.
+        const target = -spec.side * spec.open * eased;
+        spec.group.position.x = reduced
+          ? target
+          : spec.group.position.x + (target - spec.group.position.x)
+              * (1 - Math.exp(-dt * 1.6));
+      }
+
+      const doorAngle = state.doorUnlocked ? -1.35 : 0;
+      exitDoor.rotation.y = reduced
+        ? doorAngle
+        : exitDoor.rotation.y + (doorAngle - exitDoor.rotation.y)
+            * (1 - Math.exp(-dt * 2.8));
+      if (readerLed) {
+        readerLed.material = state.doorUnlocked ? mat.light : mat.darkMetal;
+      }
     },
-    reset() { movingDrawer.position.x = 0; },
+    reset() {
+      movingDrawer.position.x = 0;
+      for (const spec of distantOpeners) spec.group.position.x = 0;
+      exitDoor.rotation.y = 0;
+      if (readerLed) readerLed.material = mat.darkMetal;
+    },
     dispose() {
       // All static geometry uses one cube; materials have a single owner.
       // Independent photo/drawer meshes also share that cube geometry.
       cube.dispose();
+      readerHit.geometry.dispose();
+      readerHit.material.dispose();
       Object.values(mat).forEach(material => material.dispose());
       scene.remove(ambient);
       scene.remove(world);

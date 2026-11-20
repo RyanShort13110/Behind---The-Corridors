@@ -46,6 +46,11 @@ export function createAudioDirector() {
   let officePadAlmost = null;
   let officePhraseIndex = 0;
   let officePhraseNote = 0;
+  // Level 03: near-silence bed — sparse unresolved fragments, long rests.
+  let recordsMusicActive = false;
+  let recordsNextNote = 0;
+  let recordsPhraseIndex = 0;
+  let recordsSettleAt = 0;
   let sfxBusyUntil = 0;
   let elevWasUnlocked = false;
   let elevOpenPrev = 0;
@@ -1067,6 +1072,7 @@ export function createAudioDirector() {
   function enterOffice() {
     // Called only after the rear elevator has fully occluded the camera.
     stopBreathing();
+    recordsMusicActive = false;
     setGain(motorGain, 0);
     setGain(buzzGain, 0);
     silenceHorrorScore(0.35);
@@ -1115,41 +1121,160 @@ export function createAudioDirector() {
     }, 90);
   }
 
+  const RECORDS_PHRASES = [
+    { notes: [196.0, 207.65], gaps: [2.8], rest: 11.5 },
+    { notes: [174.61], gaps: [], rest: 14.0 },
+    { notes: [220.0, 233.08], gaps: [3.4], rest: 12.5 },
+    { notes: [164.81, 155.56], gaps: [4.0], rest: 15.0 },
+  ];
+
+  function scheduleRecordsFragment(freq, when, dur = 5.8) {
+    if (!ctx || !musicGain) return;
+    const osc = ctx.createOscillator();
+    const ghost = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const amp = ctx.createGain();
+    const ghostAmp = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    ghost.type = 'sine';
+    ghost.frequency.value = freq * 1.0038;
+    ghostAmp.gain.value = 0.14;
+    filter.type = 'lowpass';
+    filter.frequency.value = 620;
+    amp.gain.value = 0;
+    osc.connect(filter);
+    ghost.connect(ghostAmp).connect(filter);
+    filter.connect(amp).connect(musicGain);
+    const peak = 0.011;
+    amp.gain.setValueAtTime(0, when);
+    amp.gain.linearRampToValueAtTime(peak, when + 1.8);
+    amp.gain.linearRampToValueAtTime(peak * 0.35, when + Math.min(2.2, dur * 0.35));
+    amp.gain.exponentialRampToValueAtTime(0.0006, when + dur);
+    osc.start(when);
+    ghost.start(when);
+    osc.stop(when + dur + 0.1);
+    ghost.stop(when + dur + 0.1);
+    osc.onended = () => {
+      try {
+        osc.disconnect(); ghost.disconnect(); ghostAmp.disconnect();
+        filter.disconnect(); amp.disconnect();
+      } catch (_) { /* ignore */ }
+    };
+  }
+
+  function advanceRecordsMusic(duck) {
+    if (!ctx || !recordsMusicActive) return;
+    ensureHorrorScore();
+    const t = ctx.currentTime;
+    setGain(musicGain, duck ? 0.04 : 0.55, duck ? 0.35 : 1.2);
+    setGain(scorePadGain, duck ? 0.004 : 0.012, duck ? 0.4 : 1.5);
+    if (duck) return;
+    if (recordsNextNote < t - 0.05) recordsNextNote = t + 2.2;
+    const horizon = t + 0.35;
+    while (recordsNextNote < horizon + 6.5) {
+      const phrase = RECORDS_PHRASES[recordsPhraseIndex % RECORDS_PHRASES.length];
+      const note = phrase.notes[0];
+      // One or two notes, then a long empty rest — incomplete recollection.
+      scheduleRecordsFragment(note, Math.max(recordsNextNote, t + 0.02), 5.5);
+      if (phrase.notes.length > 1) {
+        scheduleRecordsFragment(
+          phrase.notes[1],
+          Math.max(recordsNextNote, t + 0.02) + (phrase.gaps[0] || 3),
+          4.8
+        );
+      }
+      recordsNextNote += (phrase.rest || 12);
+      recordsPhraseIndex += 1;
+    }
+  }
+
   function enterRecords() {
-    // Even when audio is muted, the chapter transition remains safe.
-    // There is no new loud cue: the phone simply stops and the building
-    // shifts from modern electrical buzz to near-silence.
     stopBreathing();
     officeMusicActive = false;
+    recordsMusicActive = true;
+    recordsNextNote = 0;
+    recordsPhraseIndex = 0;
+    recordsSettleAt = 0;
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
     setGain(buzzGain, 0);
     setGain(motorGain, 0);
-    silenceHorrorScore(0.45);
-    // Restore corridor music dry/wet for later replays.
-    setGain(musicDryGain, MUSIC_REVERB_DRY, 0.01);
-    setGain(musicWetGain, MUSIC_REVERB_WET, 0.01);
+    silenceHorrorScore(0.5);
+    ensureHorrorScore();
+    setGain(musicDryGain, 0.22, 0.01);
+    setGain(musicWetGain, 0.9, 0.01);
+    setGain(humGain, 0.0045, 0.8);
+    setGain(musicGain, 0.4, 1.8);
+    setGain(scorePadGain, 0.01, 1.5);
   }
 
   function updateRecords(progress, state) {
     if (!enabled || !ctx || ctx.state !== 'running') return;
-    // No synthetic "scare" effects, only a low persistent air system which
-    // becomes slightly quieter toward the photograph / sorting station.
-    const quiet = progress > 0.50 && progress < 0.73 ? 0.48 : 1;
-    setGain(humGain, 0.006 * quiet, 0.48);
-    setGain(buzzGain, 0, 0.30);
-    setGain(motorGain, 0, 0.30);
     setGain(phoneHigh, 0, 0.15);
     setGain(phoneLow, 0, 0.15);
+    setGain(motorGain, 0, 0.3);
+    // Thin ballast + HVAC; quieter near the photograph.
+    const atPhoto = progress > 0.50 && progress < 0.70;
+    const quiet = atPhoto ? 0.42 : 1;
+    setGain(humGain, 0.0048 * quiet, 0.55);
+    setGain(buzzGain, 0.0012 * quiet, 0.6);
+    advanceRecordsMusic(atPhoto);
+    // Rare distant metal settle — never a scare, never near the photo.
+    const t = ctx.currentTime;
+    if (!atPhoto && progress > 0.2 && progress < 0.85
+        && t > recordsSettleAt && Math.random() < 0.0035) {
+      recordsSettleAt = t + 9 + Math.random() * 14;
+      playNoiseBurst({
+        duration: 0.55 + Math.random() * 0.35,
+        band: 180 + Math.random() * 90,
+        q: 0.45,
+        level: 0.008,
+        pan: (Math.random() * 2 - 1) * 0.55,
+      });
+    }
+    void state;
+  }
+
+  /** Fob tap → soft beep → latch → quiet hinge. One-shot via story unlock. */
+  function playRecordsFobAccess() {
+    if (!enabled || !ctx) return;
+    resume();
+    const t = ctx.currentTime;
+    // Plastic/metal contact
+    playNoiseBurst({ duration: 0.05, band: 1400, q: 1.2, level: 0.014, pan: -0.25 });
+    playTone({ freq: 480, duration: 0.05, level: 0.01, type: 'triangle', pan: -0.25 });
+    // Soft electronic confirmation — one beep, not a chime
+    window.setTimeout(() => {
+      if (!enabled || !ctx) return;
+      playTone({ freq: 920, duration: 0.07, level: 0.016, type: 'sine', pan: -0.22 });
+    }, 90);
+    // Mechanical latch
+    window.setTimeout(() => {
+      if (!enabled || !ctx) return;
+      playTone({ freq: 210, freq2: 140, duration: 0.14, level: 0.02, type: 'triangle', pan: -0.1 });
+      playNoiseBurst({ duration: 0.12, band: 700, q: 1.0, level: 0.016, pan: -0.1 });
+    }, 220);
+    // Quiet heavy hinge
+    window.setTimeout(() => {
+      if (!enabled || !ctx) return;
+      playNoiseBurst({ duration: 0.7, band: 240, q: 0.4, level: 0.015, pan: 0.15 });
+      playTone({ freq: 68, freq2: 42, duration: 0.85, level: 0.012, type: 'triangle', pan: 0.15 });
+    }, 380);
+    markSfx(1.4);
   }
 
   function enterNight() {
     stopBreathing();
+    recordsMusicActive = false;
     setGain(phoneHigh, 0);
     setGain(phoneLow, 0);
     setGain(humGain, 0, 0.18);
     setGain(buzzGain, 0);
     setGain(motorGain, 0);
+    silenceHorrorScore(0.4);
+    setGain(musicDryGain, MUSIC_REVERB_DRY, 0.01);
+    setGain(musicWetGain, MUSIC_REVERB_WET, 0.01);
     // Re-entering via a developer jump must never inherit an old drone.
     setGain(nightAirGain, 0, 0.025);
     setGain(nightDroneGain, 0, 0.025);
@@ -1368,6 +1493,9 @@ export function createAudioDirector() {
     officeMusicActive = false;
     officePhraseIndex = 0;
     officePhraseNote = 0;
+    recordsMusicActive = false;
+    recordsNextNote = 0;
+    recordsPhraseIndex = 0;
     silenceHorrorScore(0.08);
     setGain(musicDryGain, MUSIC_REVERB_DRY, 0.01);
     setGain(musicWetGain, MUSIC_REVERB_WET, 0.01);
@@ -1572,6 +1700,7 @@ export function createAudioDirector() {
     enterMemoryStaging, enterMemoryWhite, enterMemoryBlack, exitMemoryWhite, exitMemoryBlack,
     playMemoryDoorLeave,
     playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
+    playRecordsFobAccess,
     reset, suspend, resume, dispose,
     get enabled() { return enabled; },
   };

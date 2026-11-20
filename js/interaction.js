@@ -132,6 +132,7 @@ export function createInteractionSystem({
       takeable = false, itemId = null, itemLabel = null,
       previewColor = null, kind = 'inspect',
       requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
+      consumesItem = true,
       sceneRoot, pickMeshes,
     } = spec;
     void sceneRoot;
@@ -140,7 +141,7 @@ export function createInteractionSystem({
     const entry = {
       id, object, title, body, tooltip, radius, kind,
       onlyAfterBacktrack, onlyAfterSecondApproach, takeable, itemId, itemLabel, previewColor,
-      requiresItem, requiresItemLabel, lockedBody, unlockedBody,
+      requiresItem, requiresItemLabel, lockedBody, unlockedBody, consumesItem,
       taken: false, unlocked: false, inspected: false,
       lines, material, opacity: 0,
       pickMeshes: meshes,
@@ -301,7 +302,7 @@ export function createInteractionSystem({
     if (!entry || actionMode(entry) !== 'use') return;
     const itemId = entry.requiresItem;
     entry.unlocked = true;
-    inventory?.remove(itemId);
+    if (entry.consumesItem !== false) inventory?.remove(itemId);
     onUse?.(itemId, entry.id);
     titleEl.textContent = entry.title;
     bodyEl.textContent = entry.unlockedBody || 'It opens.';

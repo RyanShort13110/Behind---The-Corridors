@@ -26,16 +26,16 @@ Headphones recommended when sound is on.
 
 ## Chapters (current build)
 
-Ordinary play runs through **Levels 01–03**. Completing Records ends the build for now (later floors are still being revamped). Levels 04–06 remain reachable only via `?debug=1`.
+Ordinary play runs through **Levels 01–03** (and can continue into 04+). Records requires the Office key fob to unlock the far exit.
 
 | # | Chapter | Notes |
 |---|---------|--------|
 | 01 | The Corridor | First doubt; return-pass changes; rear elevator seal |
-| 02 | The Office | Occupied absence; inventory puzzles; sticky-note keypad exit |
-| 03 | The Records | Avoidance; face-down photograph; optional backtrack · **current playable end** |
-| 04 | The Night Shift | Debug only while revamping |
-| 05 | The Threshold | Debug only while revamping |
-| 06 | The Unseen | Debug only while revamping |
+| 02 | The Office | Occupied absence; sticky-note keypad; **key fob** required before leaving |
+| 03 | The Records | Avoidance; face-down Polaroid; optional drawer discrepancy; **fob card-reader exit** |
+| 04 | The Night Shift | Unseen companion suggestion; pace-following footsteps |
+| 05 | The Threshold | Reality rupture; progressive corridor corruption |
+| 06 | The Unseen | Proximity fear; forced retreat while facing an empty hall |
 
 Narrative canon and dialogue live in [`docs/story_bible.md`](docs/story_bible.md).
 

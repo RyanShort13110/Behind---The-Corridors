@@ -12,7 +12,10 @@ import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
-import { createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z, RECORDS_PHOTO_LOOK_START, RECORDS_PHOTO_LOOK_END } from './levels/records-story.js';
+import {
+  createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z,
+  RECORDS_DOOR_HOLD,
+} from './levels/records-story.js';
 import { recordsCameraPose } from './levels/records-route.js';
 import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS } from './levels/night-story.js';
 import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js';
@@ -154,6 +157,9 @@ function progressBounds() {
   if (chapterId === 'unseen') {
     return { min: 0, max: UNSEEN_BARRIER_PROGRESS };
   }
+  if (chapterId === 'records' && !recordsStory.state.doorUnlocked) {
+    return { min: 0, max: RECORDS_DOOR_HOLD };
+  }
   return { min: 0, max: 1 };
 }
 
@@ -238,7 +244,7 @@ try {
       audio.playInteract(itemId);
       if (entryId === 'office-sticky-note') officeStory.state.stickyTaken = true;
       if (entryId === 'office-key-fob') {
-        officeStory.state.keyFobInspected = true;
+        officeStory.takeKeyFob();
         memory.keyFobEncountered = true;
       }
       if (entryId === 'memory-white-dragon' || entryId === 'memory-black-dragon') {
@@ -249,9 +255,16 @@ try {
       }
     },
     onUse: (_itemId, targetId) => {
-      if (targetId !== 'locked-doorknob') return;
-      audio.playUnlock();
-      director.get('corridor')?.openLockedDoor?.();
+      if (targetId === 'locked-doorknob') {
+        audio.playUnlock();
+        director.get('corridor')?.openLockedDoor?.();
+        return;
+      }
+      if (targetId === 'records-fob-reader') {
+        recordsStory.unlockDoor();
+        audio.playRecordsFobAccess();
+        // Keep the fob; door swing is driven by story state in records.update.
+      }
     },
     onKeypad: () => {
       interaction?.close();
@@ -312,6 +325,9 @@ function bindChapterInteractables() {
       }
       const entry = interaction.register({ ...spec, sceneRoot: scene });
       if (spec.id === 'locked-doorknob' && corridor?.isLockedDoorOpen?.()) {
+        entry.unlocked = true;
+      }
+      if (spec.id === 'records-fob-reader' && recordsStory.state.doorUnlocked) {
         entry.unlocked = true;
       }
       if (spec.id === dragonId && memStory?.state.dragonTaken) {
@@ -530,12 +546,11 @@ function setEndCard(which) {
     el.continue.textContent = 'CONTINUE INTO THE RECORDS ↑';
     el.continue.hidden = false;
   } else if (which === 'records') {
-    // Soft content gate: later chapters exist for debug, but ordinary play stops here
-    // while Levels 04–06 are revamped.
     el.endingEyebrow.textContent = 'LEVEL 03 COMPLETE · THE RECORDS';
     el.endingTitle.innerHTML = 'END OF<br>THE ROW.';
-    el.endingCopy.textContent = 'That is as far as this build goes for now.';
-    el.continue.hidden = true;
+    el.endingCopy.textContent = 'The doorway ahead opens onto another wing.';
+    el.continue.textContent = 'CONTINUE INTO THE NIGHT SHIFT ↑';
+    el.continue.hidden = false;
   } else if (which === 'night') {
     el.endingEyebrow.textContent = 'LEVEL 04 COMPLETE · THE NIGHT SHIFT';
     el.endingTitle.innerHTML = 'ONE MORE<br>STEP.';
@@ -680,6 +695,7 @@ async function enterRecords() {
     director.activate('records');
     chapterId = 'records';
     recordsStory.reset();
+    bindChapterInteractables();
     audio.enterRecords();
     hideEndCard();
     el.location.textContent = 'EAST ANNEX / RECORDS';
@@ -691,7 +707,7 @@ async function enterRecords() {
     activeBeat = -1;
     lastTime = performance.now();
     renderer.render(scene, camera);
-    console.info('[Behind.] Level 03 entered · 5.5 m/s cap · no forced return');
+    console.info('[Behind.] Level 03 entered · key-fob exit · no forced return');
   } catch (error) {
     // If construction failed while the office was still present, discard only
     // the new module and keep the player's current chapter state available.
@@ -908,7 +924,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     // Office already rolled its keypad code before createOffice above.
     story.reset();
     if (target !== 'office') officeStory.reset();
-    recordsStory.reset();
+    if (target !== 'records') recordsStory.reset();
     nightStory.reset();
     thresholdStory.reset();
     unseenStory.reset();
@@ -941,6 +957,21 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const pose = unseenCameraPose(progress, unseenStory.state);
       camera.position.set(pose.x, 1.7, pose.z);
       camera.rotation.set(pose.pitch, pose.yaw, 0);
+    }
+    if (target === 'records') {
+      const seek = recordsStory.seekCheckpoint(checkpoint);
+      progress = displayed = seek.progress ?? 0;
+      camera.position.set(0, 1.7, RECORDS_START_Z - progress * RECORDS_METERS);
+      camera.rotation.set(0, 0, 0);
+      if (seek.giveFob) {
+        inventory?.add('key-fob', {
+          label: 'KEY FOB',
+          tooltip: 'Orange plastic. The metal ring is worn.',
+          previewColor: 0xd45a28,
+        });
+        memory.keyFobEncountered = true;
+        renderInventory();
+      }
     }
     if (isMemoryChapter(target)) {
       const mem = memoryStoryFor(target);
@@ -998,8 +1029,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
 function continueChapter() {
   if (chapterId === 'corridor') return enterOffice();
   if (chapterId === 'office') return enterRecords();
-  // Records is the current playable end — do not continue into Night Shift.
-  if (chapterId === 'records') return;
+  if (chapterId === 'records') return enterNightShift();
   if (chapterId === 'night') return enterThreshold();
   if (chapterId === 'threshold') return enterUnseen();
 }
@@ -1205,12 +1235,7 @@ function frame(now) {
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
               : isMemoryChapter() ? MEMORY_STAGING_START_Z : UNSEEN_START_Z;
-    // The camera arcs toward the photo briefly. Ease physical walking speed
-    // through this bend so combined X/Z travel does not exceed 5.5 m/s.
-    const viewingPhoto = chapterId === 'records' &&
-      displayed >= RECORDS_PHOTO_LOOK_START - 0.01 &&
-      displayed <= RECORDS_PHOTO_LOOK_END + 0.01;
-    const step = (viewingPhoto ? 4.95 : MAX_WALK_SPEED) * dt / meters;
+    const step = MAX_WALK_SPEED * dt / meters;
     displayed = clamp(displayed + THREE.MathUtils.clamp(eased, -step, step));
     const bounds = progressBounds();
     displayed = THREE.MathUtils.clamp(displayed, bounds.min, bounds.max);
@@ -1225,7 +1250,7 @@ function frame(now) {
         audio.playOfficeLatch();
       }
     } else if (chapterId === 'records') {
-      recordsStory.observe(previousDisplayed, p);
+      recordsStory.observe(previousDisplayed, p, dt);
     } else if (chapterId === 'night') {
       const previousStepCount = nightStory.state.footstepCount;
       nightStory.observe(previousDisplayed, p, dt);
@@ -1289,14 +1314,15 @@ function frame(now) {
 
     const uiBlocking = interaction?.isOpen || keypad?.isOpen;
     const canInteract = (chapterId === 'corridor' || chapterId === 'office'
-      || isMemoryChapter())
+      || chapterId === 'records' || isMemoryChapter())
       && !ended && !transitioning;
     look?.noteWalk(p - previousDisplayed);
     look?.setEnabled(canInteract && !uiBlocking);
     camera.rotation.y += look?.update(dt, reduced) ?? 0;
     const interactStory = chapterId === 'corridor' ? story.state
       : chapterId === 'office' ? officeStory.state
-        : isMemoryChapter() ? memoryStoryFor().state : null;
+        : chapterId === 'records' ? recordsStory.state
+          : isMemoryChapter() ? memoryStoryFor().state : null;
     interaction?.update(
       dt,
       canInteract && !uiBlocking,

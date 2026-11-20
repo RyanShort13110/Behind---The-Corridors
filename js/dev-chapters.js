@@ -57,6 +57,16 @@ export function mountDevChapters(jump, getCurrentChapter) {
         <option value="exit">EXIT / READY TO LEAVE</option>
       </select>
     </div>
+    <div class="dev-chapters__checkpoint" id="dev-records-checkpoint-row" hidden>
+      <label for="dev-records-checkpoint-choice">RECORDS CHECKPOINT</label>
+      <select id="dev-records-checkpoint-choice">
+        <option value="start">START / WITH FOB</option>
+        <option value="photo">PHOTO / SORTING STATION</option>
+        <option value="locked">DOOR / LOCKED · NO FOB</option>
+        <option value="fob">DOOR / LOCKED · WITH FOB</option>
+        <option value="unlocked">DOOR / UNLOCKED</option>
+      </select>
+    </div>
     <p class="dev-chapters__status" aria-live="polite">Current: 01 — The Corridor</p>
   `;
   document.body.appendChild(panel);
@@ -67,9 +77,12 @@ export function mountDevChapters(jump, getCurrentChapter) {
   const checkpointPicker = panel.querySelector('#dev-checkpoint-choice');
   const memoryCheckpointRow = panel.querySelector('#dev-memory-checkpoint-row');
   const memoryCheckpointPicker = panel.querySelector('#dev-memory-checkpoint-choice');
+  const recordsCheckpointRow = panel.querySelector('#dev-records-checkpoint-row');
+  const recordsCheckpointPicker = panel.querySelector('#dev-records-checkpoint-choice');
   const updateCheckpointPicker = () => {
     checkpointRow.hidden = picker.value !== 'unseen';
     memoryCheckpointRow.hidden = !MEMORY_CHAPTERS.has(picker.value);
+    recordsCheckpointRow.hidden = picker.value !== 'records';
   };
   picker.addEventListener('change', updateCheckpointPicker);
   let shown = '';
@@ -89,6 +102,7 @@ export function mountDevChapters(jump, getCurrentChapter) {
     picker.disabled = true;
     checkpointPicker.disabled = true;
     memoryCheckpointPicker.disabled = true;
+    recordsCheckpointPicker.disabled = true;
     go.disabled = true;
     status.textContent = 'Loading chapter…';
     try {
@@ -96,14 +110,17 @@ export function mountDevChapters(jump, getCurrentChapter) {
         ? checkpointPicker.value
         : MEMORY_CHAPTERS.has(picker.value)
           ? memoryCheckpointPicker.value
-          : 'start';
+          : picker.value === 'records'
+            ? recordsCheckpointPicker.value
+            : 'start';
       const ok = await jump(picker.value, checkpoint);
       if (ok) {
         shown = ''; // Force status refresh even when restarting current chapter.
         const url = new URL(window.location.href);
         const choice = OPTIONS.find(([id]) => id === picker.value);
         url.searchParams.set('level', choice?.[2] ?? '01');
-        if ((picker.value === 'unseen' || MEMORY_CHAPTERS.has(picker.value))
+        if ((picker.value === 'unseen' || MEMORY_CHAPTERS.has(picker.value)
+            || picker.value === 'records')
             && checkpoint !== 'start' && checkpoint !== 'before') {
           url.searchParams.set('checkpoint', checkpoint);
         } else {
@@ -122,6 +139,7 @@ export function mountDevChapters(jump, getCurrentChapter) {
       picker.disabled = false;
       checkpointPicker.disabled = false;
       memoryCheckpointPicker.disabled = false;
+      recordsCheckpointPicker.disabled = false;
       go.disabled = false;
     }
   }
@@ -139,6 +157,9 @@ export function mountDevChapters(jump, getCurrentChapter) {
   }
   if (Array.from(memoryCheckpointPicker.options).some(option => option.value === checkpoint)) {
     memoryCheckpointPicker.value = checkpoint;
+  }
+  if (Array.from(recordsCheckpointPicker.options).some(option => option.value === checkpoint)) {
+    recordsCheckpointPicker.value = checkpoint;
   }
   updateCheckpointPicker();
   sync(getCurrentChapter());
