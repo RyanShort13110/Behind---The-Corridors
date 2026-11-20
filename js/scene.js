@@ -203,12 +203,12 @@ export function createCorridor(scene) {
   world.add(sign);
 
   // Dedicated inspectable nameplate (non-instanced) so proximity / raycast can target it.
-  const plaqueGeo = new THREE.BoxGeometry(0.42, 0.16, 0.03);
+  const plaqueGeo = new THREE.BoxGeometry(0.03, 0.16, 0.42);
   const plaqueMat = new THREE.MeshStandardMaterial({
     color: 0x1a2423, metalness: 0.55, roughness: 0.4,
   });
   const plaque = new THREE.Mesh(plaqueGeo, plaqueMat);
-  plaque.position.set(-2.48, 1.92, -11.35);
+  plaque.position.set(-2.60, 1.92, -11.35);
   plaque.name = 'door-plaque';
   world.add(plaque);
 
