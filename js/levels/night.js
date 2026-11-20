@@ -301,7 +301,7 @@ export function createNightShift(scene) {
       let fillTarget = lampFillBase * (0.5 + warmth * 0.5);
       let chairTarget = chairGlowBase * (0.4 + warmth * 0.6);
       if (dying) {
-        const t = Math.min(1, (state.absenceElapsed || 0) / 4.0);
+        const t = Math.min(1, (state.absenceElapsed || 0) / 1.25);
         lampTarget *= 1 - t * 0.92;
         fillTarget *= 1 - t * 0.85;
         chairTarget *= 1 - t * 0.55; // seat holds residual warmth longer
@@ -312,9 +312,12 @@ export function createNightShift(scene) {
         chairTarget = Math.max(0.02, chairTarget * 0.15);
       }
       const ease = reduced ? 1 : (1 - Math.exp(-dt * 1.6));
-      lamp.intensity += (lampTarget - lamp.intensity) * ease;
-      lampFill.intensity += (fillTarget - lampFill.intensity) * ease;
-      chairGlow.intensity += (chairTarget - chairGlow.intensity) * ease;
+      // Let the signature lamp moment register before it passes out of view;
+      // keep all other chapter lighting transitions at their original pace.
+      const lampEase = reduced ? 1 : (1 - Math.exp(-dt * 4.5));
+      lamp.intensity += (lampTarget - lamp.intensity) * lampEase;
+      lampFill.intensity += (fillTarget - lampFill.intensity) * lampEase;
+      chairGlow.intensity += (chairTarget - chairGlow.intensity) * lampEase;
       mat.warm.emissiveIntensity = out || dying
         ? lamp.intensity * 0.12
         : 0.48 * (0.6 + warmth * 0.4);

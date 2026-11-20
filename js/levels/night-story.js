@@ -10,10 +10,10 @@ export const NIGHT_END_PROGRESS = 0.979;
 
 /** Lounge / kitchenette still ahead — warm, ordinary. */
 export const NIGHT_LOUNGE_END = 0.38;
-/** Empty-chair / lamp moment arms here (past the lounge seating). */
-export const NIGHT_ABSENCE_START = 0.44;
-/** Lamp finishes dying; residual chair light fades. */
-export const NIGHT_LAMP_OUT = 0.52;
+/** Empty-chair / lamp beat begins while both are still ahead in the camera view. */
+export const NIGHT_ABSENCE_START = 0.28;
+/** Lamp goes dark before the player passes its position in the lounge. */
+export const NIGHT_LAMP_OUT = 0.34;
 /** Hall reads colder / emptier after this. */
 export const NIGHT_COLD_START = 0.62;
 /** Quiet stretch before the open exit. */
@@ -92,7 +92,7 @@ export function createNightStory() {
       if (state.absenceArmed && !state.lampOut) {
         state.absenceElapsed += dt;
         state.eventElapsed += dt;
-        if (current >= NIGHT_LAMP_OUT || state.absenceElapsed >= 4.2) {
+        if (current >= NIGHT_LAMP_OUT || state.absenceElapsed >= 1.6) {
           state.lampOut = true;
           state.lampDying = false;
           state.chairSettled = true;
