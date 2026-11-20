@@ -209,31 +209,64 @@ export function createComposure() {
   };
 }
 
-/** World pickup looks like a pack; inventory still awards one cigarette. */
-export function createCigarettePack(THREE, { name = 'Cigarette pack' } = {}) {
+/**
+ * World pickup matching the inventory preview stick:
+ * dark tip · cream paper · tan filter. Slightly oversized to read in dark halls.
+ */
+export function createCigarettePack(THREE, { name = 'Cigarette' } = {}) {
   const group = new THREE.Group();
   group.name = name;
-  const pack = new THREE.MeshStandardMaterial({
-    color: 0x2a4a3a, roughness: 0.85, metalness: 0.05,
+
+  // Colors match drawCigarettePreview in main.js.
+  const paper = new THREE.MeshStandardMaterial({
+    color: 0xd8d2c4, roughness: 0.92, metalness: 0,
   });
-  const foil = new THREE.MeshStandardMaterial({
-    color: 0xc5c0b0, roughness: 0.55, metalness: 0.15,
+  const filterMat = new THREE.MeshStandardMaterial({
+    color: 0xb0895a, roughness: 0.88, metalness: 0,
   });
-  const stripe = new THREE.MeshStandardMaterial({
-    color: 0xb0895a, roughness: 0.8, metalness: 0,
+  const tipMat = new THREE.MeshStandardMaterial({
+    color: 0x3a3834, roughness: 0.95, metalness: 0,
   });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.032, 0.055), pack);
-  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.092, 0.01, 0.052), foil);
-  lid.position.set(0, 0.018, 0);
-  const band = new THREE.Mesh(new THREE.BoxGeometry(0.096, 0.008, 0.056), stripe);
-  band.position.set(0, 0.002, 0);
-  group.add(body, lid, band);
-  group.userData._cigaretteMats = [pack, foil, stripe];
-  group.userData._cigaretteGeos = [body.geometry, lid.geometry, band.geometry];
+
+  const radius = 0.008;
+  // Tip (left) · paper · filter (right) — same order as the 2D preview.
+  const tipLen = 0.012;
+  const paperLen = 0.10;
+  const filterLen = 0.028;
+  const total = tipLen + paperLen + filterLen;
+  const tipX = -total / 2 + tipLen / 2;
+  const paperX = tipX + tipLen / 2 + paperLen / 2;
+  const filterX = paperX + paperLen / 2 + filterLen / 2;
+
+  // Cylinder default axis is Y; rotate to lie along X like the preview.
+  const tip = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 0.92, radius, tipLen, 10),
+    tipMat,
+  );
+  tip.rotation.z = Math.PI / 2;
+  tip.position.x = tipX;
+
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, paperLen, 10),
+    paper,
+  );
+  body.rotation.z = Math.PI / 2;
+  body.position.x = paperX;
+
+  const filter = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 1.04, radius * 1.04, filterLen, 10),
+    filterMat,
+  );
+  filter.rotation.z = Math.PI / 2;
+  filter.position.x = filterX;
+
+  group.add(tip, body, filter);
+  group.userData._cigaretteMats = [paper, filterMat, tipMat];
+  group.userData._cigaretteGeos = [tip.geometry, body.geometry, filter.geometry];
   return group;
 }
 
-/** @deprecated alias — world props are packs now */
+/** @deprecated alias */
 export const createCigaretteProp = createCigarettePack;
 
 export function disposeCigaretteProp(group) {
@@ -255,6 +288,6 @@ export function cigaretteInteractable(id, object) {
     tooltip: CIGARETTE_TOOLTIP,
     consumable: true,
     restoreAmount: CIGARETTE_RESTORE,
-    previewColor: 0x2a4a3a,
+    previewColor: 0xd8d2c4,
   };
 }

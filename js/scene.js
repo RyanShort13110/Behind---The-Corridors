@@ -273,9 +273,10 @@ export function createCorridor(scene) {
   world.add(brassKey);
 
   // One pack — tucked on the left baseboard mid-hall; needs a look left.
-  const cigarette = createCigarettePack(THREE, { name: 'Corridor cigarette pack' });
-  cigarette.position.set(-2.28, 0.09, -22.4);
-  cigarette.rotation.set(0.15, 0.6, 0.35);
+  const cigarette = createCigarettePack(THREE, { name: 'Corridor cigarette' });
+  // Floor height ≈ stick radius; tip/paper/filter read like the inventory preview.
+  cigarette.position.set(-2.28, 0.008, -22.4);
+  cigarette.rotation.set(0.05, 0.7, 0.12);
   world.add(cigarette);
 
   // Commit one InstancedMesh per material.
