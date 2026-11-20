@@ -1811,7 +1811,23 @@ if (DEBUG_MODE) {
         void triggerGameOver();
       },
       retryCheckpoint: () => { void retryLatestCheckpoint(); },
-    }, audio);
+    }, audio, () => ({
+      progress: displayed,
+      x: camera?.position.x,
+      y: camera?.position.y,
+      z: camera?.position.z,
+      objectId: interaction?.openId || interaction?.nearest?.id || null,
+      phase: chapterId === 'corridor'
+        ? (story.state.hasBacktracked ? 'RETURN' : 'OUTBOUND')
+        : chapterId === 'office'
+          ? (officeStory.state.secondApproachStarted ? 'SECOND APPROACH'
+            : officeStory.state.hasBacktracked ? 'RETURN' : 'OUTBOUND')
+          : chapterId === 'unseen'
+            ? (unseenStory.state.retreatStarted ? 'RETREAT' : 'APPROACH')
+            : isHospitalReverse()
+              ? (hospitalReverseStory.state.reverseStarted ? 'RETREAT' : 'APPROACH')
+              : isMemoryChapter() ? memoryStoryFor().state.phase?.toUpperCase() : '',
+    }));
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
 }
 

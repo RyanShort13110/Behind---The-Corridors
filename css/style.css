@@ -36,6 +36,14 @@ body.debug-performance .perf-hud{display:block}
 #chapter-veil.dev-jump{opacity:1;transition:none;pointer-events:all}
 @media(max-width:650px){.dev-chapters{top:56px;right:12px;width:min(270px,calc(100vw - 24px));padding:8px}.dev-chapters__title{font-size:9px}}
 
+/* Read-only bug location telemetry lives only in the opt-in developer panel. */
+.dev-chapters__mini{color:#8db3aa;font-size:10px;letter-spacing:.03em;white-space:nowrap}
+.dev-chapters__location{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #2a403c}
+.dev-chapters__location .dev-chapters__row{justify-content:space-between;align-items:center}
+.dev-chapters__location .dev-chapters__title{margin-bottom:0}
+.dev-chapters__location button{padding:4px 8px}
+.dev-chapters__location .dev-chapters__status{overflow-wrap:anywhere}
+
 /* Level 06 developer checkpoints are never present outside ?debug=1. */
 .dev-chapters__checkpoint{display:flex;flex-direction:column;gap:5px;margin-top:9px}
 .dev-chapters__checkpoint[hidden]{display:none}

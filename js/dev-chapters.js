@@ -18,16 +18,28 @@ const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 const WARD_CHAPTERS = new Set(['hospital-reverse']);
 const STORAGE_KEY = 'behind.devPanelCollapsed';
 
-export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null) {
+export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
   panel.setAttribute('aria-label', 'Developer tools');
   panel.innerHTML = `
     <div class="dev-chapters__head">
-      <div class="dev-chapters__title">DEV TOOLS</div>
+      <div>
+        <div class="dev-chapters__title">DEV TOOLS</div>
+        <div class="dev-chapters__mini" id="dev-location-mini">LOCATION —</div>
+      </div>
       <button type="button" class="dev-chapters__toggle" id="dev-panel-toggle" aria-expanded="true" aria-controls="dev-panel-body" title="Collapse or expand (Ctrl+Shift+D)">HIDE</button>
     </div>
     <div class="dev-chapters__body" id="dev-panel-body">
+    <div class="dev-chapters__location">
+      <div class="dev-chapters__row">
+        <div class="dev-chapters__title">LOCATION TRACKER</div>
+        <button type="button" id="dev-copy-location" title="Copy exact chapter position for a bug report">COPY</button>
+      </div>
+      <div class="dev-chapters__status" id="dev-location-readout">Position: —</div>
+      <div class="dev-chapters__status" id="dev-location-coords">Camera: —</div>
+      <div class="dev-chapters__status" id="dev-location-object">Object: —</div>
+    </div>
     <div class="dev-chapters__title">CHAPTER JUMP</div>
     <div class="dev-chapters__row">
       <label class="sr-only" for="dev-chapter-choice">Chapter to load</label>
@@ -145,6 +157,12 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   const picker = panel.querySelector('#dev-chapter-choice');
   const go = panel.querySelector('#dev-chapter-go');
   const status = panel.querySelector('#dev-chapter-status');
+  const miniLocation = panel.querySelector('#dev-location-mini');
+  const locationReadout = panel.querySelector('#dev-location-readout');
+  const locationCoords = panel.querySelector('#dev-location-coords');
+  const locationObject = panel.querySelector('#dev-location-object');
+  const copyLocation = panel.querySelector('#dev-copy-location');
+  let locationReport = '';
   const checkpointRow = panel.querySelector('#dev-checkpoint-row');
   const checkpointPicker = panel.querySelector('#dev-checkpoint-choice');
   const memoryCheckpointRow = panel.querySelector('#dev-memory-checkpoint-row');
@@ -167,12 +185,65 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   let busy = false;
 
   function sync(chapter, force = false) {
-    if (shown === chapter && !force) return;
     const match = OPTIONS.find(([id]) => id === chapter);
     if (!match) return;
+
+    // Developer-only telemetry: read actual rendered camera position, not scroll
+    // input. This also distinguishes Chapter 01's outbound and return passes.
+    const location = getLocation?.();
+    if (location && Number.isFinite(location.progress)) {
+      const p = Math.max(0, Math.min(1, location.progress));
+      const percent = (p * 100).toFixed(2);
+      const xyz = [location.x, location.y, location.z]
+        .map(value => Number.isFinite(value) ? value.toFixed(2) : '—');
+      const phase = location.phase || '';
+      const objectId = location.objectId || 'none nearby';
+      const mini = `${match[2]} · ${percent}%`;
+      const summary = `Progress: ${percent}% (p=${p.toFixed(4)})${phase ? ` · ${phase}` : ''}`;
+      const coords = `Camera XYZ: ${xyz.join(', ')}`;
+      const object = `Nearest interactable: ${objectId}`;
+      if (miniLocation.textContent !== mini) miniLocation.textContent = mini;
+      if (locationReadout.textContent !== summary) locationReadout.textContent = summary;
+      if (locationCoords.textContent !== coords) locationCoords.textContent = coords;
+      if (locationObject.textContent !== object) locationObject.textContent = object;
+      locationReport = [
+        'Behind. — Bug location',
+        `Chapter: ${match[1]} [${chapter}]`,
+        summary,
+        coords,
+        object,
+      ].join('\n');
+    }
+
+    if (shown === chapter && !force) return;
     shown = chapter;
     if (!busy || force) status.textContent = `Current: ${match[1]}`;
   }
+
+  copyLocation.addEventListener('click', async () => {
+    if (!locationReport) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(locationReport);
+      } else {
+        // Fallback for browsers without async clipboard access.
+        const field = document.createElement('textarea');
+        field.value = locationReport;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('Copy not supported');
+      }
+      copyLocation.textContent = 'COPIED';
+    } catch (error) {
+      copyLocation.textContent = 'COPY FAILED';
+      console.warn('[Behind. DEV] Could not copy location:', error);
+    }
+    window.setTimeout(() => { copyLocation.textContent = 'COPY'; }, 1500);
+  });
 
   async function load() {
     if (busy) return;
