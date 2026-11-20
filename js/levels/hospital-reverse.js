@@ -11,8 +11,8 @@ export function createHospitalReverse(scene) {
   const world = new THREE.Group();
   world.name = 'DEV / The Ward';
   scene.add(world);
-  scene.background = new THREE.Color(0x121816);
-  scene.fog = new THREE.FogExp2(0x121816, 0.036);
+  scene.background = new THREE.Color(0x161c18);
+  scene.fog = new THREE.FogExp2(0x161c18, 0.031);
 
   const ownedGeometry = [];
   const ownedMaterials = [];
@@ -45,8 +45,8 @@ export function createHospitalReverse(scene) {
     buttonDead: material({ color: 0x5a6060, emissive: 0x000000, emissiveIntensity: 0, roughness: 0.7 }),
     sign: material({ color: 0xc5c2a8, roughness: 0.9 }),
     counter: material({ color: 0x555e59, roughness: 0.86 }),
-    fixture: material({ color: 0xdde6df, emissive: 0xb8c8bc, emissiveIntensity: 0.55, roughness: 0.7 }),
-    fixtureDim: material({ color: 0xa8b2aa, emissive: 0x6a7870, emissiveIntensity: 0.22, roughness: 0.75 }),
+    fixture: material({ color: 0xdde6df, emissive: 0xc2d2c6, emissiveIntensity: 0.62, roughness: 0.7 }),
+    fixtureDim: material({ color: 0xa8b2aa, emissive: 0x7a8a82, emissiveIntensity: 0.28, roughness: 0.75 }),
     dark: material({ color: 0x0c100f, roughness: 1 }),
   };
 
@@ -83,11 +83,17 @@ export function createHospitalReverse(scene) {
   box(7.0, 3.5, 0.2, 0, 1.70, -49.2, mat.wall);
   for (const x of [-3.38, 3.38]) box(0.09, 0.22, depth - 1, x, 0.12, zMid, mat.trim);
 
+  // Soft fill so the ward sits closer to Office/Records brightness without
+  // losing the institutional cool cast.
+  const ambient = new THREE.HemisphereLight(0xa8b8b0, 0x1a221e, 0.62);
+  world.add(ambient);
+  lights.push(ambient);
+
   // Fluorescent fixtures
   for (let i = 0; i < 10; i += 1) {
     const z = 2.2 - i * 5.2;
     box(1.8, 0.06, 0.42, 0, 3.28, z, i % 3 === 1 ? mat.fixtureDim : mat.fixture);
-    const light = new THREE.PointLight(0xd5e2d8, i % 3 === 1 ? 0.35 : 0.55, 11, 2);
+    const light = new THREE.PointLight(0xd5e2d8, i % 3 === 1 ? 0.48 : 0.72, 12, 2);
     light.position.set(0, 3.05, z);
     world.add(light);
     lights.push(light);
@@ -99,7 +105,8 @@ export function createHospitalReverse(scene) {
     // Recessed door leaf
     box(0.08, 2.35, 1.05, x, 1.22, z, mat.door);
     box(0.04, 0.55, 0.55, x + side * 0.06, 1.55, z, mat.doorGlass);
-    box(0.22, 0.14, 0.28, x - side * 0.12, 2.05, z + 0.42, mat.sign);
+    // Room plaque flush to the wall face (thin toward the aisle).
+    box(0.06, 0.14, 0.28, x - side * 0.07, 2.05, z + 0.42, mat.sign);
     // Frame plugs
     box(0.2, 2.55, 0.08, x, 1.28, z - 0.58, mat.trim);
     box(0.2, 2.55, 0.08, x, 1.28, z + 0.58, mat.trim);
@@ -167,9 +174,9 @@ export function createHospitalReverse(scene) {
   box(2.4, 0.05, 0.72, -2.0, 1.1, -20.2, mat.panel);
   box(0.35, 0.45, 0.25, -1.2, 1.35, -20.0, mat.chrome);
 
-  // Wall monitor / gas panel
-  box(0.55, 0.4, 0.08, 3.28, 1.55, -12.0, mat.panel);
-  box(0.12, 0.12, 0.04, 3.22, 1.55, -12.0, mat.buttonPad);
+  // Wall monitor / gas panel — flush on the right wall (thin in X, wide in Z).
+  box(0.08, 0.4, 0.55, 3.32, 1.55, -12.0, mat.panel);
+  box(0.04, 0.12, 0.12, 3.26, 1.55, -12.0, mat.buttonPad);
 
   // Cigarette — tucked on the nurse counter edge
   const cigarette = createCigarettePack(THREE, { name: 'Ward cigarette pack' });
@@ -220,54 +227,64 @@ export function createHospitalReverse(scene) {
   // Blocked recess behind
   box(2.6, 2.7, 0.5, 0, 1.4, -0.4, mat.dark, endDoors);
 
-  // End wall OPEN button — closer to the rail so the hold progress can still reach it.
+  // End wall OPEN button — mounted on the right door post, facing the player.
   const endButton = new THREE.Group();
   endButton.name = 'Ward end door OPEN button';
-  endButton.position.set(1.35, 1.35, -45.85);
+  endButton.position.set(1.22, 1.35, -47.42);
   world.add(endButton);
   box(0.22, 0.38, 0.08, 0, 0, 0, mat.panel, endButton);
   box(0.14, 0.14, 0.05, 0, 0.04, 0.05, mat.buttonDead, endButton);
   box(0.16, 0.05, 0.02, 0, -0.12, 0.05, mat.sign, endButton);
   const endHit = new THREE.Mesh(
-    new THREE.BoxGeometry(0.7, 0.7, 0.55),
+    new THREE.BoxGeometry(0.9, 0.9, 1.1),
     new THREE.MeshBasicMaterial({ visible: false })
   );
+  endHit.position.set(0, 0, 0.35);
   endHit.userData.inspectHitOnly = true;
   endButton.add(endHit);
 
   // --- Side escape automatic door (right wall mid-hall) ---
+  // Flush with the inner wall face (~3.41). Dark recess sits BEHIND the
+  // closed leaves so it never reads as a black slab sticking into the aisle.
   const sideDoors = new THREE.Group();
   sideDoors.name = 'Ward side escape doors';
-  sideDoors.position.set(3.42, 0, -17.5);
+  // Centered between right-wall room bays at z=-15.6 and z=-21.4.
+  sideDoors.position.set(3.41, 0, -18.5);
   world.add(sideDoors);
-  box(0.16, 2.7, 0.2, 0, 1.4, -0.95, mat.panel, sideDoors);
-  box(0.16, 2.7, 0.2, 0, 1.4, 0.95, mat.panel, sideDoors);
-  box(0.16, 0.16, 2.1, 0, 2.82, 0, mat.panel, sideDoors);
+  box(0.18, 2.85, 0.22, 0.02, 1.45, -1.05, mat.panel, sideDoors);
+  box(0.18, 2.85, 0.22, 0.02, 1.45, 1.05, mat.panel, sideDoors);
+  box(0.18, 0.16, 2.32, 0.02, 2.88, 0, mat.panel, sideDoors);
+  box(0.18, 0.12, 2.32, 0.02, 0.08, 0, mat.panel, sideDoors);
   const sideLeafL = new THREE.Group();
   const sideLeafR = new THREE.Group();
   sideDoors.add(sideLeafL, sideLeafR);
-  sideLeafL.position.set(0.05, 0, -0.48);
-  sideLeafR.position.set(0.05, 0, 0.48);
-  box(0.08, 2.5, 0.92, 0, 1.3, 0, mat.door, sideLeafL);
-  box(0.08, 2.5, 0.92, 0, 1.3, 0, mat.door, sideLeafR);
+  // Closed leaves meet at center and fully cover the recess mouth.
+  sideLeafL.position.set(0.02, 0, -0.48);
+  sideLeafR.position.set(0.02, 0, 0.48);
+  box(0.07, 2.55, 0.96, 0, 1.35, 0, mat.door, sideLeafL);
+  box(0.55, 1.05, 0.02, -0.04, 1.55, 0, mat.doorGlass, sideLeafL);
+  box(0.07, 2.55, 0.96, 0, 1.35, 0, mat.door, sideLeafR);
+  box(0.55, 1.05, 0.02, -0.04, 1.55, 0, mat.doorGlass, sideLeafR);
   const sideRecess = new THREE.Mesh(cube, mat.dark);
-  sideRecess.position.set(0.6, 1.35, 0);
-  sideRecess.scale.set(1.2, 2.6, 1.9);
+  sideRecess.position.set(0.75, 1.4, 0);
+  sideRecess.scale.set(1.1, 2.5, 1.85);
   sideDoors.add(sideRecess);
 
-  // Side OPEN button inset toward the aisle so limited look can target it.
+  // Side OPEN button flush on the right wall beside the escape doors.
+  // Plate faces the aisle (−X); a deep invisible hit volume reaches toward
+  // the rail so limited look can still target it without floating the prop.
   const sideButton = new THREE.Group();
   sideButton.name = 'Ward side door OPEN button';
-  // Inset toward the aisle so limited look (~1.05 rad) can aim from the rail.
-  sideButton.position.set(2.15, 1.35, -16.4);
+  sideButton.position.set(3.30, 1.35, -17.45);
   world.add(sideButton);
-  box(0.22, 0.38, 0.08, 0, 0, 0, mat.panel, sideButton);
-  const sidePad = box(0.14, 0.14, 0.05, 0, 0.04, 0.05, mat.buttonDead, sideButton);
-  box(0.16, 0.05, 0.02, 0, -0.12, 0.05, mat.sign, sideButton);
+  box(0.08, 0.38, 0.22, 0, 0, 0, mat.panel, sideButton);
+  const sidePad = box(0.05, 0.14, 0.14, -0.055, 0.04, 0, mat.buttonDead, sideButton);
+  box(0.02, 0.05, 0.16, -0.05, -0.12, 0, mat.sign, sideButton);
   const sideHit = new THREE.Mesh(
-    new THREE.BoxGeometry(0.85, 0.85, 0.7),
+    new THREE.BoxGeometry(1.35, 0.95, 0.85),
     new THREE.MeshBasicMaterial({ visible: false })
   );
+  sideHit.position.set(-0.55, 0, 0);
   sideHit.userData.inspectHitOnly = true;
   sideButton.add(sideHit);
 
@@ -311,8 +328,8 @@ export function createHospitalReverse(scene) {
       scene.fog.color.setHex(0x1a1612);
       scene.background.setHex(0x1a1612);
     } else {
-      scene.fog.color.setHex(0x121816);
-      scene.background.setHex(0x121816);
+      scene.fog.color.setHex(0x161c18);
+      scene.background.setHex(0x161c18);
     }
     // Live pad color on side button when ready
     if (sidePad) {
@@ -355,8 +372,8 @@ export function createHospitalReverse(scene) {
     mutSheet.visible = false;
     mutOpenDoor.visible = false;
     warmLight.intensity = 0;
-    scene.fog.color.setHex(0x121816);
-    scene.background.setHex(0x121816);
+    scene.fog.color.setHex(0x161c18);
+    scene.background.setHex(0x161c18);
     if (sidePad) sidePad.material = mat.buttonDead;
   }
 

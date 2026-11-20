@@ -1353,7 +1353,7 @@ async function enterRecords() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js?v=dart-fast-3');
+    const { createRecords } = await import('./levels/records.js?v=drawer-ajar-1');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
@@ -1590,7 +1590,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=dart-fast-3');
+      const { createRecords } = await import('./levels/records.js?v=drawer-ajar-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js');
@@ -1607,7 +1607,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'hospital-reverse') {
-      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-polish-2');
+      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-door-center-1');
       hospitalReverseStory.reset();
       next.add('hospital-reverse', createHospitalReverse(scene));
     } else {

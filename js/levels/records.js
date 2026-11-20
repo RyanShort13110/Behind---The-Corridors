@@ -125,10 +125,12 @@ export function createRecords(scene) {
   // A few rows past the sorting table, still well short of the exit shelves.
   // Open in the near mid-aisle — far enough ahead to read, close enough to beat fog.
   // row 5 → z≈-26.2, row 6 → z≈-29.2, row 7 → z≈-32.2
+  // Keep ajar pull ≤ ~0.42m so the drawer body stays nested in the carcass
+  // (deeper pulls read as a floating slab disconnected from the cabinet).
   const distantOpeners = [
-    { side: -1, row: 5, tray: 1, open: 0.95, startAt: 0.28, endAt: 0.42, group: null },
-    { side: 1, row: 6, tray: 2, open: 0.98, startAt: 0.32, endAt: 0.46, group: null },
-    { side: -1, row: 7, tray: 0, open: 0.92, startAt: 0.36, endAt: 0.50, group: null },
+    { side: -1, row: 5, tray: 1, open: 0.40, startAt: 0.28, endAt: 0.42, group: null },
+    { side: 1, row: 6, tray: 2, open: 0.42, startAt: 0.32, endAt: 0.46, group: null },
+    { side: -1, row: 7, tray: 0, open: 0.38, startAt: 0.36, endAt: 0.50, group: null },
   ];
   for (const spec of distantOpeners) {
     const group = new THREE.Group();
