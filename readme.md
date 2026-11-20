@@ -1,43 +1,65 @@
-# Behind. — Prototype 003.2 / A Sound from Ahead
+# Behind.
 
-A shorter Level 02 while retaining the complete original Corridor (Level 01) and Records (Level 03) chapters.
+An interactive psychological horror experience. You are alone in an empty office building at **2:17 AM**. Scroll forward through corridors; scroll back and notice what changed. Sound is optional and off by default.
 
-## New Level 02 route
+**Live idea:** quiet dread through space, light, sound, and ordinary objects — not jumpscares or on-screen monsters.
 
-1. Explore the office and encounter the lighter, chair, telephone and glass meeting room as before.
-2. The Records door at the far end remains locked. Scroll DOWN to retreat.
-3. The phone stops, and the chair has been tucked away. Only on the return does the protagonist comment on it.
-4. Near the mid-office desks, ONE subdued metal-latch sound comes from farther ahead, toward the meeting room. The event is also communicated through an on-screen caption with sound OFF.
-5. The instruction changes to **SCROLL UP TO INVESTIGATE**. The player is free to keep retreating, but advancing again takes them toward an existing side passage beside the meeting room.
-6. The camera turns gently to the right into the service passage and the Level 02 end card appears. Continue to Level 03.
-7. Level 03 remains the same Records chapter: filing cabinets, changed drawer, face-down photograph, and optional backtracking.
+## Play
 
-## Updated files since Prototype 003.1
+Open `index.html` through a local static server (or your deployed host). A plain `file://` open may block ES modules.
 
-- `js/levels/office-story.js` — one-shot latch trigger, partial retreat, new dialogue and phase/exit thresholds
-- `js/levels/office-route.js` — NEW reversible service-passage camera path
-- `js/levels/office.js` — side entrance geometry, door and sign. One right-side workstation replaced; meeting room, displaced chair and lighter untouched
-- `js/main.js` — one-shot audio event, branched office camera, end-card handling
-- `js/audio.js` — low-level synthesized metal latch (respects sound OFF)
-- `index.html` — updated nonvisual chapter description
-- `docs/STORY_BIBLE.md` — story architecture reflects new office route
+```bash
+# example
+npx --yes serve .
+# then visit the printed URL
+```
 
-## Installing the changed TXT files
+Controls:
 
-1. Back up the existing working project.
-2. Copy the contents of each `.txt` file from the Changed TXT archive into its corresponding project path, without `.txt`.
-3. Create `js/levels/office-route.js` from `office-route.js.txt` (NEW).
-4. Hard refresh Live Server. The site ZIP is a full standalone deployable build (after adding your existing `assets/breathing-scared.m4a`).
+- **Scroll up** — advance along the rail
+- **Scroll down** — retreat / return
+- **A / D** (or swipe sideways) — look left / right
+- **Click** — inspect objects; take items into inventory when allowed
+- **QUALITY / MOTION / SOUND** — bottom bar toggles
 
-## Technical and creative constraints
+Headphones recommended when sound is on.
 
-- No forced automatic reversal, jump scare or new monster.
-- The latch cue can only happen ONCE per playthrough and never replays when crossing the threshold again.
-- No additional external audio asset is needed; sound remains optional and OFF by default.
-- Existing single renderer, scroll controls and 5.5 m/s cap retained; the new camera branch is physically within that cap.
-- The older far door remains closed. The Records floor loads when continuing from the passage, preserving chapter disposal.
-- Level 01's five-second breathing file and gain of 0.065 are unchanged.
+## Chapters (current build)
 
-## Validation
+| # | Chapter | Notes |
+|---|---------|--------|
+| 01 | The Corridor | First doubt; return-pass changes; rear elevator seal |
+| 02 | The Office | Occupied absence; inventory puzzles; sticky-note keypad exit |
+| 03 | The Records | Avoidance; face-down photograph; optional backtrack |
+| 04 | The Night Shift | Unseen companion suggestion; pace-following footsteps |
+| 05 | The Threshold | Reality rupture; progressive corridor corruption |
+| 06 | The Unseen | Proximity fear; forced retreat while facing an empty hall |
 
-JavaScript syntax; scripted office story phases and reversals; branch-route velocity; geometry create/update/reset/dispose using a mock Three.js scene; archive integrity. **Camera composition and actual sound playback still require testing in your browser.** An attempted Chromium preview in this environment was blocked by its network policy.
+Narrative canon and dialogue live in [`docs/story_bible.md`](docs/story_bible.md).
+
+## Dev tools
+
+Append `?debug=1` for the chapter jump panel and performance HUD.
+
+| Query | Purpose |
+|-------|---------|
+| `?debug=1` | Dev chapter UI |
+| `?debug=1&level=01` … `06` | Jump to a main chapter |
+| `?debug=1&level=memory-white` | Dev-only white dragon memory |
+| `?debug=1&level=memory-black` | Dev-only black dragon memory |
+| `&checkpoint=…` | Unseen / memory checkpoints when supported |
+
+Memory chapters share a scroll-rail living room (`js/levels/memory-home.js`). They are **not** in ordinary L01–L06 progression.
+
+## Stack
+
+- Vanilla ES modules
+- [Three.js](https://threejs.org/) `0.180` (CDN import map)
+- GSAP + ScrollTrigger (CDN)
+- Web Audio API (synthesized beds / cues; no required downloads)
+
+Main entry: [`js/main.js`](js/main.js).
+
+## License / notes
+
+Personal / portfolio project. Writer-only spoiler notes under `docs/writer-only/` are gitignored and must not be published.
