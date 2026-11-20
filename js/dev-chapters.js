@@ -83,7 +83,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         <option value="reverse">REVERSE / FORCED RETREAT</option>
         <option value="squeak">CREAK / DOOR ZONE</option>
         <option value="clank">FOOTSTEPS / POST-CREAK</option>
-        <option value="before-crying">BEFORE CRYING / POST CLANK</option>
+        <option value="before-crying">BEFORE CRYING / POST FOOTSTEPS</option>
         <option value="before-escape">BEFORE ESCAPE / SIDE DOOR</option>
         <option value="escape">ESCAPE / DOORS OPEN</option>
       </select>
