@@ -183,10 +183,15 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   picker.addEventListener('change', updateCheckpointPicker);
   let shown = '';
   let busy = false;
+  let lastLocationUpdate = -Infinity;
+  const LOCATION_UPDATE_MS = 200; // 5 Hz; rendering and movement remain untouched.
 
   function sync(chapter, force = false) {
+    const now = performance.now();
+    if (!force && shown === chapter && now - lastLocationUpdate < LOCATION_UPDATE_MS) return;
     const match = OPTIONS.find(([id]) => id === chapter);
     if (!match) return;
+    lastLocationUpdate = now;
 
     // Developer-only telemetry: read actual rendered camera position, not scroll
     // input. This also distinguishes Chapter 01's outbound and return passes.
