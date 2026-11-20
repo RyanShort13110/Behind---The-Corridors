@@ -126,10 +126,7 @@ body.debug-performance .perf-hud{display:block}
   .composure.is-hit-major .composure__fill,
   .composure.is-restoring .composure__fill{animation:none}
 }
-#experience.is-playing{filter:saturate(calc(1 - var(--stress, 0) * 0.42))}
 #experience[data-stage="unsettled"] .vignette{opacity:1}
-#experience[data-stage="distressed"]{filter:saturate(calc(1 - var(--stress, 0) * 0.5))}
-#experience[data-stage="critical"]{filter:saturate(calc(1 - var(--stress, 0) * 0.58))}
 .steady{position:absolute;z-index:12;left:50%;bottom:18vh;transform:translateX(-50%);width:min(320px,86vw);text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s,visibility .25s}
 .steady.is-active{opacity:1;visibility:visible;pointer-events:auto}
 .steady.is-paused{opacity:.55}
