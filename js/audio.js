@@ -912,9 +912,21 @@ export function createAudioDirector() {
     activeUnseenRoars.clear();
   }
 
+  let composureMul = 1;
+  const composureNodes = () => new Set([
+    musicGain, humGain, buzzGain, officePadGain,
+    nightAirGain, nightDroneGain,
+  ].filter(Boolean));
+
+  /** stress 0 = calm, 1 = empty composure — thins the bed, never silences SFX. */
+  function setComposureStress(stress = 0) {
+    composureMul = 1 - Math.max(0, Math.min(1, stress)) * 0.55;
+  }
+
   const setGain = (node, value, seconds = 0.12) => {
     if (!node || !ctx) return;
-    node.gain.setTargetAtTime(value, ctx.currentTime, seconds);
+    const scaled = composureNodes().has(node) ? value * composureMul : value;
+    node.gain.setTargetAtTime(scaled, ctx.currentTime, seconds);
   };
 
   function stopBreathing() {
@@ -1701,6 +1713,7 @@ export function createAudioDirector() {
     playMemoryDoorLeave,
     playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
     playRecordsFobAccess,
+    setComposureStress,
     reset, suspend, resume, dispose,
     get enabled() { return enabled; },
   };

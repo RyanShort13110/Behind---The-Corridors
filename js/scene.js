@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  createCigaretteProp, disposeCigaretteProp,
+  CIGARETTE_LABEL, CIGARETTE_TOOLTIP,
+} from './composure.js';
 
 /**
  * Level 01: Corridor. Static architecture is batched into InstancedMeshes by
@@ -269,6 +273,12 @@ export function createCorridor(scene) {
   brassKey.add(keyShaft, keyBow, keyBit, keyHit);
   world.add(brassKey);
 
+  // One cigarette — tucked on the left baseboard mid-hall; needs a look left.
+  const cigarette = createCigaretteProp(THREE, { name: 'Corridor cigarette' });
+  cigarette.position.set(-2.28, 0.08, -22.4);
+  cigarette.rotation.set(0.15, 0.6, 1.25);
+  world.add(cigarette);
+
   // Commit one InstancedMesh per material.
   for (const [material, matrices] of matricesByMaterial) {
     const batch = new THREE.InstancedMesh(cube, material, matrices.length);
@@ -344,10 +354,24 @@ export function createCorridor(scene) {
       title: 'UNMARKED DOOR',
       body: 'That door was shut. I’m sure of it.',
     },
+    {
+      id: 'cigarette-corridor',
+      object: cigarette,
+      radius: 3.6,
+      takeable: true,
+      itemId: 'cigarette-corridor',
+      itemLabel: CIGARETTE_LABEL,
+      title: CIGARETTE_LABEL,
+      body: CIGARETTE_TOOLTIP,
+      tooltip: CIGARETTE_TOOLTIP,
+      consumable: true,
+      restoreAmount: 25,
+      previewColor: 0xd8d2c4,
+    },
   ];
 
   return {
-    lights, redLight, changedDoor, brassKey, lockedDoor, mats, interactables,
+    lights, redLight, changedDoor, brassKey, lockedDoor, cigarette, mats, interactables,
     openLockedDoor() {
       lockedDoorOpen = true;
       unlockProgress = null; // latched on next update with live progress
@@ -441,6 +465,8 @@ export function createCorridor(scene) {
       lockedDoor.rotation.y = 0;
       brassKey.userData.taken = false;
       brassKey.visible = false;
+      cigarette.visible = true;
+      cigarette.userData.taken = false;
       peekAmount = 0;
       peekArmed = false;
       peekWantShow = false;
@@ -472,6 +498,7 @@ export function createCorridor(scene) {
       keyHitGeo.dispose();
       keyMat.dispose();
       keyHitMat.dispose();
+      disposeCigaretteProp(cigarette);
       peekMats.forEach(mat => mat.dispose());
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);

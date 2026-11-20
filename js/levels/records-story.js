@@ -21,12 +21,20 @@ export function createRecordsStory() {
     // One-shot dialogue latches
     cabinetsLineSaid: false,
     cabinetsLineDone: false,
-    polaroidLine: 0, // 0 none, 1 "A Polaroid?", 2 pause, 3 refusal, 4 done
+    // Ambient only: 0 none, 1 "A Polaroid?", 2 pause/clear, 4 done.
+    // Refusal lives in the inspect panel (records-polaroid), not here.
+    polaroidLine: 0,
     polaroidElapsed: 0,
+    polaroidInspected: false,
     drawerNoticeSaid: false,
     drawerNoticeDone: false,
     lockedDoorLineSaid: false,
     lockedDoorLineDone: false,
+    // One-shot aisle shadow + shelf head-peek (visual only).
+    shadowDartPlay: false,
+    shadowDartDone: false,
+    shadowPeekPlay: false,
+    shadowPeekDone: false,
   };
 
   return {
@@ -44,26 +52,24 @@ export function createRecordsStory() {
         state.cabinetsLineDone = true;
       }
       if (current >= 0.54) state.reachedSortingStation = true;
-      if (current >= 0.56 && current <= 0.64 && state.polaroidLine === 0) {
+      if (
+        current >= 0.56
+        && current <= 0.64
+        && state.polaroidLine === 0
+        && !state.polaroidInspected
+      ) {
         state.polaroidLine = 1;
         state.polaroidElapsed = 0;
       }
       if (state.polaroidLine === 1) {
         state.polaroidElapsed += step;
-        // Hold first line briefly, then clear into the pause.
-        if (state.polaroidElapsed > 1.35) {
+        if (state.polaroidElapsed > 1.6) {
           state.polaroidLine = 2;
           state.polaroidElapsed = 0;
         }
       } else if (state.polaroidLine === 2) {
         state.polaroidElapsed += step;
-        if (state.polaroidElapsed > 1.25) {
-          state.polaroidLine = 3;
-          state.polaroidElapsed = 0;
-        }
-      } else if (state.polaroidLine === 3) {
-        state.polaroidElapsed += step;
-        if (state.polaroidElapsed > 3.2) {
+        if (state.polaroidElapsed > 0.9) {
           state.polaroidLine = 4;
           state.polaroidElapsed = 0;
         }
@@ -71,6 +77,27 @@ export function createRecordsStory() {
       if (current >= 0.62) state.photoPassed = true;
       // Drawer settles only after the camera is well past it — no onscreen close.
       if (current >= 0.68) state.drawerSettled = true;
+      // Shadow dart: once, forward only, past the table looking toward the exit.
+      if (
+        !state.shadowDartDone
+        && !state.shadowDartPlay
+        && state.direction === 'forward'
+        && previous < 0.72
+        && current >= 0.72
+      ) {
+        state.shadowDartPlay = true;
+      }
+      // Head peek at the second right shelf stack — after the dart, before the door.
+      if (
+        state.shadowDartDone
+        && !state.shadowPeekDone
+        && !state.shadowPeekPlay
+        && state.direction === 'forward'
+        && previous < 0.83
+        && current >= 0.83
+      ) {
+        state.shadowPeekPlay = true;
+      }
       if (
         state.hasBacktracked
         && state.direction === 'backward'
@@ -96,33 +123,48 @@ export function createRecordsStory() {
     unlockDoor() {
       state.doorUnlocked = true;
     },
+    inspectPolaroid() {
+      state.polaroidInspected = true;
+      state.polaroidLine = 4;
+      state.polaroidElapsed = 0;
+      state.photoPassed = true;
+    },
     seekCheckpoint(name = 'start') {
       this.reset();
       if (name === 'locked' || name === 'door') {
         state.cabinetsLineSaid = true;
         state.cabinetsLineDone = true;
         state.polaroidLine = 4;
+        state.polaroidInspected = true;
         state.photoPassed = true;
         state.drawerSettled = true;
         state.reachedSortingStation = true;
+        state.shadowDartDone = true;
+        state.shadowPeekDone = true;
         return { progress: 0.88, giveFob: false, doorUnlocked: false };
       }
       if (name === 'fob' || name === 'with-fob') {
         state.cabinetsLineSaid = true;
         state.cabinetsLineDone = true;
         state.polaroidLine = 4;
+        state.polaroidInspected = true;
         state.photoPassed = true;
         state.drawerSettled = true;
         state.reachedSortingStation = true;
+        state.shadowDartDone = true;
+        state.shadowPeekDone = true;
         return { progress: 0.88, giveFob: true, doorUnlocked: false };
       }
       if (name === 'unlocked' || name === 'open') {
         state.cabinetsLineSaid = true;
         state.cabinetsLineDone = true;
         state.polaroidLine = 4;
+        state.polaroidInspected = true;
         state.photoPassed = true;
         state.drawerSettled = true;
         state.reachedSortingStation = true;
+        state.shadowDartDone = true;
+        state.shadowPeekDone = true;
         state.doorUnlocked = true;
         state.lockedDoorLineSaid = true;
         state.lockedDoorLineDone = true;
@@ -148,10 +190,15 @@ export function createRecordsStory() {
         cabinetsLineDone: false,
         polaroidLine: 0,
         polaroidElapsed: 0,
+        polaroidInspected: false,
         drawerNoticeSaid: false,
         drawerNoticeDone: false,
         lockedDoorLineSaid: false,
         lockedDoorLineDone: false,
+        shadowDartPlay: false,
+        shadowDartDone: false,
+        shadowPeekPlay: false,
+        shadowPeekDone: false,
       });
     },
   };
@@ -165,7 +212,6 @@ export function recordsNarrative(progress, state) {
 
   let line = '';
   if (state.polaroidLine === 1) line = 'A Polaroid?';
-  else if (state.polaroidLine === 3) line = 'No. I won\'t look. I can\'t.';
   else if (
     state.drawerNoticeSaid
     && !state.drawerNoticeDone

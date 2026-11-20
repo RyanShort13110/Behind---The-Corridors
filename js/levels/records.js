@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  createCigaretteProp, disposeCigaretteProp,
+  CIGARETTE_LABEL, CIGARETTE_TOOLTIP,
+} from '../composure.js';
 
 /**
  * Behind. / Level 03 — The Records.
@@ -31,7 +35,42 @@ export function createRecords(scene) {
     label: new THREE.MeshStandardMaterial({ color: 0x9a9786, roughness: 1 }),
     light: new THREE.MeshStandardMaterial({ color: 0xb4b4a3, emissive: 0x858d7a, emissiveIntensity: 0.35, roughness: 0.72 }),
     glass: new THREE.MeshStandardMaterial({ color: 0x728681, roughness: 0.36, transparent: true, opacity: 0.35, depthWrite: false }),
+    // One-shot aisle dart — unlit so it reads as a void, not a lit prop.
+    dart: new THREE.MeshBasicMaterial({
+      color: 0x040505,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    }),
   };
+
+  // Soft radial alpha for the head peek — blurry edge, not a hard sphere.
+  const peekTexSize = 128;
+  const peekCanvas = document.createElement('canvas');
+  peekCanvas.width = peekTexSize;
+  peekCanvas.height = peekTexSize;
+  {
+    const ctx = peekCanvas.getContext('2d');
+    const g = ctx.createRadialGradient(
+      peekTexSize * 0.5, peekTexSize * 0.5, peekTexSize * 0.05,
+      peekTexSize * 0.5, peekTexSize * 0.5, peekTexSize * 0.5
+    );
+    g.addColorStop(0, 'rgba(6,8,7,0.72)');
+    g.addColorStop(0.32, 'rgba(5,7,6,0.4)');
+    g.addColorStop(0.62, 'rgba(4,5,5,0.14)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, peekTexSize, peekTexSize);
+  }
+  const peekTex = new THREE.CanvasTexture(peekCanvas);
+  peekTex.colorSpace = THREE.SRGBColorSpace;
+  const peekMat = new THREE.SpriteMaterial({
+    map: peekTex,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    fog: true,
+  });
 
   const cube = new THREE.BoxGeometry(1, 1, 1);
   const transform = new THREE.Object3D();
@@ -87,10 +126,11 @@ export function createRecords(scene) {
   // Fully open before the player reaches the table so the bodies/folders read
   // clearly ahead down the aisle (front plates alone are edge-on and invisible).
   // row 8 → z≈-35.2, row 9 → z≈-38.2, row 10 → z≈-41.2
+  // startAt/endAt = scroll progress (0→1). Raise both to open later; lower to open sooner.
   const distantOpeners = [
-    { side: -1, row: 8, tray: 1, open: 0.42, startAt: 0.32, endAt: 0.46, group: null },
-    { side: 1, row: 9, tray: 2, open: 0.46, startAt: 0.36, endAt: 0.50, group: null },
-    { side: -1, row: 10, tray: 0, open: 0.40, startAt: 0.40, endAt: 0.54, group: null },
+    { side: -1, row: 8, tray: 1, open: 0.42, startAt: 0.48, endAt: 0.62, group: null },
+    { side: 1, row: 9, tray: 2, open: 0.46, startAt: 0.52, endAt: 0.66, group: null },
+    { side: -1, row: 10, tray: 0, open: 0.40, startAt: 0.56, endAt: 0.70, group: null },
   ];
   for (const spec of distantOpeners) {
     const group = new THREE.Group();
@@ -157,8 +197,7 @@ export function createRecords(scene) {
   // One anonymous instant-film print, FACE DOWN. Its reverse is visible:
   // ivory paper edges, a much wider bottom margin, and a plain dark backing.
   // No front-facing image exists in this scene. Keep the contents hidden.
-  // The slightly enlarged shape is a readability concession at 72-degree FOV;
-  // there is still no glow, interaction prompt, or object-specific light.
+  // Inspect-only (no Take) — refusal lives in the panel, not as a forced glance.
   const photo = new THREE.Group();
   photo.name = 'Face-down instant photograph / reverse only';
   photo.position.set(1.43, 1.229, -31.65);
@@ -199,17 +238,35 @@ export function createRecords(scene) {
     }
   }
 
-  // Exit: ordinary locked double door + wall card reader (Office key fob).
-  box(0.13, 2.96, 0.15, -1.22, 1.48, -56.8, mat.darkMetal);
-  box(0.13, 2.96, 0.15, 1.22, 1.48, -56.8, mat.darkMetal);
-  box(2.57, 0.16, 0.15, 0, 3.00, -56.8, mat.darkMetal);
-  // Leaf hinges from the right jamb; starts closed across the aisle.
+  // Exit: framed single leaf + wall card reader (Office key fob).
+  // Wall plane with a clear opening, then a deep metal frame and threshold so
+  // the door reads as set into architecture rather than a floating slab.
+  const doorZ = -56.75;
+  box(3.9, 3.35, 0.22, -3.35, 1.65, doorZ, mat.wall);
+  box(3.9, 3.35, 0.22, 3.35, 1.65, doorZ, mat.wall);
+  box(10.5, 0.55, 0.22, 0, 3.28, doorZ, mat.wall);
+  // Frame
+  box(0.20, 2.88, 0.32, -1.20, 1.44, doorZ, mat.darkMetal);
+  box(0.20, 2.88, 0.32, 1.20, 1.44, doorZ, mat.darkMetal);
+  box(2.60, 0.18, 0.32, 0, 2.95, doorZ, mat.darkMetal);
+  box(2.40, 0.07, 0.34, 0, 0.035, doorZ + 0.02, mat.darkMetal);
+  // Leaf hinges from the right jamb; closed flush in the frame.
   const exitDoor = new THREE.Group();
   exitDoor.name = 'Records exit door';
-  exitDoor.position.set(1.05, 0, -56.72);
+  exitDoor.position.set(1.09, 0, doorZ + 0.04);
   world.add(exitDoor);
-  box(1.12, 2.72, 0.07, -0.56, 1.36, 0, mat.wood, exitDoor);
-  box(0.04, 0.08, 0.05, -1.02, 1.28, 0.05, mat.darkMetal, exitDoor);
+  box(2.16, 2.70, 0.10, -1.08, 1.38, 0, mat.wood, exitDoor);
+  // Recessed panels + rail (cheap office door, not a void plane).
+  box(1.72, 1.00, 0.025, -1.08, 1.98, 0.055, mat.cabinet, exitDoor);
+  box(1.72, 1.00, 0.025, -1.08, 0.78, 0.055, mat.cabinet, exitDoor);
+  box(1.88, 0.09, 0.04, -1.08, 1.38, 0.06, mat.darkMetal, exitDoor);
+  // Hinge barrels
+  for (const hy of [0.52, 1.38, 2.22]) {
+    box(0.045, 0.14, 0.06, -0.02, hy, 0.01, mat.darkMetal, exitDoor);
+  }
+  // Lever handle on the free edge
+  box(0.05, 0.38, 0.04, -2.05, 1.28, 0.08, mat.darkMetal, exitDoor);
+  box(0.14, 0.045, 0.045, -2.12, 1.28, 0.10, mat.darkMetal, exitDoor);
   // Beyond the door — quiet continuation, not a portal.
   box(1.54, 2.76, 0.05, 0, 1.40, -60.9, mat.glass);
   box(0.87, 0.035, 0.26, 0.74, 3.07, -57.3, mat.light);
@@ -217,7 +274,7 @@ export function createRecords(scene) {
   // Wall-mounted access reader — ordinary office hardware, not sci-fi.
   const reader = new THREE.Group();
   reader.name = 'Records card reader';
-  reader.position.set(-1.55, 1.35, -56.55);
+  reader.position.set(-1.55, 1.35, doorZ + 0.22);
   world.add(reader);
   box(0.18, 0.28, 0.06, 0, 0, 0, mat.darkMetal, reader);
   box(0.12, 0.08, 0.02, 0, 0.06, 0.035, mat.label, reader);
@@ -229,6 +286,38 @@ export function createRecords(scene) {
   readerHit.position.set(0, 0, 0.1);
   readerHit.userData.inspectHitOnly = true;
   reader.add(readerHit);
+
+  // One-shot shadow dart: behind the last filing row (row 12 → z≈-47.2),
+  // left cabinet → right cabinet. Tall blot, no limbs, no face.
+  const DART_Z = -48.15;
+  const DART_X0 = -3.15;
+  const DART_X1 = 3.15;
+  const DART_DURATION = 0.18;
+  const dart = new THREE.Group();
+  dart.name = 'Records aisle shadow dart';
+  dart.visible = false;
+  dart.position.set(DART_X0, 1.05, DART_Z);
+  world.add(dart);
+  box(0.48, 1.72, 0.28, 0, 0, 0, mat.dart, dart);
+  box(0.32, 0.55, 0.22, 0.02, 0.95, 0.02, mat.dart, dart);
+  let dartPlaying = false;
+  let dartAge = 0;
+
+  // Head-only peek: second right-hand shelf stack (z≈-53.2), out then gone.
+  // Soft sprite reads as a shadow blot instead of a solid ball.
+  const PEEK_Z = -53.2;
+  const PEEK_X_HIDE = 3.42;
+  const PEEK_X_SHOW = 2.78;
+  const PEEK_Y = 1.58;
+  const PEEK_DURATION = 0.42;
+  const peek = new THREE.Sprite(peekMat);
+  peek.name = 'Records shelf shadow peek / head';
+  peek.visible = false;
+  peek.scale.set(0.55, 0.55, 1);
+  peek.position.set(PEEK_X_HIDE, PEEK_Y, PEEK_Z);
+  world.add(peek);
+  let peekPlaying = false;
+  let peekAge = 0;
 
   // Softer, older fluorescents; no deliberate flashes on this floor.
   for (const z of [-3, -12, -21, -31, -41, -51, -58]) {
@@ -250,7 +339,34 @@ export function createRecords(scene) {
     world.add(mesh);
   }
 
+  // Cigarette on the left receiving counter — look left near the entrance.
+  const cigarette = createCigaretteProp(THREE, { name: 'Records cigarette' });
+  cigarette.position.set(-2.35, 1.14, -4.55);
+  cigarette.rotation.set(0, 0.4, 0.08);
+  world.add(cigarette);
+
   const interactables = [
+    {
+      id: 'records-polaroid',
+      object: photo,
+      radius: 4.8,
+      title: 'PHOTOGRAPH',
+      body: 'No. I won\'t look. I can\'t.',
+    },
+    {
+      id: 'cigarette-records',
+      object: cigarette,
+      radius: 4.4,
+      takeable: true,
+      itemId: 'cigarette-records',
+      itemLabel: CIGARETTE_LABEL,
+      title: CIGARETTE_LABEL,
+      body: CIGARETTE_TOOLTIP,
+      tooltip: CIGARETTE_TOOLTIP,
+      consumable: true,
+      restoreAmount: 25,
+      previewColor: 0xd8d2c4,
+    },
     {
       id: 'records-fob-reader',
       object: readerHit,
@@ -289,6 +405,64 @@ export function createRecords(scene) {
               * (1 - Math.exp(-dt * 1.6));
       }
 
+      // Aisle shadow: fire once when story latches; skip under reduced motion.
+      if (state.shadowDartPlay && !state.shadowDartDone && !reduced && !dartPlaying) {
+        dartPlaying = true;
+        dartAge = 0;
+        dart.visible = true;
+        dart.position.set(DART_X0, 1.05, DART_Z);
+        mat.dart.opacity = 0;
+      }
+      if (dartPlaying) {
+        dartAge += Math.max(0, dt);
+        const u = Math.min(1, dartAge / DART_DURATION);
+        // Ease-in so it explodes out of the left cabinets, then streaks across.
+        const streak = u * u * (2 - u);
+        dart.position.x = DART_X0 + (DART_X1 - DART_X0) * streak;
+        dart.position.y = 1.05 + Math.sin(u * Math.PI) * 0.04;
+        // Opaque in the open aisle; fade at each cabinet edge.
+        const edge = Math.sin(Math.min(1, Math.max(0, u)) * Math.PI);
+        mat.dart.opacity = 0.92 * edge;
+        if (u >= 1) {
+          dartPlaying = false;
+          dart.visible = false;
+          mat.dart.opacity = 0;
+          state.shadowDartDone = true;
+          state.shadowDartPlay = false;
+        }
+      } else if (reduced || state.shadowDartDone) {
+        dart.visible = false;
+        mat.dart.opacity = 0;
+      }
+
+      // Head peek from behind the second right shelf stack.
+      if (state.shadowPeekPlay && !state.shadowPeekDone && !reduced && !peekPlaying) {
+        peekPlaying = true;
+        peekAge = 0;
+        peek.visible = true;
+        peek.position.set(PEEK_X_HIDE, PEEK_Y, PEEK_Z);
+        peekMat.opacity = 0;
+      }
+      if (peekPlaying) {
+        peekAge += Math.max(0, dt);
+        const u = Math.min(1, peekAge / PEEK_DURATION);
+        // Sin pulse: out to the aisle edge, then yank back behind the shelves.
+        const flare = Math.sin(u * Math.PI);
+        peek.position.x = PEEK_X_HIDE + (PEEK_X_SHOW - PEEK_X_HIDE) * flare;
+        // Soft blot — never fully solid.
+        peekMat.opacity = 0.58 * Math.min(1, flare * 1.25);
+        if (u >= 1) {
+          peekPlaying = false;
+          peek.visible = false;
+          peekMat.opacity = 0;
+          state.shadowPeekDone = true;
+          state.shadowPeekPlay = false;
+        }
+      } else if (reduced || state.shadowPeekDone) {
+        peek.visible = false;
+        peekMat.opacity = 0;
+      }
+
       const doorAngle = state.doorUnlocked ? -1.35 : 0;
       exitDoor.rotation.y = reduced
         ? doorAngle
@@ -303,11 +477,26 @@ export function createRecords(scene) {
       for (const spec of distantOpeners) spec.group.position.x = 0;
       exitDoor.rotation.y = 0;
       if (readerLed) readerLed.material = mat.darkMetal;
+      cigarette.visible = true;
+      cigarette.userData.taken = false;
+      dartPlaying = false;
+      dartAge = 0;
+      dart.visible = false;
+      dart.position.set(DART_X0, 1.05, DART_Z);
+      mat.dart.opacity = 0;
+      peekPlaying = false;
+      peekAge = 0;
+      peek.visible = false;
+      peek.position.set(PEEK_X_HIDE, PEEK_Y, PEEK_Z);
+      peekMat.opacity = 0;
     },
     dispose() {
       // All static geometry uses one cube; materials have a single owner.
       // Independent photo/drawer meshes also share that cube geometry.
       cube.dispose();
+      disposeCigaretteProp(cigarette);
+      peekTex.dispose();
+      peekMat.dispose();
       readerHit.geometry.dispose();
       readerHit.material.dispose();
       Object.values(mat).forEach(material => material.dispose());

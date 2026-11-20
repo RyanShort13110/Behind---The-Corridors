@@ -13,7 +13,11 @@
   <main id="experience" aria-label="Behind. — An Interactive Psychological Horror Experience">
     <div id="viewport" aria-hidden="true"></div>
     <div class="grain" aria-hidden="true"></div>
-    <div class="vignette" aria-hidden="true"></div>
+    <div class="vignette" id="vignette" aria-hidden="true"></div>
+    <div class="composure" id="composure" aria-hidden="true" aria-label="Composure">
+      <span class="composure__label">COMPOSURE</span>
+      <div class="composure__track"><div class="composure__fill" id="composure-fill"></div></div>
+    </div>
     <div id="intro" class="intro">
       <p class="eyebrow">An Interactive Psychological Horror Experience</p>
       <h1>Behind<span>.</span></h1>
@@ -40,6 +44,7 @@
       <canvas id="item-detail-canvas" class="item-detail-canvas" width="200" height="130" aria-hidden="true"></canvas>
       <p id="item-detail-title" class="item-detail-title"></p>
       <p id="item-detail-body" class="item-detail-body"></p>
+      <button type="button" id="item-detail-use" class="item-detail-use" hidden>USE</button>
     </aside>
     <aside id="keypad" class="keypad" aria-hidden="true" role="dialog" aria-labelledby="keypad-title">
       <button type="button" id="keypad-close" class="keypad-close" aria-label="Close keypad">CLOSE</button>

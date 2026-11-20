@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  createCigaretteProp, disposeCigaretteProp,
+  CIGARETTE_LABEL, CIGARETTE_TOOLTIP,
+} from '../composure.js';
 /**
  * Level 02: The Office. A modest, contiguous floor with a single central
  * traversal line, photographed through a fixed-forward first-person camera.
@@ -514,6 +518,12 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   const follow = (current, target, dt, reduced) =>
     reduced ? target : current + (target - current) * (1 - Math.exp(-dt * 1.6));
   const codeSpaced = String(keypadCode).split('').join(' ');
+  // Cigarette on the floor under the aisle chair — look right / down to catch it.
+  const cigarette = createCigaretteProp(THREE, { name: 'Office cigarette' });
+  cigarette.position.set(1.42, 0.065, -21.95);
+  cigarette.rotation.set(0.2, -0.85, 1.1);
+  world.add(cigarette);
+
   const interactables = [
     {
       id: 'office-lighter',
@@ -521,6 +531,20 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       radius: 5.2,
       title: 'LIGHTER',
       body: 'A cheap lighter. One deep scratch down the side.',
+    },
+    {
+      id: 'cigarette-office',
+      object: cigarette,
+      radius: 4.2,
+      takeable: true,
+      itemId: 'cigarette-office',
+      itemLabel: CIGARETTE_LABEL,
+      title: CIGARETTE_LABEL,
+      body: CIGARETTE_TOOLTIP,
+      tooltip: CIGARETTE_TOOLTIP,
+      consumable: true,
+      restoreAmount: 25,
+      previewColor: 0xd8d2c4,
     },
     {
       id: 'office-sticky-note',
@@ -573,9 +597,12 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       if (stickyNote.userData) stickyNote.userData.taken = false;
       keyFob.visible = true;
       if (keyFob.userData) keyFob.userData.taken = false;
+      cigarette.visible = true;
+      cigarette.userData.taken = false;
     },
     dispose() {
       batchesToDispose.forEach(mesh => mesh.dispose());
+      disposeCigaretteProp(cigarette);
       cube.dispose();
       passageSign.geometry.dispose();
       passageTexture.dispose();

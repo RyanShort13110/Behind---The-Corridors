@@ -10,6 +10,9 @@ import { createLookControls } from './look.js';
 import { createInventory } from './inventory.js';
 import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
+import {
+  createComposure, COMPOSURE_MAX, CIGARETTE_RESTORE,
+} from './composure.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
 import { officeCameraPose } from './levels/office-route.js';
 import {
@@ -50,7 +53,9 @@ const el = {
   inspectAction: $('inspect-action'), inventory: $('inventory'),
   itemDetail: $('item-detail'), itemDetailClose: $('item-detail-close'),
   itemDetailCanvas: $('item-detail-canvas'), itemDetailTitle: $('item-detail-title'),
-  itemDetailBody: $('item-detail-body'),
+  itemDetailBody: $('item-detail-body'), itemDetailUse: $('item-detail-use'),
+  composure: $('composure'), composureFill: $('composure-fill'),
+  experience: $('experience'),
   keypad: $('keypad'), keypadClose: $('keypad-close'),
   keypadDisplay: $('keypad-display'), keypadGrid: $('keypad-grid'),
 };
@@ -73,6 +78,8 @@ const unseenStory = createUnseenStory();
 const memoryWhiteStory = createMemoryWhiteStory();
 const memoryBlackStory = createMemoryBlackStory();
 const audio = createAudioDirector();
+const composure = createComposure();
+const composureHits = new Set();
 let reduced = reduceQuery.matches;
 let quality = 'auto';
 let started = false;
@@ -230,7 +237,13 @@ try {
       } else if (id === 'office-key-fob') {
         officeStory.state.keyFobInspected = true;
         memory.keyFobEncountered = true;
-      } else       if (id === 'memory-mugs' && isMemoryChapter()) {
+      } else if (id === 'records-polaroid') {
+        recordsStory.inspectPolaroid();
+        memory.photographPassed = true;
+        composureHitOnce('records-polaroid', 10);
+      } else if (id === 'altered-door') {
+        composureHitOnce('altered-door', 8);
+      } else if (id === 'memory-mugs' && isMemoryChapter()) {
         memoryStoryFor().markMugsInspected();
       } else if (id === 'memory-front-door' && chapterId === 'memory-white'
           && memoryWhiteStory.state.exitReady) {
@@ -472,31 +485,108 @@ function drawKeyFobPreview(canvas) {
   ctx.stroke();
 }
 
+function syncComposureUi(value = composure.value) {
+  const stress = 1 - value / COMPOSURE_MAX;
+  document.documentElement.style.setProperty('--stress', stress.toFixed(3));
+  if (el.composureFill) el.composureFill.style.width = `${Math.round(value)}%`;
+  el.composure?.classList.toggle('is-low', value <= 55 && value > 25);
+  el.composure?.classList.toggle('is-critical', value <= 25);
+  audio.setComposureStress?.(stress);
+  if (scene?.fog && typeof scene.fog.density === 'number' && scene.fog.userData?.baseDensity != null) {
+    scene.fog.density = scene.fog.userData.baseDensity * (1 + stress * 0.55);
+  }
+}
+
+function noteFogBase() {
+  if (scene?.fog && typeof scene.fog.density === 'number') {
+    scene.fog.userData = scene.fog.userData || {};
+    if (scene.fog.userData.baseDensity == null) {
+      scene.fog.userData.baseDensity = scene.fog.density;
+    }
+  }
+}
+
+function composureHitOnce(id, amount) {
+  if (composureHits.has(id)) return;
+  composureHits.add(id);
+  composure.hit(amount);
+}
+
+let openDetailItemId = null;
+
 function closeItemDetail() {
   if (!el.itemDetail) return;
   el.itemDetail.classList.remove('is-open');
   el.itemDetail.setAttribute('aria-hidden', 'true');
+  openDetailItemId = null;
+  if (el.itemDetailUse) {
+    el.itemDetailUse.hidden = true;
+    el.itemDetailUse.dataset.itemId = '';
+  }
 }
 
 function openItemDetail(item) {
   if (!el.itemDetail || !item) return;
+  // Same inventory button again closes the panel (same as Esc).
+  if (openDetailItemId === item.id && el.itemDetail.classList.contains('is-open')) {
+    closeItemDetail();
+    return;
+  }
+  openDetailItemId = item.id;
   el.itemDetailTitle.textContent = item.label || item.id;
   el.itemDetailBody.textContent = item.tooltip
     || 'An item you are carrying.';
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
   else if (item.id === 'sticky-note') {
     drawStickyNotePreview(el.itemDetailCanvas, officeStory.state.keypadCode);
-  }   else if (item.id === 'key-fob') {
+  } else if (item.id === 'key-fob') {
     drawKeyFobPreview(el.itemDetailCanvas);
   } else if (item.id === 'stuffed-dragon-white'
       || String(item.id).startsWith('stuffed-dragon')) {
     drawStuffedDragonPreview(el.itemDetailCanvas, item.previewColor ?? 0xf2f0ea);
+  } else if (String(item.id).startsWith('cigarette')) {
+    drawCigarettePreview(el.itemDetailCanvas);
   } else {
     const ctx = el.itemDetailCanvas?.getContext('2d');
     ctx?.clearRect(0, 0, el.itemDetailCanvas.width, el.itemDetailCanvas.height);
   }
+  if (el.itemDetailUse) {
+    const canUse = Boolean(item.consumable);
+    el.itemDetailUse.hidden = !canUse;
+    el.itemDetailUse.dataset.itemId = canUse ? item.id : '';
+    el.itemDetailUse.textContent = canUse ? 'USE' : 'USE';
+  }
   el.itemDetail.classList.add('is-open');
   el.itemDetail.setAttribute('aria-hidden', 'false');
+}
+
+function drawCigarettePreview(canvas) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const x = w * 0.18;
+  const y = h * 0.48;
+  const len = w * 0.58;
+  ctx.fillStyle = '#d8d2c4';
+  ctx.fillRect(x, y, len * 0.78, 7);
+  ctx.fillStyle = '#b0895a';
+  ctx.fillRect(x + len * 0.78, y - 0.5, len * 0.18, 8);
+  ctx.fillStyle = '#3a3834';
+  ctx.fillRect(x - 4, y + 0.5, 5, 6);
+}
+
+function useInventoryItem(itemId) {
+  const item = inventory?.get(itemId);
+  if (!item?.consumable) return;
+  if (String(itemId).startsWith('cigarette')) {
+    inventory.remove(itemId);
+    composure.restore(item.restoreAmount ?? CIGARETTE_RESTORE);
+    audio.playInteract?.(itemId);
+    closeItemDetail();
+    renderInventory();
+  }
 }
 
 function renderInventory(items) {
@@ -517,6 +607,11 @@ function start() {
   el.intro.classList.add('is-hidden');
   el.topbar.classList.add('active');
   el.bottom.classList.add('active');
+  el.experience?.classList.add('is-playing');
+  el.composure?.classList.add('is-active');
+  el.composure?.setAttribute('aria-hidden', 'false');
+  noteFogBase();
+  syncComposureUi();
   // Start slightly above the document bottom; space below becomes the final
   // backward movement into the hidden rear elevator.
   progress = displayed = START_PROGRESS;
@@ -622,6 +717,9 @@ function reset() {
   memory.keyPassed = false;
   keypad?.close();
   audio.reset();
+  composure.reset();
+  composureHits.clear();
+  noteFogBase();
   hideEndCard();
   activeBeat = -1;
   progress = displayed = START_PROGRESS;
@@ -642,8 +740,20 @@ async function enterOffice() {
     const { createOffice } = await import('./levels/office.js');
     interaction?.clear();
     look?.reset();
+    // Keep composure smokes; drop chapter keys that no longer apply.
+    const carried = (inventory?.list() || [])
+      .filter(item => String(item.id).startsWith('cigarette'));
     inventory?.clear();
-    renderInventory([]);
+    for (const item of carried) {
+      inventory.add(item.id, {
+        label: item.label,
+        tooltip: item.tooltip,
+        consumable: true,
+        restoreAmount: item.restoreAmount ?? CIGARETTE_RESTORE,
+        previewColor: item.previewColor,
+      });
+    }
+    renderInventory();
     director.dispose();
     director = createSceneDirector();
     officeStory.reset();
@@ -651,6 +761,8 @@ async function enterOffice() {
     director.activate('office');
     chapterId = 'office';
     bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
     audio.enterOffice();
     hideEndCard();
     el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
@@ -696,6 +808,8 @@ async function enterRecords() {
     chapterId = 'records';
     recordsStory.reset();
     bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
     audio.enterRecords();
     hideEndCard();
     el.location.textContent = 'EAST ANNEX / RECORDS';
@@ -1046,12 +1160,18 @@ el.begin.addEventListener('click', start);
 el.restart.addEventListener('click', reset);
 el.continue.addEventListener('click', continueChapter);
 el.itemDetailClose?.addEventListener('click', closeItemDetail);
+el.itemDetailUse?.addEventListener('click', () => {
+  const id = el.itemDetailUse?.dataset?.itemId;
+  if (id) useInventoryItem(id);
+});
 el.inventory?.addEventListener('click', event => {
   const btn = event.target.closest('[data-item-id]');
   if (!btn) return;
-  const item = inventory?.get(btn.dataset.itemId);
-  if (item) openItemDetail({ id: btn.dataset.itemId, ...item });
+  const id = btn.dataset.itemId;
+  const item = inventory?.get(id);
+  if (item) openItemDetail({ id, ...item });
 });
+composure.subscribe(syncComposureUi);
 function onWalkKeyDown(event) {
   if (event.key === 'Escape') closeItemDetail();
   if (!started || transitioning || ended) return;
@@ -1248,9 +1368,12 @@ function frame(now) {
       // Even with sound disabled, the on-screen description fires normally.
       if (!previouslyTriggered && officeStory.state.soundTriggered) {
         audio.playOfficeLatch();
+        composureHitOnce('office-latch', 12);
       }
     } else if (chapterId === 'records') {
       recordsStory.observe(previousDisplayed, p, dt);
+      if (recordsStory.state.shadowDartDone) composureHitOnce('records-dart', 14);
+      if (recordsStory.state.shadowPeekDone) composureHitOnce('records-peek', 12);
     } else if (chapterId === 'night') {
       const previousStepCount = nightStory.state.footstepCount;
       nightStory.observe(previousDisplayed, p, dt);
@@ -1331,8 +1454,10 @@ function frame(now) {
 
     if (chapterId === 'corridor') {
       director.update(p, story.state, dt, reduced);
+      if (story.state.hasBacktracked) composureHitOnce('corridor-return', 8);
       if (director.get('corridor')?.consumeHallCascadeStarted?.()) {
         audio.playHallDoorCascade();
+        composureHitOnce('corridor-cascade', 10);
       }
       const elev = director.get('elevator');
       audio.update(p, reduced, story.state, {

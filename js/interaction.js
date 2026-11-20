@@ -132,7 +132,7 @@ export function createInteractionSystem({
       takeable = false, itemId = null, itemLabel = null,
       previewColor = null, kind = 'inspect',
       requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
-      consumesItem = true,
+      consumesItem = true, consumable = false, restoreAmount = null,
       sceneRoot, pickMeshes,
     } = spec;
     void sceneRoot;
@@ -142,6 +142,7 @@ export function createInteractionSystem({
       id, object, title, body, tooltip, radius, kind,
       onlyAfterBacktrack, onlyAfterSecondApproach, takeable, itemId, itemLabel, previewColor,
       requiresItem, requiresItemLabel, lockedBody, unlockedBody, consumesItem,
+      consumable, restoreAmount,
       taken: false, unlocked: false, inspected: false,
       lines, material, opacity: 0,
       pickMeshes: meshes,
@@ -290,6 +291,8 @@ export function createInteractionSystem({
       label: entry.itemLabel || entry.title,
       tooltip: entry.tooltip || entry.body,
       previewColor: entry.previewColor ?? entry.object?.userData?.dragonColor,
+      consumable: Boolean(entry.consumable),
+      restoreAmount: entry.restoreAmount,
     });
     onTake?.(entry.itemId, entry.id);
     bodyEl.textContent = 'Taken.';
