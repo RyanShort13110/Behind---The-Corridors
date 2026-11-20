@@ -1704,10 +1704,15 @@ export function createAudioDirector() {
   let wardCreakLoading = null;
   let wardCreakSource = null;
   let wardCreakGain = null;
+  /** One take per Ward creak encounter — ignore retriggers while armed/playing. */
+  let wardCreakPlayed = false;
   /** Dev cry loudness multiplier — applied once at the master bus. 1 = reference. */
   let wardCryVolume = 1;
   let wardClankWarnTimer = 0;
   let wardClankPeakTimer = 0;
+  /** Timers for the post-creak fast-walk footstep sequence. */
+  let wardFootstepTimers = [];
+  let wardFootstepsPlaying = false;
 
   function ensureWardCreakSample() {
     if (wardCreakBuffer || !ctx) return wardCreakLoading || Promise.resolve(null);
@@ -1760,6 +1765,7 @@ export function createAudioDirector() {
     setGain(musicWetGain, 0.7, 0.01);
     stopWardCry(0.01);
     stopWardCreak(0.01);
+    wardCreakPlayed = false;
     ensureWardCreakSample();
   }
 
@@ -1933,6 +1939,12 @@ export function createAudioDirector() {
     if (wardCryMaster) setGain(wardCryMaster, 0, seconds);
   }
 
+  function stopWardFootsteps() {
+    for (const id of wardFootstepTimers) window.clearTimeout(id);
+    wardFootstepTimers = [];
+    wardFootstepsPlaying = false;
+  }
+
   function cancelWardDelayedSfx() {
     if (wardClankWarnTimer) {
       window.clearTimeout(wardClankWarnTimer);
@@ -1942,7 +1954,9 @@ export function createAudioDirector() {
       window.clearTimeout(wardClankPeakTimer);
       wardClankPeakTimer = 0;
     }
+    stopWardFootsteps();
     wardSqueakUntil = 0;
+    wardCreakPlayed = false;
     stopWardCreak(0.05);
     stopWardCry(0.05);
   }
@@ -1954,12 +1968,6 @@ export function createAudioDirector() {
     setGain(motorGain, 0, 0.2);
     const duck = (ctx.currentTime < sfxBusyUntil) || (state?.cryingIntensity > 0.25);
     setGain(musicGain, duck ? 0.02 : 0.055, 0.5);
-
-    // Replay the creak sample only after the current take has mostly finished.
-    if (state?.squeakActive && state.squeakMoving && ctx.currentTime > wardSqueakUntil) {
-      const grow = Math.min(1, 0.28 + (state.squeakElapsed || 0) * 0.22);
-      playWardSqueak(grow);
-    }
 
     // Cry stays live through door-open; muffles during guided escape; cuts after seal.
     const escaping = Boolean(state?.escapePressed);
@@ -1989,10 +1997,11 @@ export function createAudioDirector() {
         // Sync listener to approximate rail/escape pose so "behind" tracks the camera.
         const railZ = 4.6 - (progress || 0) * 52;
         const esc = state.escapeProgress || 0;
-        const yaw = state.escapePressed ? -Math.PI * 0.42 * esc : 0;
-        const lx = state.escapePressed ? 3.35 * esc : 0;
+        const yaw = state.escapePressed ? -Math.PI * 0.5 * esc : 0;
+        const lx = state.escapePressed ? 3.55 * esc : 0;
+        // Door bay ~z=-12.5; match hospitalReverseCameraPose while escaping.
         const lz = state.escapePressed
-          ? railZ + (-18.5 - railZ) * Math.min(1, esc * 1.35)
+          ? -12.5 - 1.4 * esc
           : railZ;
         const fwdX = Math.sin(yaw);
         const fwdZ = -Math.cos(yaw);
@@ -2055,21 +2064,28 @@ export function createAudioDirector() {
   }
 
   /**
-   * Real door-creak sample (CC0). Intensity raises level slightly and
-   * slows playback a touch so continued reversing feels heavier.
+   * Real door-creak sample (CC0). One take per creak encounter — plays through
+   * even if the player stops; does not restart on continued reverse.
+   * Pass `{ force: true }` for other one-shots (e.g. proximity stinger).
    */
-  function playWardSqueak(intensity = 0.35) {
+  function playWardSqueak(intensity = 0.35, opts = {}) {
     if (!enabled || !ctx) return;
+    const force = Boolean(opts?.force);
+    if (!force && (wardCreakPlayed || wardCreakSource)) return;
     resume();
     const i = Math.max(0.2, Math.min(1, intensity));
+    if (!force) wardCreakPlayed = true;
+    const playToken = !force;
     const startPlayback = (buffer) => {
       if (!buffer || !enabled || !ctx) return;
-      stopWardCreak(0.04);
+      // Encounter was cancelled/reset while the sample was still decoding.
+      if (playToken && !wardCreakPlayed) return;
+      if (!force) stopWardCreak(0.02);
+      else if (wardCreakSource) stopWardCreak(0.02);
       const t = ctx.currentTime;
       const src = ctx.createBufferSource();
       src.buffer = buffer;
-      // Slightly slower when louder/more intense = heavier old door.
-      src.playbackRate.value = 1.02 - i * 0.12;
+      src.playbackRate.value = 0.96;
       const gain = ctx.createGain();
       // Quieter so it sits under the Ward bed instead of punching through.
       const peak = (0.14 + i * 0.18) * CORRIDOR_GAIN * 0.22;
@@ -2093,7 +2109,7 @@ export function createAudioDirector() {
       src.start(t);
       wardCreakSource = src;
       wardCreakGain = gain;
-      wardSqueakUntil = t + dur * 0.92;
+      wardSqueakUntil = t + dur;
       markSfx(Math.min(4, dur + 0.1));
     };
 
@@ -2105,189 +2121,117 @@ export function createAudioDirector() {
   }
 
   /**
-   * Quiet bed-frame shift before the real clank — restrained scrape only.
-   * No bright ticks or boingy tones.
+   * Single soft walking footfall (heel-then-toe), not a running slap.
+   * `side` −1/1 alternates L/R; kept mostly rear-center.
    */
-  function playWardClankWarn() {
+  function playWardWalkStep(side = 1, level = 1) {
     if (!enabled || !ctx) return;
     resume();
     const t = ctx.currentTime;
     const out = ctx.createGain();
-    out.gain.value = CORRIDOR_GAIN;
-    const spatial = ctx.createStereoPanner?.();
-    if (spatial) {
-      spatial.pan.value = 0.14;
-      out.connect(spatial).connect(ctx.destination);
+    out.gain.value = CORRIDOR_GAIN * 0.85;
+    const pan = ctx.createStereoPanner?.();
+    if (pan) {
+      // Behind the player with a small left/right walk sway.
+      pan.pan.value = side * 0.12;
+      out.connect(pan).connect(ctx.destination);
     } else {
       out.connect(ctx.destination);
     }
 
-    // Soft metal-on-metal scrape, low and short.
-    const dur = 0.28;
-    const nLen = Math.ceil(ctx.sampleRate * dur);
-    const nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
-    const nData = nBuf.getChannelData(0);
-    for (let n = 0; n < nLen; n++) {
-      const env = Math.sin((n / nLen) * Math.PI);
-      nData[n] = (Math.random() * 2 - 1) * env;
+    // Heel — soft mid thud on tile.
+    const heelLen = Math.ceil(ctx.sampleRate * 0.05);
+    const heelBuf = ctx.createBuffer(1, heelLen, ctx.sampleRate);
+    const heelData = heelBuf.getChannelData(0);
+    for (let n = 0; n < heelLen; n++) {
+      heelData[n] = (Math.random() * 2 - 1) * Math.exp(-n / ctx.sampleRate * 48);
     }
-    const noise = ctx.createBufferSource();
-    noise.buffer = nBuf;
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.Q.value = 1.1;
-    bp.frequency.setValueAtTime(480, t);
-    bp.frequency.linearRampToValueAtTime(260, t + dur);
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 900;
-    const nAmp = ctx.createGain();
-    nAmp.gain.setValueAtTime(0, t);
-    nAmp.gain.linearRampToValueAtTime(0.012, t + 0.04);
-    nAmp.gain.exponentialRampToValueAtTime(0.0005, t + dur);
-    noise.connect(bp).connect(lp).connect(nAmp).connect(out);
-    noise.start(t);
+    const heel = ctx.createBufferSource();
+    heel.buffer = heelBuf;
+    const heelBp = ctx.createBiquadFilter();
+    heelBp.type = 'bandpass';
+    heelBp.frequency.value = 220;
+    heelBp.Q.value = 0.85;
+    const heelLp = ctx.createBiquadFilter();
+    heelLp.type = 'lowpass';
+    heelLp.frequency.value = 520;
+    const heelA = ctx.createGain();
+    heelA.gain.setValueAtTime(0.028 * level, t);
+    heelA.gain.exponentialRampToValueAtTime(0.0003, t + 0.05);
+    heel.connect(heelBp).connect(heelLp).connect(heelA).connect(out);
+    heel.start(t);
 
-    // Very quiet low settle — almost felt more than heard.
-    const hum = ctx.createOscillator();
-    hum.type = 'sine';
-    hum.frequency.setValueAtTime(110, t + 0.05);
-    hum.frequency.exponentialRampToValueAtTime(75, t + 0.22);
-    const humA = ctx.createGain();
-    humA.gain.setValueAtTime(0, t + 0.05);
-    humA.gain.linearRampToValueAtTime(0.008, t + 0.08);
-    humA.gain.exponentialRampToValueAtTime(0.0004, t + 0.24);
-    hum.connect(humA).connect(out);
-    hum.start(t + 0.05);
-    hum.stop(t + 0.26);
+    // Soft weight under the heel.
+    const body = ctx.createOscillator();
+    body.type = 'sine';
+    body.frequency.setValueAtTime(72, t);
+    body.frequency.exponentialRampToValueAtTime(48, t + 0.07);
+    const bodyA = ctx.createGain();
+    bodyA.gain.setValueAtTime(0, t);
+    bodyA.gain.linearRampToValueAtTime(0.016 * level, t + 0.004);
+    bodyA.gain.exponentialRampToValueAtTime(0.0003, t + 0.08);
+    body.connect(bodyA).connect(out);
+    body.start(t);
+    body.stop(t + 0.09);
 
-    window.clearTimeout(wardClankWarnTimer);
-    wardClankWarnTimer = window.setTimeout(() => {
-      wardClankWarnTimer = 0;
-      if (!enabled || !ctx) return;
-      // Second quieter scrape from a slightly different pan.
-      const t2 = ctx.currentTime;
-      const d2 = 0.16;
-      const len2 = Math.ceil(ctx.sampleRate * d2);
-      const buf2 = ctx.createBuffer(1, len2, ctx.sampleRate);
-      const data2 = buf2.getChannelData(0);
-      for (let n = 0; n < len2; n++) {
-        data2[n] = (Math.random() * 2 - 1) * Math.sin((n / len2) * Math.PI);
-      }
-      const src = ctx.createBufferSource();
-      src.buffer = buf2;
-      const f = ctx.createBiquadFilter();
-      f.type = 'bandpass';
-      f.frequency.value = 340;
-      f.Q.value = 1.0;
-      const a = ctx.createGain();
-      a.gain.value = 0.007 * CORRIDOR_GAIN;
-      const p = ctx.createStereoPanner?.();
-      if (p) {
-        p.pan.value = -0.08;
-        src.connect(f).connect(a).connect(p).connect(ctx.destination);
-      } else {
-        src.connect(f).connect(a).connect(ctx.destination);
-      }
-      src.start(t2);
-    }, 220);
-    markSfx(0.45);
+    // Toe — quieter, slightly brighter, a beat after the heel (walk, not run).
+    const toeAt = t + 0.028;
+    const toeLen = Math.ceil(ctx.sampleRate * 0.035);
+    const toeBuf = ctx.createBuffer(1, toeLen, ctx.sampleRate);
+    const toeData = toeBuf.getChannelData(0);
+    for (let n = 0; n < toeLen; n++) {
+      toeData[n] = (Math.random() * 2 - 1) * Math.exp(-n / ctx.sampleRate * 60);
+    }
+    const toe = ctx.createBufferSource();
+    toe.buffer = toeBuf;
+    const toeBp = ctx.createBiquadFilter();
+    toeBp.type = 'bandpass';
+    toeBp.frequency.value = 380;
+    toeBp.Q.value = 1.0;
+    const toeA = ctx.createGain();
+    toeA.gain.setValueAtTime(0.012 * level, toeAt);
+    toeA.gain.exponentialRampToValueAtTime(0.0003, toeAt + 0.035);
+    toe.connect(toeBp).connect(toeA).connect(out);
+    toe.start(toeAt);
   }
 
   /**
-   * Hospital equipment clank — sharp metal impact with ringing partials.
-   * Modal-ish: inharmonic sine decays + bright transient, not a bass square.
+   * Post-creak scare: unnaturally fast walking behind the player.
+   * Starts near a hurried walk and accelerates — still heel-toe (not a run).
+   * Plays through even if the player stands still.
    */
-  function playWardClank() {
+  function playWardClankWarn() {
     if (!enabled || !ctx) return;
+    if (wardFootstepsPlaying) return;
     resume();
-    const t = ctx.currentTime;
-    const out = ctx.createGain();
-    out.gain.value = CORRIDOR_GAIN;
-    const spatial = ctx.createStereoPanner?.();
-    if (spatial) {
-      spatial.pan.value = 0.1;
-      out.connect(spatial).connect(ctx.destination);
-    } else {
-      out.connect(ctx.destination);
+    stopWardFootsteps();
+    wardFootstepsPlaying = true;
+
+    // Starts already quick, then tightens further (~250ms → ~140ms).
+    const count = 22;
+    const startGap = 250;
+    const endGap = 140;
+    let delay = 0;
+    for (let i = 0; i < count; i++) {
+      const t = i / Math.max(1, count - 1);
+      const gap = startGap + (endGap - startGap) * t;
+      const at = delay;
+      delay += gap;
+      const id = window.setTimeout(() => {
+        if (!enabled || !ctx || !wardFootstepsPlaying) return;
+        // Swell as they close in; hold loud through the rush.
+        const swell = 0.65 + Math.min(1, i / 10) * 0.4;
+        playWardWalkStep(i % 2 === 0 ? -1 : 1, swell);
+        if (i === count - 1) wardFootstepsPlaying = false;
+      }, Math.round(at));
+      wardFootstepTimers.push(id);
     }
+    markSfx(delay / 1000 + 0.25);
+  }
 
-    // Impact transient — short bright noise.
-    const hitDur = 0.06;
-    const nLen = Math.ceil(ctx.sampleRate * hitDur);
-    const nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
-    const nData = nBuf.getChannelData(0);
-    for (let n = 0; n < nLen; n++) {
-      nData[n] = (Math.random() * 2 - 1) * Math.exp(-n / ctx.sampleRate * 55);
-    }
-    const noise = ctx.createBufferSource();
-    noise.buffer = nBuf;
-    const nHp = ctx.createBiquadFilter();
-    nHp.type = 'highpass';
-    nHp.frequency.value = 900;
-    const nAmp = ctx.createGain();
-    nAmp.gain.value = 0.055;
-    noise.connect(nHp).connect(nAmp).connect(out);
-    noise.start(t);
-
-    // Ringing metal partials (inharmonic).
-    const partials = [
-      { f: 380, a: 0.045, d: 0.55 },
-      { f: 612, a: 0.032, d: 0.42 },
-      { f: 980, a: 0.022, d: 0.32 },
-      { f: 1480, a: 0.014, d: 0.22 },
-      { f: 2100, a: 0.009, d: 0.16 },
-    ];
-    for (const p of partials) {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = p.f * (0.98 + Math.random() * 0.04);
-      const amp = ctx.createGain();
-      amp.gain.setValueAtTime(0, t);
-      amp.gain.linearRampToValueAtTime(p.a, t + 0.004);
-      amp.gain.exponentialRampToValueAtTime(0.0005, t + p.d);
-      osc.connect(amp).connect(out);
-      osc.start(t);
-      osc.stop(t + p.d + 0.02);
-    }
-
-    // Body / frame resonance — low, short, not the star of the sound.
-    const body = ctx.createOscillator();
-    body.type = 'sine';
-    body.frequency.setValueAtTime(95, t);
-    body.frequency.exponentialRampToValueAtTime(70, t + 0.18);
-    const bodyA = ctx.createGain();
-    bodyA.gain.setValueAtTime(0.028, t);
-    bodyA.gain.exponentialRampToValueAtTime(0.0005, t + 0.22);
-    body.connect(bodyA).connect(out);
-    body.start(t);
-    body.stop(t + 0.25);
-
-    window.clearTimeout(wardClankPeakTimer);
-    wardClankPeakTimer = window.setTimeout(() => {
-      wardClankPeakTimer = 0;
-      if (!enabled || !ctx) return;
-      // Secondary bounce / settle of metal.
-      const t2 = ctx.currentTime;
-      const o = ctx.createOscillator();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(720, t2);
-      o.frequency.exponentialRampToValueAtTime(400, t2 + 0.1);
-      const a = ctx.createGain();
-      a.gain.setValueAtTime(0.018 * CORRIDOR_GAIN, t2);
-      a.gain.exponentialRampToValueAtTime(0.0005, t2 + 0.12);
-      const p = ctx.createStereoPanner?.();
-      if (p) {
-        p.pan.value = -0.12;
-        o.connect(a).connect(p).connect(ctx.destination);
-      } else {
-        o.connect(a).connect(ctx.destination);
-      }
-      o.start(t2);
-      o.stop(t2 + 0.14);
-      playNoiseBurst({ duration: 0.08, band: 1600, q: 1.4, level: 0.018, pan: -0.12 });
-    }, 85);
-    markSfx(0.55);
+  /** Peak beat kept for encounter timing — audio already started on warn. */
+  function playWardClank() {
+    // Footsteps are already playing from playWardClankWarn.
   }
 
   function playComposureHit(severity = 'minor') {
@@ -2310,7 +2254,7 @@ export function createAudioDirector() {
     playNoiseBurst({ duration: 0.45, band: 180, q: 0.5, level: 0.036, pan: 0 });
     playTone({ freq: 68, duration: 0.6, level: 0.028, type: 'sine', pan: 0.02 });
     window.setTimeout(() => {
-      playWardSqueak();
+      playWardSqueak(0.35, { force: true });
     }, 220);
   }
 

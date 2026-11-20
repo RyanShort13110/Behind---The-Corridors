@@ -216,14 +216,14 @@ Objects should appear ordinary until repetition gives them emotional weight.
 - Modules: `hospital-reverse.js`, `hospital-reverse-story.js` (`WARD_BALANCE`), `hospital-reverse-route.js`
 - Abandoned hospital ward hallway on the standard scroll rail (no free-walk, no combat, no visible monster)
 - Forward pass is calm; far automatic doors fail via wall OPEN button → forced retreat
-- **Encounter pacing (descending progress):** squeak (~0.84) → quiet gap → clank warn/peak (~0.58/0.50) → requires `clankDone` → crying (~0.40) → side escape (~0.44). No overlapping STEADY windows.
+- **Encounter pacing (descending progress):** squeak (~0.84) → quiet gap → clank warn/peak (~0.58/0.50) → requires `clankDone` → crying (~0.40) → side escape (~z=-12.5 / progress ≈0.33). Crying STEADY only.
 - Reverse audio encounters (composure 0–100; cigarette +40; one pack per chapter):
   1. **Door creak** — CC0 sample (`assets/door-creak.mp3`); stop promptly = 0 / hesitate = 4 / ignore = 12; never repeats. Left bay at z=-27.5 snaps open into the hall offscreen after the sound (no tween).
-  2. **Metallic clank** — rattle → anticipation → peak + Ward-local STEADY (5 / 11 / 22) → silence
+  2. **Fast footsteps** — after creak; unnaturally quick walking behind the player (atmospheric, 0 damage, no STEADY); marks `clankDone` so crying can start
   3. **Crying** — time + position buildup (min perceptual build); continues while still; STEADY at peak; side OPEN once cry is established
   4. **Proximity** — conditional near-contact only; skipped after clean escape / perfect+retreat; otherwise graded ≤16
 - **Offscreen mutations:** reverse props become *eligible* by progress, but only *reveal* when outside the camera frustum (with look margin). One-way for the run; checkpoint restore can rewind state.
-- **Physical escape:** OPEN → doors slide → scroll-down guided route into the right-wall passage (`hospitalReverseCameraPose`) → doors close → complete. Cry muffles during the route; ambience fades after seal. No free-walk / no 180° spin.
+- **Physical escape:** OPEN → doors slide → scroll-up (forward) office-style branch into the right-wall passage (`hospitalReverseCameraPose`) → doors close → complete. Cry muffles during the route; ambience fades after seal. No free-walk / no 180° spin.
 - Audio: cry volume multiplier applied once at the master bus; HRTF rear panner when available, stereo pan fallback; delayed Ward SFX cancelled on GO / checkpoint / chapter jump. Breathing baseline remains `0.07`.
 - Dev: checkpoints `start` / `before-end` / `reverse` / `squeak` / `clank` / `before-crying` / `before-escape` / `escape`; cry QUIET/REF/LOUD; `window.__wardDebug`
 

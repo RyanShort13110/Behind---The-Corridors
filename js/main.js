@@ -294,7 +294,7 @@ try {
           hospitalReverseStory.state.captionUntil = 2.4;
         }
       } else if (id === 'ward-side-button' && isHospitalReverse()) {
-        const result = hospitalReverseStory.trySideDoor();
+        const result = hospitalReverseStory.trySideDoor(progress);
         if (result.ok) {
           audio.playWardDoorOpen();
           bindChapterInteractables();
@@ -648,11 +648,6 @@ function beginSteadyEncounter(id) {
 function onSteadyResolved(payload) {
   if (!payload?.id || composureHits.has(payload.id)) return;
   composureHitOnce(payload.id, payload.damage);
-  if (payload.id === 'ward-clank') {
-    hospitalReverseStory.markClankResolved(payload.result);
-    hospitalReverseStory.state.lastDamageNote =
-      `clank:${payload.result}:${payload.damage}`;
-  }
   if (payload.id === 'ward-crying') {
     hospitalReverseStory.markCryingResolved(payload.result);
     hospitalReverseStory.state.lastDamageNote =
@@ -1612,7 +1607,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'hospital-reverse') {
-      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-creak-door-9');
+      const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-gurney-side-1');
       hospitalReverseStory.reset();
       const wardMod = createHospitalReverse(scene);
       wardMod.setCamera?.(camera);
@@ -2071,7 +2066,7 @@ function frame(now) {
         audio.playWardClankWarn?.();
       }
       if (!wasClank && hospitalReverseStory.state.clankTriggered) {
-        // Peak clank lands near the STEADY perfect window (Ward-local timing).
+        // Peak marker only — fast-walk footsteps already started on warn.
         scheduleWardClankPeak();
       }
       if (!wasProx && hospitalReverseStory.state.proximityHit) {
@@ -2217,15 +2212,6 @@ function frame(now) {
     // Arm STEADY only once the dart streak is actually on-screen.
     if (chapterId === 'records' && recordsStory.state.shadowDartSteadyReady) {
       beginSteadyEncounter('records-dart');
-    }
-    if (isHospitalReverse()
-        && hospitalReverseStory.state.clankSteadyReady
-        && !composureHits.has('ward-clank')
-        && !steady?.isActive) {
-      if (!beginSteadyEncounter('ward-clank')) {
-        hospitalReverseStory.markClankResolved();
-        composureHitOnce('ward-clank');
-      }
     }
     if (isHospitalReverse()
         && hospitalReverseStory.state.clankDone

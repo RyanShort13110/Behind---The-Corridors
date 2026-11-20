@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
+import { HOSPITAL_SIDE_DOOR_Z } from './hospital-reverse-story.js';
 
 /**
  * DEV prototype — abandoned hospital ward hallway.
@@ -80,7 +81,7 @@ export function createHospitalReverse(scene) {
   const zMid = -22;
   const zNear = zMid + depth * 0.5; // ~6
   const zFar = zMid - depth * 0.5; // ~-50
-  const sideGapZ = -18.5;
+  const sideGapZ = HOSPITAL_SIDE_DOOR_Z;
   const sideGapHalf = 1.2;
   box(7.0, 0.16, depth, 0, -0.09, zMid, mat.floor);
   box(0.42, 0.01, depth, 0, 0.001, zMid, mat.floorStripe);
@@ -239,9 +240,9 @@ export function createHospitalReverse(scene) {
   box(2.4, 0.05, 0.72, -2.0, 1.1, -20.2, mat.panel);
   box(0.35, 0.45, 0.25, -1.2, 1.35, -20.0, mat.chrome);
 
-  // Wall monitor / gas panel — flush on the right wall (thin in X, wide in Z).
-  box(0.08, 0.4, 0.55, 3.32, 1.55, -12.0, mat.panel);
-  box(0.04, 0.12, 0.12, 3.26, 1.55, -12.0, mat.buttonPad);
+  // Wall monitor / gas panel — clear of the relocated side-escape opening.
+  box(0.08, 0.4, 0.55, 3.32, 1.55, -7.8, mat.panel);
+  box(0.04, 0.12, 0.12, 3.26, 1.55, -7.8, mat.buttonPad);
 
   // Cigarette — tucked on the nurse counter edge
   const cigarette = createCigarettePack(THREE, { name: 'Ward cigarette pack' });
@@ -250,7 +251,8 @@ export function createHospitalReverse(scene) {
   world.add(cigarette);
 
   // --- Reverse-only mutation props (start hidden) ---
-  const mutGurney = makeGurney(0.15, -11.8, 1.45);
+  // Parked against the left wall — never blocks the center rail.
+  const mutGurney = makeGurney(-2.15, -11.6, 0.22);
   mutGurney.visible = false;
   const mutChair = makeWheelchair(-1.9, -26.5, 1.1);
   mutChair.visible = false;
@@ -308,13 +310,13 @@ export function createHospitalReverse(scene) {
   endHit.userData.inspectHitOnly = true;
   endButton.add(endHit);
 
-  // --- Side escape automatic door (right wall mid-hall) ---
+  // --- Side escape automatic door (right wall, closer to the start) ---
   // Flush with the inner wall face (~3.41). Dark recess sits BEHIND the
   // closed leaves so it never reads as a black slab sticking into the aisle.
   const sideDoors = new THREE.Group();
   sideDoors.name = 'Ward side escape doors';
-  // Centered between right-wall room bays at z=-15.6 and z=-21.4.
-  sideDoors.position.set(3.41, 0, -18.5);
+  // Between right-wall room bays at z≈-9.8 and z≈-15.6 (gap in the wall mesh).
+  sideDoors.position.set(3.41, 0, HOSPITAL_SIDE_DOOR_Z);
   world.add(sideDoors);
   box(0.18, 2.85, 0.22, 0.02, 1.45, -1.05, mat.panel, sideDoors);
   box(0.18, 2.85, 0.22, 0.02, 1.45, 1.05, mat.panel, sideDoors);
@@ -338,7 +340,7 @@ export function createHospitalReverse(scene) {
   // Short service passage beyond the side doors (+X) for the guided escape.
   const sidePassage = new THREE.Group();
   sidePassage.name = 'Ward side escape passage';
-  sidePassage.position.set(3.55, 0, -18.5);
+  sidePassage.position.set(3.55, 0, HOSPITAL_SIDE_DOOR_Z);
   world.add(sidePassage);
   box(4.4, 0.16, 2.3, 2.3, -0.09, 0, mat.floor, sidePassage);
   box(4.4, 0.14, 2.3, 2.3, 3.38, 0, mat.ceiling, sidePassage);
@@ -356,7 +358,8 @@ export function createHospitalReverse(scene) {
   // the rail so limited look can still target it without floating the prop.
   const sideButton = new THREE.Group();
   sideButton.name = 'Ward side door OPEN button';
-  sideButton.position.set(3.30, 1.35, -17.45);
+  // Just toward the start from the door mouth so look-from-rail can still hit it.
+  sideButton.position.set(3.30, 1.35, HOSPITAL_SIDE_DOOR_Z + 1.05);
   world.add(sideButton);
   box(0.08, 0.38, 0.22, 0, 0, 0, mat.panel, sideButton);
   const sidePad = box(0.05, 0.14, 0.14, -0.055, 0.04, 0, mat.buttonDead, sideButton);

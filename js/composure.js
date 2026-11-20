@@ -55,7 +55,7 @@ export const COMPOSURE_HITS = Object.freeze({
   'records-peek': 14,
   // DEV — The Ward / hospital-reverse (squeak/proximity amounts set dynamically)
   'ward-squeak': 12,
-  'ward-clank': 22,
+  'ward-clank': 0, // atmospheric scare — no composure damage
   'ward-crying': 22,
   'ward-proximity': 16,
   // Provisional — gated by enableLateChapterDamage
@@ -92,20 +92,6 @@ export const STEADY_ENCOUNTERS = Object.freeze({
     perfectDamage: 4,
     partialDamage: 10,
     tutorial: false,
-  }),
-  'ward-clank': Object.freeze({
-    maxDamage: 22,
-    perfectDamage: 5,
-    partialDamage: 11,
-    tutorial: false,
-    // Ward-local: longer readable warning before the peak (does not change global STEADY).
-    timing: Object.freeze({
-      warnSec: 0.35,
-      buildupSec: 0.85,
-      perfectSec: 0.28,
-      partialPadSec: 0.22,
-      resolveHoldSec: 0.28,
-    }),
   }),
   'ward-crying': Object.freeze({
     maxDamage: 22,
