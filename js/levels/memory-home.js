@@ -13,25 +13,26 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
   scene.add(world);
 
   const dayBg = 0xe4d4b8;
-  const nightBg = 0x1a222c;
+  const nightBg = 0x1e2834;
   scene.background = new THREE.Color(isBlack ? nightBg : dayBg);
-  scene.fog = new THREE.FogExp2(isBlack ? nightBg : dayBg, isBlack ? 0.028 : 0.009);
+  scene.fog = new THREE.FogExp2(isBlack ? nightBg : dayBg, isBlack ? 0.022 : 0.009);
 
   const materials = {
+    // Black: mid-value cools so ACES tone-mapping doesn't crush the room to black.
     floor: new THREE.MeshStandardMaterial({
-      color: isBlack ? 0x3a342c : 0xc4a87a, roughness: 0.92, metalness: 0,
+      color: isBlack ? 0x5a5248 : 0xc4a87a, roughness: 0.92, metalness: 0,
     }),
     wall: new THREE.MeshStandardMaterial({
-      color: isBlack ? 0x2c3340 : 0xf0e6d4, roughness: 0.95,
+      color: isBlack ? 0x556070 : 0xf0e6d4, roughness: 0.95,
     }),
     trim: new THREE.MeshStandardMaterial({
-      color: isBlack ? 0x3a4250 : 0xddd0b8, roughness: 0.88,
+      color: isBlack ? 0x627080 : 0xddd0b8, roughness: 0.88,
     }),
     wood: new THREE.MeshStandardMaterial({
-      color: isBlack ? 0x4a3a2a : 0x8a6a45, roughness: 0.78,
+      color: isBlack ? 0x6a5a48 : 0x8a6a45, roughness: 0.78,
     }),
     fabric: new THREE.MeshStandardMaterial({
-      color: isBlack ? 0x5a5048 : 0xb89a7e, roughness: 0.94,
+      color: isBlack ? 0x7a7068 : 0xb89a7e, roughness: 0.94,
     }),
     pillow: new THREE.MeshStandardMaterial({
       color: isBlack ? 0x4a4540 : 0xd4c2a8, roughness: 0.96,
@@ -49,17 +50,30 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
       color: isBlack ? 0x2a2824 : 0x7a6248, roughness: 0.7,
     }),
     // Soft unreadable photos / quiet landscape washes — never readable faces.
+    // Black mutes emissives so art feels flatter / harder to read.
     artWarm: new THREE.MeshStandardMaterial({
-      color: 0xd8b898, emissive: 0x3a2818, emissiveIntensity: 0.08, roughness: 0.85,
+      color: isBlack ? 0x6a5a48 : 0xd8b898,
+      emissive: isBlack ? 0x1a1410 : 0x3a2818,
+      emissiveIntensity: isBlack ? 0.02 : 0.08,
+      roughness: 0.85,
     }),
     artGreen: new THREE.MeshStandardMaterial({
-      color: 0x8aa888, emissive: 0x1a2818, emissiveIntensity: 0.06, roughness: 0.88,
+      color: isBlack ? 0x3a4840 : 0x8aa888,
+      emissive: isBlack ? 0x081008 : 0x1a2818,
+      emissiveIntensity: isBlack ? 0.015 : 0.06,
+      roughness: 0.88,
     }),
     artSky: new THREE.MeshStandardMaterial({
-      color: 0xa8c4d0, emissive: 0x182028, emissiveIntensity: 0.07, roughness: 0.86,
+      color: isBlack ? 0x3a4850 : 0xa8c4d0,
+      emissive: isBlack ? 0x081018 : 0x182028,
+      emissiveIntensity: isBlack ? 0.02 : 0.07,
+      roughness: 0.86,
     }),
     photoSoft: new THREE.MeshStandardMaterial({
-      color: 0xc8b8a0, emissive: 0x2a2018, emissiveIntensity: 0.05, roughness: 0.9,
+      color: isBlack ? 0x4a4038 : 0xc8b8a0,
+      emissive: isBlack ? 0x100c08 : 0x2a2018,
+      emissiveIntensity: isBlack ? 0.01 : 0.05,
+      roughness: 0.9,
     }),
     plant: new THREE.MeshStandardMaterial({
       color: isBlack ? 0x2a3830 : 0x4a7a52, roughness: 0.9,
@@ -74,9 +88,8 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
     screenOn: new THREE.MeshStandardMaterial({
       color: 0xb8d0c8, emissive: 0x4a6a60, emissiveIntensity: 0.4, roughness: 0.35,
     }),
-    screenOff: new THREE.MeshStandardMaterial({
-      color: 0x121418, emissive: 0x000000, roughness: 0.4,
-    }),
+    // Flat black — MeshBasic so point lights don't sparkle specular dots on an off screen
+    screenOff: new THREE.MeshBasicMaterial({ color: 0x0a0c10 }),
     glass: new THREE.MeshStandardMaterial({
       color: isBlack ? 0x6a8090 : 0xd8eef8,
       roughness: 0.12,
@@ -90,9 +103,9 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
       color: isBlack ? 0x1a2218 : 0x5a7a48, roughness: 0.95, fog: false,
     }),
     exteriorSky: new THREE.MeshStandardMaterial({
-      color: isBlack ? 0x121820 : 0xc5e4f6,
-      emissive: isBlack ? 0x080c14 : 0x8eb8d8,
-      emissiveIntensity: isBlack ? 0.2 : 0.55,
+      color: isBlack ? 0x1a2430 : 0xc5e4f6,
+      emissive: isBlack ? 0x101820 : 0x8eb8d8,
+      emissiveIntensity: isBlack ? 0.35 : 0.55,
       roughness: 1,
       side: THREE.DoubleSide,
       fog: false,
@@ -101,14 +114,29 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
       color: isBlack ? 0x1a1410 : 0x5a4030, roughness: 0.9, fog: false,
     }),
     leaves: new THREE.MeshStandardMaterial({
-      color: isBlack ? 0x1a2820 : 0x348a3c,
+      // Dark silhouettes against night sky — no neon glow
+      color: isBlack ? 0x0e1812 : 0x348a3c,
       emissive: isBlack ? 0x000000 : 0x245a28,
       emissiveIntensity: isBlack ? 0 : 0.18,
       roughness: 0.92,
       fog: false,
     }),
     lampShade: new THREE.MeshStandardMaterial({
-      color: 0xf2e6cc, emissive: 0xffd8a0, emissiveIntensity: isBlack ? 0 : 0.35, roughness: 0.9,
+      // Black: single warm island in the dark (low emissive, not cozy fill)
+      color: isBlack ? 0xe8d8b8 : 0xf2e6cc,
+      emissive: 0xffd8a0,
+      emissiveIntensity: isBlack ? 0.22 : 0.35,
+      roughness: 0.9,
+    }),
+    rainStreak: new THREE.MeshStandardMaterial({
+      color: 0xa8c0d0,
+      emissive: 0x608090,
+      emissiveIntensity: 0.15,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+      roughness: 0.2,
+      fog: false,
     }),
     door: new THREE.MeshStandardMaterial({
       color: isBlack ? 0x3a3028 : 0x7a5a40, roughness: 0.82,
@@ -344,14 +372,15 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
   separate.push({ dispose() { photoHit.geometry.dispose(); photoHit.material.dispose(); } });
   void keptPhoto;
 
-  // Blanket — draped (white) or folded on arm (black)
+  // Blanket — draped on seat (white) or folded on top of the right arm (black)
   const blanket = new THREE.Group();
   blanket.name = 'Memory blanket';
   room.add(blanket);
   if (isBlack) {
-    blanket.position.set(2.75, 0.78, -3.15);
-    add(0.55, 0.08, 0.4, 0, 0, 0, materials.blanket, blanket);
-    add(0.5, 0.06, 0.35, 0.02, 0.06, 0.02, materials.blanket, blanket);
+    // Armrest top ≈ y 0.995 — sit the fold fully on top, not inside the mesh
+    blanket.position.set(2.78, 1.04, -3.25);
+    add(0.42, 0.08, 0.32, 0, 0, 0, materials.blanket, blanket);
+    add(0.38, 0.06, 0.28, 0.02, 0.07, 0.02, materials.blanket, blanket);
   } else {
     blanket.position.set(2.15, 0.58, -3.15);
     add(0.95, 0.06, 0.7, 0, 0, 0, materials.blanket, blanket);
@@ -368,7 +397,8 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
   const mugA = addCyl(0.055, 0.1, 1.5, 0.5, -2.3, materials.mug, room);
   const mugB = addCyl(0.055, 0.1, 1.88, 0.5, -2.45, materials.mugDark, room);
   if (isBlack) {
-    mugB.position.set(2.55, 0.58, -2.95);
+    // Displaced: on the floor between table and lamp — clear of couch mesh
+    mugB.position.set(2.55, 0.05, -2.55);
   }
 
   const mugHit = new THREE.Mesh(
@@ -425,25 +455,45 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
 
   // Lighting
   if (isBlack) {
-    const moon = new THREE.DirectionalLight(0x6a8098, 0.35);
-    moon.position.set(-4.5, 5.0, -2.0);
+    // Cool night fill — intensities compensate for ACES crushing dark values.
+    // Lamp remains the warm emotional anchor.
+    const moon = new THREE.DirectionalLight(0x8aa4b8, 1.35);
+    moon.position.set(-8.0, 5.5, -3.6);
     room.add(moon);
     lights.push(moon);
-    const outdoorNight = new THREE.DirectionalLight(0x3a5070, 0.28);
-    outdoorNight.position.set(-9, 5, -4);
+    const outdoorNight = new THREE.DirectionalLight(0x5a7090, 0.85);
+    outdoorNight.position.set(-10, 5, -3.6);
     outside.add(outdoorNight);
     lights.push(outdoorNight);
-    const lamp = new THREE.PointLight(0xffc8a0, 0.6, 9, 2);
-    lamp.position.set(2.0, 1.9, -5.0);
-    room.add(lamp);
-    lights.push(lamp);
-    const hemi = new THREE.HemisphereLight(0x304050, 0x101418, 0.4);
+    const roomFill = new THREE.PointLight(0x7a90a8, 0.85, 16, 2);
+    roomFill.position.set(0.2, 2.2, -4.5);
+    room.add(roomFill);
+    lights.push(roomFill);
+    const hallFill = new THREE.PointLight(0x708898, 0.65, 10, 2);
+    hallFill.position.set(0, 2.0, -9.2);
+    room.add(hallFill);
+    lights.push(hallFill);
+    // Warm island from the floor lamp (same anchor as white)
+    const lampLight = new THREE.PointLight(0xffc8a0, 1.35, 7.0, 2);
+    lampLight.position.set(2.95, 1.55, -2.35);
+    room.add(lampLight);
+    lights.push(lampLight);
+    const couchGlow = new THREE.PointLight(0xe0c098, 0.5, 4.5, 2);
+    couchGlow.position.set(1.8, 1.25, -3.2);
+    room.add(couchGlow);
+    lights.push(couchGlow);
+    const hemi = new THREE.HemisphereLight(0x506878, 0x222830, 0.85);
     room.add(hemi);
     lights.push(hemi);
-    for (let i = 0; i < 5; i += 1) {
-      add(0.02, 0.35 + Math.random() * 0.25, 0.01,
-        -3.06, 1.2 + Math.random() * 0.7, -4.7 + i * 0.2,
-        materials.glass, room);
+    // Rain streaks on the punched glass (inside WIN_OPEN_Z / sill–header)
+    const streakMidY = (WIN_SILL_Y + WIN_HEAD_Y) * 0.5;
+    const streakSpan = WIN_OPEN_Z - 0.35;
+    for (let i = 0; i < 9; i += 1) {
+      const t = i / 8;
+      const z = WIN_Z - streakSpan * 0.5 + t * streakSpan;
+      const h = 0.28 + (i % 3) * 0.12;
+      const y = streakMidY + ((i % 2) * 0.18 - 0.1);
+      add(0.015, h, 0.012, -3.05, y, z, materials.rainStreak, room);
     }
   } else {
     const sun = new THREE.DirectionalLight(0xffe0b0, 1.65);
@@ -558,8 +608,8 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
         : (isBlack ? 0x1c2430 : 0xc9b89a);
       scene.background = new THREE.Color(bg);
       scene.fog.color.setHex(bg);
-      // White memory: kill fog so the window exterior doesn't wash to cream.
-      scene.fog.density = inMem ? (isBlack ? 0.02 : 0.0) : (isBlack ? 0.03 : 0.016);
+      // Kill / soft fog in memory so the window exterior stays readable.
+      scene.fog.density = inMem ? (isBlack ? 0.006 : 0.0) : (isBlack ? 0.03 : 0.016);
       if (state.dragonTaken) dragon.group.visible = false;
       tvScreen.material = isBlack || !inMem ? materials.screenOff : materials.screenOn;
     },
@@ -585,7 +635,7 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
       dragon.group.visible = true;
       dragon.group.userData.taken = false;
       remote.position.set(remoteHome.x, remoteHome.y, remoteHome.z);
-      if (isBlack) mugB.position.set(2.55, 0.58, -2.95);
+      if (isBlack) mugB.position.set(2.55, 0.05, -2.55);
       else mugB.position.set(1.88, 0.5, -2.45);
       staging.visible = true;
       room.visible = false;
