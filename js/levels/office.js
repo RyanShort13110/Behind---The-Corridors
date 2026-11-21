@@ -275,10 +275,11 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   lighter.add(lighterHit);
 
   // Sticky note with the service-door code — takeable, readable in inventory.
+  // On an earlier right-hand desk (not the aisle table that holds the lighter).
   const stickyNote = new THREE.Group();
   stickyNote.name = 'Sticky note / four-digit code';
-  stickyNote.position.set(1.42, 1.112, -17.18);
-  stickyNote.rotation.y = 0.18;
+  stickyNote.position.set(2.38, 0.945, -12.38);
+  stickyNote.rotation.y = -0.32;
   stickyNote.rotation.z = -0.04;
   world.add(stickyNote);
   add(0.11, 0.002, 0.12, 0, 0, 0, materials.sticky, stickyNote);
@@ -295,12 +296,14 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   stickyHit.userData.inspectHitOnly = true;
   stickyNote.add(stickyHit);
 
-  // Round orange employee key fob — inspect only; used later in Records.
+  // Round orange employee key fob — takeable; used later in Records.
+  // Cylinder axis is +Y, so leave it upright in local space: the disc lies
+  // flat on the ledge (not on its edge like a standing coin).
   const keyFob = new THREE.Group();
   keyFob.name = 'Orange employee key fob';
-  keyFob.position.set(1.08, 1.118, -22.15);
-  keyFob.rotation.x = -Math.PI / 2;
-  keyFob.rotation.z = 0.55;
+  keyFob.position.set(1.14, 1.091, -24.22);
+  keyFob.rotation.order = 'YXZ';
+  keyFob.rotation.set(0.06, 0.72, 0.04);
   world.add(keyFob);
   const fobDisc = new THREE.Mesh(
     new THREE.CylinderGeometry(0.038, 0.038, 0.012, 16),
@@ -325,10 +328,10 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   fobHit.userData.inspectHitOnly = true;
   keyFob.add(fobHit);
 
-  // Small side ledge so the fob isn't floating over carpet.
-  add(0.42, 0.05, 0.32, 1.15, 1.06, -22.18, materials.wood);
-  add(0.04, 0.9, 0.04, 1.28, 0.55, -22.28, materials.metal);
-  add(0.04, 0.9, 0.04, 1.02, 0.55, -22.08, materials.metal);
+  // Small side ledge so the fob isn't floating over carpet — past the aisle chair.
+  add(0.42, 0.05, 0.32, 1.18, 1.06, -24.28, materials.wood);
+  add(0.04, 0.9, 0.04, 1.31, 0.55, -24.40, materials.metal);
+  add(0.04, 0.9, 0.04, 1.05, 0.55, -24.16, materials.metal);
 
   // Ringing phone, always without an onscreen explanation. The sound system
   // adds distant, low-volume analogue rings while the player approaches.
@@ -517,10 +520,10 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   const follow = (current, target, dt, reduced) =>
     reduced ? target : current + (target - current) * (1 - Math.exp(-dt * 1.6));
   const codeSpaced = String(keypadCode).split('').join(' ');
-  // Pack under the aisle chair — look right / down to catch it.
+  // Pack on the floor by a later right-hand desk chair — separate from the fob.
   const cigarette = createCigarettePack(THREE, { name: 'Office cigarette pack' });
-  cigarette.position.set(1.42, 0.07, -21.95);
-  cigarette.rotation.set(0.2, -0.85, 0.2);
+  cigarette.position.set(2.38, 0.07, -27.05);
+  cigarette.rotation.set(0.18, 1.05, 0.22);
   world.add(cigarette);
 
   const interactables = [
