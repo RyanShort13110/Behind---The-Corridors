@@ -1220,31 +1220,31 @@ function start() {
 function setEndCard(which) {
   if (which === 'corridor') {
     el.endingEyebrow.textContent = 'LEVEL 01 COMPLETE · THE CORRIDOR';
-    el.endingTitle.innerHTML = 'IT WAS<br>BEHIND YOU.';
+    el.endingTitle.innerHTML = 'NO ONE<br>ANSWERED.';
     el.endingCopy.textContent = 'The doors have closed in front of you.';
     el.continue.textContent = 'CONTINUE INTO THE OFFICE ↑';
     el.continue.hidden = false;
   } else if (which === 'office') {
     el.endingEyebrow.textContent = 'LEVEL 02 COMPLETE · THE OFFICE';
-    el.endingTitle.innerHTML = 'A DIFFERENT<br>WAY THROUGH.';
+    el.endingTitle.innerHTML = 'WHAT WAS<br>LEFT BEHIND.';
     el.endingCopy.textContent = 'The service passage leads toward Records.';
     el.continue.textContent = 'CONTINUE INTO THE RECORDS ↑';
     el.continue.hidden = false;
   } else if (which === 'records') {
     el.endingEyebrow.textContent = 'LEVEL 03 COMPLETE · THE RECORDS';
-    el.endingTitle.innerHTML = 'END OF<br>THE ROW.';
+    el.endingTitle.innerHTML = 'SOME THINGS<br>STAY HIDDEN.';
     el.endingCopy.textContent = 'The doorway ahead opens onto another wing.';
     el.continue.textContent = 'CONTINUE INTO THE NIGHT SHIFT ↑';
     el.continue.hidden = false;
   } else if (which === 'night') {
     el.endingEyebrow.textContent = 'LEVEL 04 COMPLETE · THE NIGHT SHIFT';
-    el.endingTitle.innerHTML = 'ONE MORE<br>STEP.';
+    el.endingTitle.innerHTML = 'ALMOST<br>LIKE HOME.';
     el.endingCopy.textContent = 'The last door is open. There is somewhere else to go.';
     el.continue.textContent = 'CONTINUE INTO THE THRESHOLD ↑';
     el.continue.hidden = false;
   } else if (which === 'threshold') {
     el.endingEyebrow.textContent = 'LEVEL 05 COMPLETE · THE THRESHOLD';
-    el.endingTitle.innerHTML = 'THE WALLS<br>ARE STILL.';
+    el.endingTitle.innerHTML = 'IT WON\'T<br>STAY BURIED.';
     el.endingCopy.textContent = 'The walls fall quiet. A maintenance passage waits ahead.';
     el.continue.textContent = 'CONTINUE INTO THE UNSEEN ↑';
     el.continue.hidden = false;
@@ -1255,7 +1255,7 @@ function setEndCard(which) {
     el.continue.hidden = true;
   } else {
     el.endingEyebrow.textContent = 'LEVEL 06 COMPLETE · THE UNSEEN';
-    el.endingTitle.innerHTML = 'IT WAS<br>RIGHT THERE.';
+    el.endingTitle.innerHTML = 'IT\'S STILL<br>THERE.';
     el.endingCopy.textContent = 'The access passage is silent. For now.';
     el.continue.hidden = true;
   }
