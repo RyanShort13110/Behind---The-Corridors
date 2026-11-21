@@ -114,7 +114,6 @@ let quality = 'auto';
 let started = false;
 let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
-let activeBeat = -1;
 let ended = false;
 let renderer, camera, scene, director, monitor, interaction, look, inventory, keypad;
 let cigaretteFx = createCigaretteFx();
@@ -1323,7 +1322,6 @@ function reset() {
   gameOverBusy = false;
   noteFogBase();
   hideEndCard();
-  activeBeat = -1;
   resetBriefDialogue();
   progress = displayed = START_PROGRESS;
   camera.position.set(0, 1.7, REAR_CABIN_CAMERA_Z - START_PROGRESS * CORRIDOR_METERS);
@@ -1361,8 +1359,7 @@ async function enterOffice() {
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-    activeBeat = -1;
-    lastTime = performance.now();
+      lastTime = performance.now();
     saveChapterStartCheckpoint();
     console.info('[Behind.] Level 02 entered · retained 5.5 m/s cap');
     // Render the new floor once before uncovering the viewport.
@@ -1412,8 +1409,7 @@ async function enterRecords() {
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-    activeBeat = -1;
-    lastTime = performance.now();
+      lastTime = performance.now();
     saveChapterStartCheckpoint();
     renderer.render(scene, camera);
     console.info('[Behind.] Level 03 entered · key-fob exit · no forced return');
@@ -1463,8 +1459,7 @@ async function enterNightShift() {
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-    activeBeat = -1;
-    lastTime = performance.now();
+      lastTime = performance.now();
     renderer.render(scene, camera);
     console.info('[Behind.] Level 04 entered · no jump scares · 5.5 m/s cap');
   } catch (error) {
@@ -1511,8 +1506,7 @@ async function enterThreshold() {
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-    activeBeat = -1;
-    lastTime = performance.now();
+      lastTime = performance.now();
     renderer.render(scene, camera);
     console.info('[Behind.] Level 05 entered · 5.5 m/s max · procedural corruption');
   } catch (error) {
@@ -1559,8 +1553,7 @@ async function enterUnseen() {
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-    activeBeat = -1;
-    lastTime = performance.now();
+      lastTime = performance.now();
     renderer.render(scene, camera);
     console.info('[Behind.] Level 06 entered · listen ahead / reverse to side exit');
   } catch (error) {
@@ -1689,8 +1682,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     else if (target === 'hospital-reverse') audio.enterHospitalReverse();
 
     hideEndCard();
-    activeBeat = -1;
-    resetBriefDialogue();
+      resetBriefDialogue();
     el.location.innerHTML = DEV_CHAPTER_CONFIG[target].location;
     progress = displayed = target === 'unseen'
       ? unseenStory.seekCheckpoint(checkpoint) : DEV_CHAPTER_CONFIG[target].start;
@@ -1960,10 +1952,7 @@ function updateNarrative(p, dt = 0) {
   const displayedLine = (inCorridor || inOffice || inRecords || inNight)
     ? showBriefDialogue(chapterId, narrative.line, dt)
     : narrative.line;
-  if (narrative.chapter !== el.chapter.textContent || (inCorridor && narrative.beatIndex !== activeBeat)) {
-    activeBeat = narrative.beatIndex ?? -1;
-    el.chapter.textContent = narrative.chapter;
-  }
+  if (narrative.chapter !== el.chapter.textContent) el.chapter.textContent = narrative.chapter;
   if (el.line.textContent !== displayedLine) el.line.textContent = displayedLine;
   let instruction = narrative.instruction;
   if (inCorridor && interaction?.nearest && !interaction.isOpen && !ended) {
