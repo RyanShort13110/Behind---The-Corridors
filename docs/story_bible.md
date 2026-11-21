@@ -231,6 +231,23 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 ---
 
+## Chapter completion cards — emotional through-line
+
+**IMPLEMENTED (Dialogue Revision 002 follow-up, November 2026).** End-card headings are short thematic fragments, not recaps of each chapter's scare. Their meaning should deepen retrospectively as the protagonist's grief, avoidance, and unreliable recollection emerge; they must not disclose writer-only backstory.
+
+| Chapter | End heading | Emotional reading |
+|---|---|---|
+| 01 — The Corridor | **NO ONE ANSWERED.** | Searching; no response |
+| 02 — The Office | **WHAT WAS LEFT BEHIND.** | Ordinary belongings after an absence |
+| 03 — The Records | **SOME THINGS STAY HIDDEN.** | The face-down photograph and chosen refusal |
+| 04 — The Night Shift | **ALMOST LIKE HOME.** | An institution begins feeling domestic |
+| 05 — The Threshold | **IT WON'T STAY BURIED.** | Suppression bleeding into the architecture |
+| 06 — The Unseen | **IT'S STILL THERE.** | A presence and a feeling that persist |
+
+The Ward remains a development-only mechanics prototype; its heading is unchanged. End-card supporting text and continue controls are unchanged in this pass.
+
+---
+
 ## Chapter 01: The Corridor
 
 **IMPLEMENTED** unless noted.
