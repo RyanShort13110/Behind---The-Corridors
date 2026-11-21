@@ -5,8 +5,12 @@
  */
 export const RECORDS_METERS = 60;
 export const RECORDS_START_Z = 4.6;
-/** Approach the locked exit — cannot pass until the fob unlocks the door. */
-export const RECORDS_DOOR_HOLD = 0.905;
+/**
+ * Approach the locked exit — cannot pass until the fob unlocks the door.
+ * Must sit close enough that the wall reader is inside use-reach (~radius×1.4).
+ * At 0.905 the player stopped ~6.8m short and could never swipe.
+ */
+export const RECORDS_DOOR_HOLD = 0.935;
 export const RECORDS_END_PROGRESS = 0.977;
 
 export function createRecordsStory() {
@@ -242,5 +246,6 @@ export function recordsNarrative(progress, state) {
 function inventoryHint(state) {
   void state;
   // Visible locked feedback for sound-off players; fob use is on the reader.
-  return 'A CARD READER BY THE DOOR';
+  // Near-reader USE prompt is layered by main when the fob is in reach.
+  return 'LOOK LEFT · USE KEY FOB ON THE READER';
 }

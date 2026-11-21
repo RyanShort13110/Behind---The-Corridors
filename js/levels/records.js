@@ -362,7 +362,7 @@ export function createRecords(scene) {
     {
       id: 'records-fob-reader',
       object: readerHit,
-      radius: 4.6,
+      radius: 5.2,
       title: 'CARD READER',
       body: 'A small wall reader. The LED is dark.',
       lockedBody: 'A small wall reader. Needs a fob.',

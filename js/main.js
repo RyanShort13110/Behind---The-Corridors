@@ -24,7 +24,7 @@ import { officeCameraPose } from './levels/office-route.js';
 import {
   createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z,
   RECORDS_DOOR_HOLD,
-} from './levels/records-story.js';
+} from './levels/records-story.js?v=fob-reach-1';
 import { recordsCameraPose } from './levels/records-route.js';
 import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS } from './levels/night-story.js';
 import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js';
@@ -1386,7 +1386,7 @@ async function enterRecords() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js?v=drawer-ajar-1');
+    const { createRecords } = await import('./levels/records.js?v=fob-reach-1');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
@@ -1619,7 +1619,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=drawer-ajar-1');
+      const { createRecords } = await import('./levels/records.js?v=fob-reach-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js?v=night-absence-6');
