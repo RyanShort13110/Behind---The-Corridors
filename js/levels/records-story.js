@@ -21,8 +21,8 @@ export function createRecordsStory() {
     // One-shot dialogue latches
     cabinetsLineSaid: false,
     cabinetsLineDone: false,
-    // Ambient only: 0 none, 1 "A Polaroid?", 2 pause/clear, 4 done.
-    // Refusal lives in the inspect panel (records-polaroid), not here.
+    // Photo proximity stages still drive composure (0 idle, 1 seen, 2 pause, 4 done).
+    // The refusal now lives only in the inspection panel.
     polaroidLine: 0,
     polaroidElapsed: 0,
     polaroidInspected: false,
@@ -221,28 +221,9 @@ export function recordsNarrative(progress, state) {
     return { chapter, line: '', instruction: ' ' };
   }
 
-  let line = '';
-  if (state.polaroidLine === 1) line = 'A Polaroid?';
-  else if (
-    state.drawerNoticeSaid
-    && !state.drawerNoticeDone
-    && state.direction === 'backward'
-  ) {
-    line = 'That was open.';
-  } else if (state.lockedDoorLineSaid && !state.lockedDoorLineDone && !state.doorUnlocked) {
-    line = 'Another locked door.';
-  } else if (
-    state.cabinetsLineSaid
-    && !state.cabinetsLineDone
-    && state.polaroidLine === 0
-  ) {
-    line = 'How far back does all this go?';
-  }
-
-  // Extended silence after the photograph — no filler lines.
-  if (state.polaroidLine >= 4 && progress > 0.64 && progress < 0.84) {
-    line = '';
-  }
+  // Only an optional, non-repeating thought when noticing the changed drawer.
+  const line = state.drawerNoticeSaid && !state.drawerNoticeDone
+    && state.direction === 'backward' ? 'That was open.' : '';
 
   let instruction = 'SCROLL UP TO CONTINUE ↑';
   if (state.hasBacktracked && state.direction === 'backward') {

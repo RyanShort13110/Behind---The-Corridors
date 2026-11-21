@@ -151,19 +151,34 @@ const memory = {
 };
 const ORIGINAL_LOCATION_HTML = 'NORTH WING <span class="separator">/</span> LEVEL 13';
 
-// Sparse forward thoughts. Breathing line aligns with the audio window (~0.74).
-const beats = [
-  { to: 0.40, ch: '01 — THE CORRIDOR', line: 'Hello?' },
-  { to: 0.74, ch: '01 — THE CORRIDOR', line: 'There has to be someone here.' },
-  { to: 1.01, ch: '01 — THE CORRIDOR', line: 'Wait. What was that?' },
-];
+// Dialogue Revision 002: one-shot thoughts, never held by scroll position.
+const BRIEF_DIALOGUE_SECONDS = 2.6;
+let briefChapter = '';
+let briefLine = '';
+let briefRemaining = 0;
+const briefSeen = new Set();
 
-// Return pass: only what changes. Thresholds descend with the backtrack.
-// Door line waits until ~the ajar bay (~0.375), not the long approach.
-const returnBeats = [
-  { min: 0.38, line: 'It’s gone quiet.' },
-  { min: 0.29, line: 'Wait — was that open before?' },
-];
+function resetBriefDialogue() {
+  briefChapter = '';
+  briefLine = '';
+  briefRemaining = 0;
+  briefSeen.clear();
+}
+
+function showBriefDialogue(chapter, candidate, dt = 0) {
+  if (briefChapter !== chapter) {
+    resetBriefDialogue();
+    briefChapter = chapter;
+  }
+  if (candidate && !briefSeen.has(candidate)) {
+    briefSeen.add(candidate);
+    briefLine = candidate;
+    briefRemaining = BRIEF_DIALOGUE_SECONDS;
+  }
+  const visible = briefRemaining > 0 ? briefLine : '';
+  briefRemaining = Math.max(0, briefRemaining - Math.max(0, dt));
+  return visible;
+}
 
 function maxScroll() { return Math.max(0, document.documentElement.scrollHeight - innerHeight); }
 function scrollYFor(p) { return (1 - p) * maxScroll(); }
@@ -910,6 +925,7 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     if (asChapterRestart) {
       progress = displayed = target === 'corridor' ? START_PROGRESS : 0;
     }
+    resetBriefDialogue();
     composure.set(Math.max(1, snapshot.composure ?? COMPOSURE_CONFIG.start));
     look?.reset();
     window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
@@ -968,6 +984,7 @@ async function restartCurrentChapterFromStart() {
     return;
   }
   // Fallback: soft chapter rewind with current inventory cigarettes preserved.
+  resetBriefDialogue();
   steady?.cancel(true);
   hideGameOver();
   gameOverActive = false;
@@ -1307,6 +1324,7 @@ function reset() {
   noteFogBase();
   hideEndCard();
   activeBeat = -1;
+  resetBriefDialogue();
   progress = displayed = START_PROGRESS;
   camera.position.set(0, 1.7, REAR_CABIN_CAMERA_Z - START_PROGRESS * CORRIDOR_METERS);
   camera.rotation.set(0, 0, 0);
@@ -1672,6 +1690,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
 
     hideEndCard();
     activeBeat = -1;
+    resetBriefDialogue();
     el.location.innerHTML = DEV_CHAPTER_CONFIG[target].location;
     progress = displayed = target === 'unseen'
       ? unseenStory.seekCheckpoint(checkpoint) : DEV_CHAPTER_CONFIG[target].start;
@@ -1894,33 +1913,30 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function narrativeFor(p, state) {
-  const beatIndex = beats.findIndex(item => p < item.to);
-  const beat = beats[beatIndex];
-  let chapter = beat.ch;
-  let line = beat.line;
+  let chapter = '01 — THE CORRIDOR';
+  let line = '';
   let instruction = 'SCROLL UP TO CONTINUE ↑';
 
-  // Dead-end prompt: the first elevator stays shut and teaches backtracking.
-  if (state.reachedDeadEnd && p > 0.85) {
+  if (state.reachedDeadEnd && p > 0.85 && !state.hasBacktracked) {
     chapter = '01 — DEAD END';
-    line = 'It’s not opening.';
     instruction = 'SCROLL DOWN TO RETRACE YOUR STEPS ↓';
   } else if (state.rearElevatorUnlocked && p <= 0.16) {
-    // Preserve the surprise elevator behind the original starting position.
     chapter = '01 — BEHIND YOU';
     if (p > START_PROGRESS) line = 'Behind me?';
-    else line = 'Wait—';
     instruction = 'KEEP SCROLLING DOWN ↓';
   } else if (state.hasBacktracked) {
     chapter = '01 — THE RETURN';
-    const returnBeat = returnBeats.find(item => p >= item.min);
-    line = returnBeat?.line ?? ''; // No forward-pass dialogue on the return.
+    if (state.alteredDoorNoticed && p <= 0.38 && p > 0.29) {
+      line = 'Wait — was that open before?';
+    }
     instruction = p < 0.32 ? 'KEEP SCROLLING DOWN ↓' : 'SCROLL DOWN TO RETURN ↓';
+  } else if (p >= 0.115 && p < 0.40) {
+    line = 'Hello?';
   }
-  return { beatIndex, chapter, line, instruction };
+  return { chapter, line, instruction };
 }
 
-function updateNarrative(p) {
+function updateNarrative(p, dt = 0) {
   const inCorridor = chapterId === 'corridor';
   const inOffice = chapterId === 'office';
   const inRecords = chapterId === 'records';
@@ -1941,11 +1957,14 @@ function updateNarrative(p) {
           : inThreshold ? thresholdNarrative(p, state)
             : inMemory ? memoryHomeNarrative(p, state)
               : inWard ? hospitalReverseNarrative(p, state) : unseenNarrative(p, state);
+  const displayedLine = (inCorridor || inOffice || inRecords || inNight)
+    ? showBriefDialogue(chapterId, narrative.line, dt)
+    : narrative.line;
   if (narrative.chapter !== el.chapter.textContent || (inCorridor && narrative.beatIndex !== activeBeat)) {
     activeBeat = narrative.beatIndex ?? -1;
     el.chapter.textContent = narrative.chapter;
   }
-  if (el.line.textContent !== narrative.line) el.line.textContent = narrative.line;
+  if (el.line.textContent !== displayedLine) el.line.textContent = displayedLine;
   let instruction = narrative.instruction;
   if (inCorridor && interaction?.nearest && !interaction.isOpen && !ended) {
     const near = interaction.nearest;
@@ -1975,12 +1994,12 @@ function updateNarrative(p) {
   }
   if (el.instruction.textContent !== instruction) el.instruction.textContent = instruction;
   const show = inCorridor
-    ? (p > 0.055 && p < 0.955) || (state.reachedDeadEnd && p > 0.955) || (state.rearElevatorUnlocked && p <= 0.055)
+    ? Boolean(displayedLine.trim()) && ((p > 0.055 && p < 0.955) || (state.reachedDeadEnd && p > 0.955) || (state.rearElevatorUnlocked && p <= 0.055))
     : inMemory
-      ? Boolean(narrative.line.trim())
+      ? Boolean(displayedLine.trim())
       : inOffice
-        ? Boolean(narrative.line.trim()) && p > 0.045 && p < 0.994
-        : Boolean(narrative.line.trim()) && p > 0.045 && p < 0.999;
+        ? Boolean(displayedLine.trim()) && p > 0.045 && p < 0.994
+        : Boolean(displayedLine.trim()) && p > 0.045 && p < 0.999;
   el.narrative.classList.toggle('active', show && !ended);
   // At the first sustained drag, cue the mandatory reverse control clearly.
   // The one-shot instruction vanishes once retreat begins; it cannot pop back
@@ -2308,7 +2327,7 @@ function frame(now) {
       director.update(p, unseenStory.state, dt, reduced);
       audio.updateUnseen(p, unseenStory.state, camera);
     }
-    updateNarrative(p);
+    updateNarrative(p, dt);
   }
   cigaretteFx?.update(dt);
   renderer.render(scene, camera);

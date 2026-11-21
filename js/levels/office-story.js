@@ -102,47 +102,16 @@ export function createOfficeStory() {
   };
 }
 
-const firstPass = [
-  { to: 0.12, line: '' },
-  { to: 0.35, line: 'It’s like everyone just left.' },
-  { to: 0.52, line: 'How long has this place been empty?' },
-  { to: 0.65, line: '' },
-  { to: 0.82, line: 'Why isn’t anyone answering?' },
-  { to: 0.95, line: '' },
-  { to: 1.01, line: '' },
-];
-
-const retreat = [
-  { min: 0.89, line: '' },
-  { min: 0.76, line: '' },
-  { min: 0.66, line: 'It stopped.' },
-  { min: 0.52, line: '' },
-  { min: 0.425, line: '' },
-  { min: 0, line: '' },
-];
-
-const investigation = [
-  { to: 0.54, line: '' },
-  { to: 0.68, line: '' },
-  { to: 0.765, line: '' },
-  { to: 0.825, line: 'There’s a door beside the glass.' },
-  { to: 1.01, line: 'A code.' },
-];
-
+/** The latch is the only spoken thought; movement and puzzle prompts persist. */
 export function officeNarrative(progress, state) {
   const base = { chapter: '02 — THE OFFICE' };
-  if (state.completed) {
-    return { ...base, line: '', instruction: ' ' };
-  }
+  if (state.completed) return { ...base, line: '', instruction: ' ' };
+
   if (state.secondApproachStarted) {
     const unlocked = state.keypadUnlocked;
     return {
       chapter: '02 — THE INVESTIGATION',
-      line: unlocked
-        ? (!state.keyFobTaken && progress >= OFFICE_BRANCH_START
-          ? 'Something was on that desk.'
-          : (progress < OFFICE_BRANCH_START ? 'Okay. Go.' : ''))
-        : investigation.find(beat => progress < beat.to)?.line ?? '',
+      line: '',
       instruction: unlocked
         ? (state.keyFobTaken
           ? 'SCROLL UP TO ENTER THE PASSAGE ↑'
@@ -152,33 +121,18 @@ export function officeNarrative(progress, state) {
     };
   }
   if (state.soundTriggered) {
-    // Accessibility cue for sound-off players; same event as the latch chirp.
-    const firstMoment = state.soundElapsed < 1.55;
+    // The brief reaction also conveys the unseen latch for sound-off players.
     return {
       chapter: '02 — THE RETURN',
-      line: firstMoment
-        ? 'Was that a latch?'
-        : 'From up ahead.',
+      line: state.soundElapsed < 1.55 ? 'Was that a latch?' : '',
       instruction: 'SCROLL UP TO INVESTIGATE ↑',
     };
   }
   if (state.hasBacktracked) {
-    return {
-      chapter: '02 — THE RETURN',
-      line: retreat.find(beat => progress >= beat.min)?.line ?? '',
-      instruction: 'SCROLL DOWN TO RETURN ↓',
-    };
+    return { chapter: '02 — THE RETURN', line: '', instruction: 'SCROLL DOWN TO RETURN ↓' };
   }
   if (state.reachedFarDoor && progress > 0.84) {
-    return {
-      chapter: '02 — THE FAR DOOR',
-      line: 'Locked. Of course.',
-      instruction: 'SCROLL DOWN TO RETRACE YOUR STEPS ↓',
-    };
+    return { chapter: '02 — THE FAR DOOR', line: '', instruction: 'SCROLL DOWN TO RETRACE YOUR STEPS ↓' };
   }
-  return {
-    ...base,
-    line: firstPass.find(beat => progress < beat.to)?.line ?? '',
-    instruction: 'SCROLL UP TO CONTINUE ↑',
-  };
+  return { ...base, line: '', instruction: 'SCROLL UP TO CONTINUE ↑' };
 }

@@ -237,25 +237,15 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 **Setting / mechanic:** Narrow office corridor; sealed far elevator; hidden rear elevator behind the start. Scroll up = forward, scroll down = backward; camera stays facing the corridor. Max walk ~5.5 m/s. Breathing audio volume constant is `0.07` in code (older docs said 0.065).
 
-**First pass dialogue**
+**Dialogue Revision 002 (IMPLEMENTED):** Only three brief one-shot thoughts remain (about 2.6 seconds each); backtracking never replays them.
 
-| Beat | Line |
+| Moment | One-shot thought |
 |---|---|
-| Opening corridor | “Hello?” |
-| Further in | “There has to be someone here.” |
-| Breathing window (~0.74+, with audio) | “Wait. What was that?” |
-| Sealed far elevator | “It’s not opening.” |
+| Early forward passage | “Hello?” |
+| Return past the altered doorway | “Wait — was that open before?” |
+| Unexpected rear elevator | “Behind me?” |
 
-Instructional UI still teaches backtracking; control text is not protagonist dialogue.
-
-**Return dialogue**
-
-| Beat | Line |
-|---|---|
-| After reverse; breathing gone | “It’s gone quiet.” |
-| Near the previously closed door | “Wait — was that open before?” |
-| Rear elevator opens | “Behind me?” |
-| Doors begin closing | “Wait—” |
+The dead-end, return, and elevator movement instructions remain independent of dialogue. The breathing cue and physical door/elevator changes tell the other beats.
 
 **Interact inspect copy (IMPLEMENTED)**
 
@@ -289,37 +279,11 @@ Instructional UI still teaches backtracking; control text is not protagonist dia
 - Empty glass meeting room.
 - Service door opens only after correct keypad entry.
 
-### Dialogue sequences (IMPLEMENTED)
+### Dialogue Revision 002 (IMPLEMENTED)
 
-**First approach**
+Only one brief spoken reaction remains: **“Was that a latch?”** on the return sound cue. The ringing phone, unattended workstations, far door, and keypad discovery carry themselves without protagonist commentary.
 
-| Beat | Line |
-|---|---|
-| Entering | *(silence)* |
-| Occupied-looking desks | “It’s like everyone just left.” |
-| Unattended belongings | “How long has this place been empty?” |
-| Phone ringing | “Why isn’t anyone answering?” |
-| Glass meeting room | *(silence)* |
-| Far locked door | “Locked. Of course.” |
-
-**Return**
-
-| Beat | Line |
-|---|---|
-| Phone stops | “It stopped.” |
-| Workstations | *(no extra lines; no invented moved objects)* |
-| Latch cue (also sound-off accessibility) | “Was that a latch?” → “From up ahead.” |
-
-**Investigation / second forward pass**
-
-| Beat | Line |
-|---|---|
-| Start investigating | *(silence)* |
-| Near service passage | “There’s a door beside the glass.” |
-| Keypad | “A code.” |
-| While locked | *(no repeating puzzle dialogue; UI carries “enter code”)* |
-| After correct code | “Okay. Go.” |
-| Entering passage / complete | *(silence)* |
+Movement prompts, keypad guidance, and the **TAKE THE KEY FOB** reminder remain independent of subtitles. The latch reaction continues to convey the sound event to sound-off players.
 
 **Object inspect copy (IMPLEMENTED):** lighter / sticky / fob / keypad as listed under Recurring objects. Keypad interaction remains UI-driven; door state follows `keypadUnlocked`.
 
@@ -332,9 +296,9 @@ Instructional UI still teaches backtracking; control text is not protagonist dia
 **Emotion:** Grief-adjacent avoidance and involuntary recognition — the first hint that discomfort may be personal, without naming why.  
 **Entry:** A side service passage near the Office meeting room. Brief occlusion handoff, not another elevator.  
 **Architecture:** Lower ceiling, older filing cabinets, receiving counter, quiet sorting station, box storage, locked far exit with an ordinary wall card reader.  
-**Motif — face-down Polaroid:** Rests on the sorting surface mid-floor. Camera never reveals the front; no artwork, name, or Take. Discovery via A/D look. Ambient one-shot on approach: **“A Polaroid?”** Inspect-only panel (same system as the Office lighter): title **PHOTOGRAPH**, body **“No. I won’t look. I can’t.”** Curiosity, then chosen refusal. Do not connect the Polaroid to any off-screen person in player-facing text.  
+**Motif — face-down Polaroid:** Rests on the sorting surface mid-floor. Camera never reveals the front; no artwork, name, or Take. Discovery via A/D look; proximity still affects composure but triggers no ambient dialogue. Inspect-only panel: title **PHOTOGRAPH**, body **“No.”** A refusal without explanation. Do not connect the Polaroid to any off-screen person in player-facing text.  
 **Environmental memory:** A right-side drawer is ajar on first approach; after the camera passes, it is closed. No close animation or sound. Optional backtrack may yield **“That was open.”** Not required for progression. Separately, drawers on the last filing cabinets toward the exit ease open ahead of the player mid-hall (quiet, no dialogue, no sting). Past the sorting station, a one-shot dark blot darts across the aisle behind the last filing row (left → right, fast, no dialogue, no sting; skipped under reduced motion). Later, a head-only shadow peeks once from behind the second right-hand shelf stack and withdraws (no dialogue, no sting; skipped under reduced motion).  
-**Other dialogue (one-shots):** Entering — silence. First cabinets — **“How far back does all this go?”** Approach locked exit — **“Another locked door.”** Unlock / exit — silence.  
+**Other dialogue (Revision 002):** The optional one-shot **“That was open.”** plays if the player notices the altered drawer on return. Otherwise silence. The locked card reader still provides an instruction hint.  
 **Exit (IMPLEMENTED):** Far door locked until the Office key fob is used on the card reader. Soft beep + latch + quiet hinge. Progress cannot complete the chapter while the door is locked. Unlock opens the path into Night Shift.  
 **Audio direction:** Near-silence — faint sustained tones, sparse unresolved two-note fragments, long rests; low HVAC / thin ballast; rare distant metal settle. Duck music slightly at the Polaroid. No stings, whispers, footsteps, or crash references.
 
@@ -388,7 +352,7 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **Primary event (004.2):** No following footsteps (that cadence belongs to The Ward). Past the lounge, the floor lamp dies beside the empty chair; a soft settle marks that someone was just there. Early lighting is warm/domestic; the deeper hall cools and thins. Sound-off players still get lamp / chair / hush captions.
 
-**Dialogue (sparse):** “Someone left a cup by the sink.” / “They kept it almost like a living room.” / “The lamp is going out.” / “That chair is still warm.” / “Colder back here.” / “Just the exit light now.” Never name a person, diagnose grief, or claim a haunting.
+**Dialogue (Revision 002):** Two brief one-shot thoughts: **“This floor feels different.”** early and **“Much colder back here.”** in the later hall. The lamp, empty chair, and hush remain nonverbal. Never name a person, diagnose grief, or claim a haunting.
 
 **Pacing:** No mandatory backtrack, QTEs, jumpscares, or chase. Forward path stays open.
 
@@ -459,5 +423,6 @@ Do not delete or reorder chapters in code based on this table alone.
 | 2026-11 | **Records revision:** Polaroid two-beat dialogue; sparse near-silence score; key-fob card-reader exit; Office softlock prevention (fob required to leave). |
 | 2026-11 | **Records polish:** Polaroid becomes inspect-only (refusal in panel); ambient “A Polaroid?” retained; exit door rebuilt as framed leaf; aisle drawers timed later. |
 | 2026-11 | **Composure prototype:** Quiet composure meter (0–100); stress from uncanny beats; cigarettes (CONSUMABLE · COMPOSURE, restore 25) hidden in Corridor / Office / Records. No fail state — empty composure only thickens fog/vignette/audio. |
+| 2026-11 | **Dialogue Revision 002:** L01–L04: 3 / 1 / 1 optional thought + photo inspect / 2. All subtitles are brief one-shots; puzzles and accessibility instructions remain independent. |
 | 2026-11 | **Composure Survival Balance Pass:** Max/start 100; cigarette restore 40; one pack→one cig per chapter (all six mains); persist unused cigs; block use at full; chapter damage budgets + one-shot story flags; Overwhelmed soft retry; debug presets; no time/movement drain. |
 | 2026-11 | **Psychological Survival System v2 (L01–L03):** Stages; STEADY (cascade/latch/dart); game over at 0; checkpoints; cig restore 40; L04–L06 damage gated; office +5 anomaly reserved/disabled. |

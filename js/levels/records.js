@@ -356,7 +356,7 @@ export function createRecords(scene) {
       object: photo,
       radius: 4.8,
       title: 'PHOTOGRAPH',
-      body: 'No. I won\'t look. I can\'t.',
+      body: 'No.',
     },
     cigaretteInteractable('cigarette-records', cigarette),
     {
