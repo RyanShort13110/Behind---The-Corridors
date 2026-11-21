@@ -28,8 +28,14 @@ export function createNightShift(scene) {
     upholstery: new THREE.MeshStandardMaterial({ color: 0x4a4038, roughness: 0.97 }),
     upholstery2: new THREE.MeshStandardMaterial({ color: 0x5c5348, roughness: 0.98 }),
     metal: new THREE.MeshStandardMaterial({ color: 0x6a6660, roughness: 0.67, metalness: 0.24 }),
+    darkMetal: new THREE.MeshStandardMaterial({ color: 0x3a3834, roughness: 0.52, metalness: 0.58 }),
+    doorFace: new THREE.MeshStandardMaterial({ color: 0x5c4e42, roughness: 0.88 }),
+    doorInset: new THREE.MeshStandardMaterial({ color: 0x4a4038, roughness: 0.92 }),
     appliance: new THREE.MeshStandardMaterial({ color: 0x9a968e, roughness: 0.42, metalness: 0.38 }),
     dark: new THREE.MeshStandardMaterial({ color: 0x241f1a, roughness: 0.85 }),
+    exitLite: new THREE.MeshStandardMaterial({
+      color: 0xc8b898, emissive: 0xa88858, emissiveIntensity: 0.55, roughness: 0.55,
+    }),
     ceramic: new THREE.MeshStandardMaterial({ color: 0xc9bda8, roughness: 0.77 }),
     fabric: new THREE.MeshStandardMaterial({ color: 0x3d4a5c, roughness: 0.92 }),
     paper: new THREE.MeshStandardMaterial({ color: 0xc8c0b0, roughness: 0.95 }),
@@ -69,7 +75,10 @@ export function createNightShift(scene) {
   add(11.4, 0.16, 82, 0, 3.35, -33.5, mat.ceiling);
   add(0.15, 3.44, 82, -5.7, 1.66, -33.5, mat.wall);
   add(0.15, 3.44, 82, 5.7, 1.66, -33.5, mat.wall);
-  add(11.4, 3.45, 0.15, 0, 1.7, -71.5, mat.wallDarker);
+  // End wall leaves a doorway cutout for the exit bay (filled below).
+  add(4.4, 3.45, 0.18, -3.5, 1.7, -71.5, mat.wallDarker);
+  add(4.4, 3.45, 0.18, 3.5, 1.7, -71.5, mat.wallDarker);
+  add(2.7, 0.55, 0.18, 0, 3.15, -71.5, mat.wallDarker);
   add(0.12, 0.3, 82, -5.58, 0.17, -33.5, mat.baseboard);
   add(0.12, 0.3, 82, 5.58, 0.17, -33.5, mat.baseboard);
   // Open threshold from Records; no second elevator.
@@ -229,18 +238,72 @@ export function createNightShift(scene) {
   add(0.09, 1.35, 2.1, 5.57, 1.72, -14.4, mat.dark);
   add(0.04, 1.07, 1.80, 5.51, 1.72, -14.4, mat.glass);
 
-  // Far door stands open a fraction — not a puzzle.
-  add(0.15, 2.89, 0.15, -1.27, 1.44, -68.8, mat.metal);
-  add(0.15, 2.89, 0.15, 1.27, 1.44, -68.8, mat.metal);
-  add(2.67, 0.15, 0.14, 0, 2.93, -68.8, mat.metal);
-  add(0.67, 2.70, 0.095, -0.91, 1.35, -68.68, mat.wood);
-  add(0.50, 2.70, 0.085, 1.04, 1.35, -68.98, mat.wood);
+  // Far exit: framed institutional double doors, ajar a fraction — not a puzzle.
+  const doorZ = -68.85;
+  // Short vestibule so the gap reads as continuing space, not a black portal.
+  add(2.55, 0.14, 2.55, 0, -0.02, -70.15, mat.floor);
+  add(2.55, 0.12, 2.55, 0, 3.18, -70.15, mat.ceiling);
+  add(0.14, 3.2, 2.55, -1.35, 1.55, -70.15, mat.wallDarker);
+  add(0.14, 3.2, 2.55, 1.35, 1.55, -70.15, mat.wallDarker);
+  add(2.7, 3.2, 0.14, 0, 1.55, -71.35, mat.dark);
+
+  const exitBay = new THREE.Group();
+  exitBay.name = 'Night Shift exit doors';
+  exitBay.position.set(0, 0, doorZ);
+  world.add(exitBay);
+  // Deep metal frame set into the bay.
+  add(0.20, 2.95, 0.32, -1.28, 1.48, 0, mat.darkMetal, exitBay);
+  add(0.20, 2.95, 0.32, 1.28, 1.48, 0, mat.darkMetal, exitBay);
+  add(2.76, 0.18, 0.32, 0, 3.02, 0, mat.darkMetal, exitBay);
+  add(2.56, 0.07, 0.34, 0, 0.04, 0.02, mat.darkMetal, exitBay);
+  // Door-stop lip on the corridor face.
+  add(0.045, 2.78, 0.05, -1.14, 1.42, 0.12, mat.metal, exitBay);
+  add(0.045, 2.78, 0.05, 1.14, 1.42, 0.12, mat.metal, exitBay);
+  add(2.32, 0.045, 0.05, 0, 2.88, 0.12, mat.metal, exitBay);
+
+  const leafL = new THREE.Group();
+  leafL.name = 'Night exit leaf L';
+  leafL.position.set(-1.10, 0, 0.05);
+  leafL.rotation.y = 0.28;
+  exitBay.add(leafL);
+  add(1.12, 2.72, 0.09, 0.56, 1.38, 0, mat.doorFace, leafL);
+  add(0.78, 0.95, 0.025, 0.56, 2.05, 0.055, mat.doorInset, leafL);
+  add(0.78, 0.95, 0.025, 0.56, 0.78, 0.055, mat.doorInset, leafL);
+  add(0.52, 0.62, 0.02, 0.56, 2.08, 0.07, mat.glass, leafL);
+  add(0.92, 0.08, 0.035, 0.56, 1.40, 0.06, mat.darkMetal, leafL);
+  add(0.98, 0.22, 0.02, 0.56, 0.22, 0.055, mat.darkMetal, leafL); // kick plate
+  for (const hy of [0.48, 1.38, 2.28]) {
+    add(0.045, 0.14, 0.06, 0.02, hy, 0.01, mat.darkMetal, leafL);
+  }
+  add(0.045, 0.36, 0.04, 1.00, 1.22, 0.08, mat.darkMetal, leafL);
+  add(0.13, 0.04, 0.04, 1.08, 1.22, 0.10, mat.darkMetal, leafL);
+
+  const leafR = new THREE.Group();
+  leafR.name = 'Night exit leaf R';
+  leafR.position.set(1.10, 0, 0.05);
+  leafR.rotation.y = -0.42;
+  exitBay.add(leafR);
+  add(1.12, 2.72, 0.09, -0.56, 1.38, 0, mat.doorFace, leafR);
+  add(0.78, 0.95, 0.025, -0.56, 2.05, 0.055, mat.doorInset, leafR);
+  add(0.78, 0.95, 0.025, -0.56, 0.78, 0.055, mat.doorInset, leafR);
+  add(0.52, 0.62, 0.02, -0.56, 2.08, 0.07, mat.glass, leafR);
+  add(0.92, 0.08, 0.035, -0.56, 1.40, 0.06, mat.darkMetal, leafR);
+  add(0.98, 0.22, 0.02, -0.56, 0.22, 0.055, mat.darkMetal, leafR);
+  for (const hy of [0.48, 1.38, 2.28]) {
+    add(0.045, 0.14, 0.06, -0.02, hy, 0.01, mat.darkMetal, leafR);
+  }
+  add(0.045, 0.36, 0.04, -1.00, 1.22, 0.08, mat.darkMetal, leafR);
+  add(0.13, 0.04, 0.04, -1.08, 1.22, 0.10, mat.darkMetal, leafR);
+
+  // Wall-mounted exit light on the header (not a floating orphan).
+  add(0.62, 0.16, 0.20, 0, 3.22, 0.14, mat.exitLite, exitBay);
+  add(0.52, 0.04, 0.06, 0, 3.14, 0.24, mat.darkMetal, exitBay);
   const doorGlow = new THREE.PointLight(0xc4b090, 1.15, 4.5, 2);
-  doorGlow.position.set(0, 2.5, -68.4);
+  doorGlow.position.set(0, 3.15, doorZ + 0.35);
   world.add(doorGlow);
 
   // Early fixtures warmer; deeper hall starts cooler.
-  for (const z of [-4, -14, -24, -35, -46, -57, -68]) {
+  for (const z of [-4, -14, -24, -35, -46, -57, -64]) {
     const early = z >= -24;
     const material = early
       ? ((z === -14 || z === -24) ? mat.tube.clone() : mat.tube)

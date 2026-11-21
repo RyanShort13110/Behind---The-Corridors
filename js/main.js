@@ -1437,7 +1437,7 @@ async function enterNightShift() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createNightShift } = await import('./levels/night.js?v=night-absence-6');
+    const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
     module = createNightShift(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1622,7 +1622,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createRecords } = await import('./levels/records.js?v=fob-reach-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=night-absence-6');
+      const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
       const { createThreshold } = await import('./levels/threshold.js');
