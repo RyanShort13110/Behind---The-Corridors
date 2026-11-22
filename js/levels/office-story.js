@@ -83,11 +83,10 @@ export function createOfficeStory() {
         state.secondApproachStarted = true;
       }
       // One-shot empty seat while the glass room is ahead on the second approach.
+      // Level trigger (not edge-only) so a fast scroll cannot skip the arm.
       if (state.secondApproachStarted
           && !state.emptySeatTriggered
-          && current >= OFFICE_EMPTY_SEAT_PROGRESS
-          && previous < OFFICE_EMPTY_SEAT_PROGRESS
-          && current > previous) {
+          && current >= OFFICE_EMPTY_SEAT_PROGRESS) {
         state.emptySeatTriggered = true;
       }
       // Records exit needs the fob — never complete Office without it.

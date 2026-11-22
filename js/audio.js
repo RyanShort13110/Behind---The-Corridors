@@ -1158,26 +1158,27 @@ export function createAudioDirector() {
     }, 90);
   }
 
-  /** Empty-seat scrape + low uneasy undertone — spooky, not a sting. */
+  /** Empty-seat scrape — midrange furniture drag (audible on laptop/phone speakers). */
   function playOfficeChairScrape() {
     if (!enabled || !ctx) return;
-    if (ctx.state === 'suspended') ctx.resume?.();
-    const pan = 0.52;
-    // Wood legs dragging on tile — louder and longer so it reads on speakers.
-    playNoiseBurst({ duration: 0.55, band: 340, q: 0.45, level: 0.095, pan });
-    playNoiseBurst({ duration: 0.38, band: 580, q: 0.75, level: 0.055, pan: pan + 0.06 });
-    // Low uneasy body under the scrape.
-    playTone({ freq: 52, duration: 1.05, level: 0.06, type: 'sine', pan });
-    playTone({ freq: 78, freq2: 83, duration: 0.9, level: 0.038, type: 'triangle', pan: pan - 0.04 });
+    resume();
+    const pan = 0.55;
+    // Hard scrape in the 400–1100 Hz band — sub-100 Hz tones are inaudible on
+    // most laptop/phone speakers, which is why earlier passes felt silent.
+    playNoiseBurst({ duration: 0.48, band: 920, q: 0.65, level: 0.14, pan });
+    playNoiseBurst({ duration: 0.36, band: 480, q: 0.5, level: 0.11, pan: pan - 0.06 });
+    playTone({ freq: 220, freq2: 168, duration: 0.42, level: 0.055, type: 'triangle', pan });
+    playTone({ freq: 155, duration: 0.55, level: 0.04, type: 'sine', pan: pan - 0.04 });
+    markSfx(0.75);
     window.setTimeout(() => {
       if (!enabled || !ctx) return;
-      playNoiseBurst({ duration: 0.3, band: 220, q: 0.55, level: 0.06, pan });
-      playTone({ freq: 64, duration: 0.55, level: 0.03, type: 'sine', pan });
-    }, 90);
+      playNoiseBurst({ duration: 0.32, band: 760, q: 0.85, level: 0.09, pan });
+      playTone({ freq: 190, duration: 0.28, level: 0.032, type: 'triangle', pan });
+    }, 100);
     window.setTimeout(() => {
       if (!enabled || !ctx) return;
-      playNoiseBurst({ duration: 0.22, band: 480, q: 1.0, level: 0.04, pan: pan + 0.08 });
-    }, 240);
+      playNoiseBurst({ duration: 0.2, band: 1100, q: 1.1, level: 0.055, pan: pan + 0.08 });
+    }, 260);
   }
 
   /** Deep structural groan for Threshold rupture — restrained, no sting. */
