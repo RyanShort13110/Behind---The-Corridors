@@ -113,8 +113,9 @@ export function createRecords(scene) {
   for (let i = 0; i < 3; i++) {
     box(0.38, 0.027, 0.26, -2.42 + i * 0.43, 1.10 + i * 0.018, -4.75, mat.paper);
   }
-  box(1.20, 0.72, 0.04, -5.08, 2.06, -7.8, mat.wood);
-  box(0.83, 0.42, 0.048, -5.045, 2.06, -7.8, mat.paper);
+  // Flat against the left wall (thin in X); not a slab poking into the aisle.
+  box(0.04, 0.72, 1.20, -5.10, 2.06, -7.8, mat.wood);
+  box(0.05, 0.42, 0.83, -5.07, 2.06, -7.8, mat.paper);
   // This notice is faded beyond legibility by design, not a story clue.
 
   // Cabinet stacks: repeating rows of file drawers with inset fronts.
