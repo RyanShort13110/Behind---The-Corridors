@@ -3,7 +3,7 @@ import { createCorridor } from './scene.js?v=exit-deinteract-1';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
-import { createAudioDirector } from './audio.js?v=exit-deinteract-1';
+import { createAudioDirector } from './audio.js?v=steady-expand-1';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
 import { createLookControls } from './look.js';
@@ -15,11 +15,11 @@ import {
   CIGARETTE_TOOLTIP, CIGARETTE_FLAVOR, cigaretteEffectLine, fillCopyWithEffect,
   CIGARETTE_LABEL, COMPOSURE_CONFIG, STEADY_ENCOUNTERS,
   composureStage,
-} from './composure.js';
+} from './composure.js?v=steady-expand-1';
 import { createSteadySystem } from './steady.js';
 import { createCigaretteFx } from './cigarette-fx.js?v=cig-breath-1';
 import { createCheckpointStore } from './checkpoint.js';
-import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js';
+import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js?v=steady-expand-1';
 import { officeCameraPose } from './levels/office-route.js';
 import {
   createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z,
@@ -27,8 +27,8 @@ import {
 } from './levels/records-story.js?v=fob-reach-1';
 import { recordsCameraPose } from './levels/records-route.js';
 import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS } from './levels/night-story.js';
-import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js';
-import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js';
+import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js?v=steady-expand-1';
+import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js?v=steady-expand-1';
 import { unseenCameraPose } from './levels/unseen-route.js';
 import {
   createMemoryWhiteStory, createMemoryBlackStory,
@@ -758,7 +758,7 @@ function seedCompletedComposureHits() {
   } else if (chapterId === 'office') {
     mark(officeStory.state.phoneUnanswered, 'office-phone-unanswered');
     mark(officeStory.state.phoneSilence, 'office-phone-silence');
-    mark(officeStory.state.soundTriggered, 'office-latch');
+    mark(officeStory.state.emptySeatTriggered, 'office-empty-seat');
     mark(officeStory.state.secondApproachAnomaly, 'office-second-anomaly');
   } else if (chapterId === 'records') {
     mark(recordsStory.state.polaroidLine >= 1, 'records-polaroid-proximity');
@@ -770,23 +770,10 @@ function seedCompletedComposureHits() {
     mark(hospitalReverseStory.state.clankDone, 'ward-clank');
     mark(hospitalReverseStory.state.cryingDone, 'ward-crying');
     mark(hospitalReverseStory.state.proximityHit || hospitalReverseStory.state.proximitySkipped, 'ward-proximity');
-  } else if (COMPOSURE_CONFIG.enableLateChapterDamage) {
-    if (chapterId === 'night') {
-      mark(nightStory.state.absenceArmed || nightStory.state.footstepHeard, 'night-first-step');
-      mark(nightStory.state.lampOut || nightStory.state.cadenceRisen, 'night-cadence');
-      mark(nightStory.state.hush || nightStory.state.footstepsStopped, 'night-stop');
-    } else if (chapterId === 'threshold') {
-      mark(thresholdStory.state.sawFirstDamage, 'threshold-first-damage');
-      mark(thresholdStory.state.reachedOrganic, 'threshold-organic');
-      mark(thresholdStory.state.reachedRedHall, 'threshold-red-hall');
-      mark(thresholdStory.state.nightmareCleared, 'threshold-restore');
-    } else if (chapterId === 'unseen') {
-      mark(unseenStory.state.reachedBarrier, 'unseen-barrier');
-      mark(unseenStory.state.cabinetOpen, 'unseen-cabinet');
-      mark(unseenStory.state.roarHeard, 'unseen-roar-presence');
-      mark(unseenStory.state.darkness, 'unseen-blackout');
-      mark(unseenStory.state.finalClick, 'unseen-final-click');
-    }
+  } else if (chapterId === 'threshold') {
+    mark(thresholdStory.state.ruptureArmed, 'threshold-rupture');
+  } else if (chapterId === 'unseen') {
+    mark(unseenStory.state.darkness, 'unseen-blackout');
   }
 }
 
@@ -810,6 +797,8 @@ function captureCheckpointSnapshot() {
     office: { ...officeStory.state },
     records: { ...recordsStory.state },
     hospital: { ...hospitalReverseStory.state },
+    threshold: { ...thresholdStory.state },
+    unseen: { ...unseenStory.state },
   };
 }
 
@@ -828,7 +817,7 @@ function applyInventorySnapshot(items = []) {
 }
 
 function saveChapterStartCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'threshold', 'unseen'].includes(chapterId)) return;
   for (const key of [...savedCheckpointKeys]) {
     if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
   }
@@ -838,7 +827,7 @@ function saveChapterStartCheckpoint() {
 const savedCheckpointKeys = new Set();
 
 function saveSafeCheckpoint(reason = '') {
-  if (!['corridor', 'office', 'records', 'hospital-reverse'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'threshold', 'unseen'].includes(chapterId)) return;
   if (gameOverActive || transitioning || steady?.isActive) return;
   if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
   checkpoints.saveLatest(captureCheckpointSnapshot());
@@ -849,14 +838,17 @@ function saveSafeCheckpoint(reason = '') {
 }
 
 function maybeAutoCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'threshold', 'unseen'].includes(chapterId)) return;
   if (chapterId === 'corridor' && story.state.reachedDeadEnd
       && !composureHits.has('corridor-cascade')) {
     saveSafeCheckpoint('corridor-dead-end');
   } else if (chapterId === 'office' && officeStory.state.hasBacktracked
-      && !officeStory.state.soundTriggered
-      && !composureHits.has('office-latch')) {
+      && !officeStory.state.soundTriggered) {
     saveSafeCheckpoint('office-return');
+  } else if (chapterId === 'office' && officeStory.state.secondApproachStarted
+      && !officeStory.state.emptySeatTriggered
+      && !composureHits.has('office-empty-seat')) {
+    saveSafeCheckpoint('office-pre-empty-seat');
   } else if (chapterId === 'records' && recordsStory.state.drawersOpeningNoticed
       && !recordsStory.state.shadowDartPlay
       && !recordsStory.state.shadowDartDone
@@ -865,6 +857,14 @@ function maybeAutoCheckpoint() {
   } else if (chapterId === 'hospital-reverse' && hospitalReverseStory.state.endDoorTried
       && !hospitalReverseStory.state.clankTriggered) {
     saveSafeCheckpoint('ward-pre-reverse');
+  } else if (chapterId === 'threshold' && thresholdStory.state.reachedOrganic
+      && !thresholdStory.state.ruptureArmed
+      && !composureHits.has('threshold-rupture')) {
+    saveSafeCheckpoint('threshold-pre-rupture');
+  } else if (chapterId === 'unseen' && unseenStory.state.ceilingRattle
+      && !unseenStory.state.darkness
+      && !composureHits.has('unseen-blackout')) {
+    saveSafeCheckpoint('unseen-pre-blackout');
   }
 }
 
@@ -899,6 +899,12 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       director?.reset();
       cancelWardClankPeak();
       audio.cancelWardDelayedSfx?.();
+    } else if (target === 'threshold') {
+      Object.assign(thresholdStory.state, snapshot.threshold || {});
+      director?.reset();
+    } else if (target === 'unseen') {
+      Object.assign(unseenStory.state, snapshot.unseen || {});
+      director?.reset();
     }
     composureHits.clear();
     for (const id of snapshot.composureHits || []) composureHits.add(id);
@@ -1338,7 +1344,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=prop-spread-1');
+    const { createOffice } = await import('./levels/office.js?v=steady-expand-1');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -1484,7 +1490,7 @@ async function enterThreshold() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createThreshold } = await import('./levels/threshold.js');
+    const { createThreshold } = await import('./levels/threshold.js?v=steady-expand-1');
     module = createThreshold(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1531,7 +1537,7 @@ async function enterUnseen() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createUnseen } = await import('./levels/unseen.js');
+    const { createUnseen } = await import('./levels/unseen.js?v=steady-expand-1');
     module = createUnseen(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1615,7 +1621,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=prop-spread-1');
+      const { createOffice } = await import('./levels/office.js?v=steady-expand-1');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
@@ -1625,7 +1631,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
-      const { createThreshold } = await import('./levels/threshold.js');
+      const { createThreshold } = await import('./levels/threshold.js?v=steady-expand-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
       const { createMemoryWhite } = await import('./levels/memory-white.js');
@@ -1642,7 +1648,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else {
-      const { createUnseen } = await import('./levels/unseen.js');
+      const { createUnseen } = await import('./levels/unseen.js?v=steady-expand-1');
       next.add('unseen', createUnseen(scene));
     }
     next.activate(target);
@@ -2070,6 +2076,9 @@ function frame(now) {
       if (!previouslyTriggered && officeStory.state.soundTriggered) {
         audio.playOfficeLatch();
       }
+      if (director.get('office')?.consumeEmptySeatScrape?.()) {
+        audio.playOfficeChairScrape?.();
+      }
     } else if (chapterId === 'records') {
       recordsStory.observe(previousDisplayed, p, dt);
     } else if (chapterId === 'night') {
@@ -2085,6 +2094,9 @@ function frame(now) {
       }
     } else if (chapterId === 'threshold') {
       thresholdStory.observe(previousDisplayed, p);
+      if (director.get('threshold')?.consumeRuptureStarted?.()) {
+        audio.playThresholdRupture?.();
+      }
     } else if (isMemoryChapter()) {
       const mem = memoryStoryFor();
       const wasExitReady = mem.state.exitReady;
@@ -2251,12 +2263,25 @@ function frame(now) {
     maybeAutoCheckpoint();
 
     // STEADY encounters — one attempt each; never re-fire after resolve.
-    if (chapterId === 'office' && officeStory.state.soundTriggered) {
-      beginSteadyEncounter('office-latch');
+    if (chapterId === 'office' && officeStory.state.emptySeatSteadyReady) {
+      beginSteadyEncounter('office-empty-seat');
     }
     // Arm STEADY only once the dart streak is actually on-screen.
     if (chapterId === 'records' && recordsStory.state.shadowDartSteadyReady) {
       beginSteadyEncounter('records-dart');
+    }
+    if (chapterId === 'threshold' && thresholdStory.state.ruptureSteadyReady) {
+      beginSteadyEncounter('threshold-rupture');
+    }
+    if (chapterId === 'unseen' && unseenStory.state.blackoutSteadyReady
+        && !composureHits.has('unseen-blackout')) {
+      if (beginSteadyEncounter('unseen-blackout')) {
+        audio.playUnseenBlackoutPeak?.();
+        unseenStory.state.blackoutSteadyReady = false;
+      } else {
+        composureHitOnce('unseen-blackout');
+        unseenStory.state.blackoutSteadyReady = false;
+      }
     }
     if (isHospitalReverse()
         && hospitalReverseStory.state.clankDone

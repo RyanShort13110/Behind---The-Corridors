@@ -364,8 +364,12 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   // Meeting chairs are placed on both long sides. Low seats, upright backs,
   // and subtle metal bases keep them legible through the frosted glass.
   // Their backs face away from the table, toward the glass or exterior wall.
+  // Near-left chair is a live group for the empty-seat beat (aisle-visible).
+  const EMPTY_SEAT_X = 3.17;
+  const EMPTY_SEAT_Z = -38.54;
   for (const z of [-42.00, -40.27, -38.54]) {
     for (const side of [-1, 1]) {
+      if (side === -1 && z === EMPTY_SEAT_Z) continue;
       const x = side < 0 ? 3.17 : 5.55;
       add(0.57, 0.13, 0.58, x, 0.53, z, materials.fabric); // seat
       add(0.13, 0.68, 0.64, x + side * 0.27, 1.01, z, materials.fabric); // back
@@ -374,6 +378,17 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       add(0.08, 0.055, 0.48, x, 0.075, z, materials.metal);
     }
   }
+  const emptySeat = new THREE.Group();
+  emptySeat.name = 'Conference empty seat';
+  emptySeat.position.set(EMPTY_SEAT_X, 0, EMPTY_SEAT_Z);
+  world.add(emptySeat);
+  add(0.57, 0.13, 0.58, 0, 0.53, 0, materials.fabric, emptySeat);
+  add(0.13, 0.68, 0.64, -0.27, 1.01, 0, materials.fabric, emptySeat);
+  add(0.065, 0.40, 0.065, 0, 0.26, 0, materials.metal, emptySeat);
+  add(0.48, 0.055, 0.09, 0, 0.075, 0, materials.metal, emptySeat);
+  add(0.08, 0.055, 0.48, 0, 0.075, 0, materials.metal, emptySeat);
+  let emptySeatT = -1;
+  let emptySeatScrapePending = false;
   // A chair at each end completes the table layout. The ends are kept well
   // inside the room, not intersecting the glass wall or the table itself.
   for (const [z, outward] of [[-36.72, 1], [-43.82, -1]]) {
@@ -394,7 +409,8 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   for (const z of [-42.1, -38.4]) {
     add(0.90, 0.05, 1.30, roomX, 3.66, z, materials.diffuse);
   }
-  const meetingLight = new THREE.PointLight(0xa1b8b2, 1.15, 7.0, 2);
+  const meetingLightBase = 1.15;
+  const meetingLight = new THREE.PointLight(0xa1b8b2, meetingLightBase, 7.0, 2);
   meetingLight.position.set(roomX, 3.18, roomZ);
   world.add(meetingLight);
 
@@ -574,6 +590,12 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
     keyFob,
     keypad,
     interactables,
+    /** True once when the empty-seat scrape should play. */
+    consumeEmptySeatScrape() {
+      if (!emptySeatScrapePending) return false;
+      emptySeatScrapePending = false;
+      return true;
+    },
     update(progress, state, dt, reduced) {
       const doorAngle = (state.keypadUnlocked || state.serviceDoorOpen) ? -1.46 : 0;
       serviceDoor.rotation.y = follow(serviceDoor.rotation.y, doorAngle, dt, reduced);
@@ -584,6 +606,29 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
         ambient.intensity = 0.9 - dip * 0.18;
       } else {
         ambient.intensity = 0.9;
+      }
+
+      // Empty seat: one chair slides back from the table; lights dip with it.
+      if (state.emptySeatTriggered && emptySeatT < 0) {
+        emptySeatT = 0;
+        emptySeatScrapePending = true;
+      }
+      if (emptySeatT >= 0) {
+        emptySeatT += Math.max(0, dt);
+        const slideDur = reduced ? 0.01 : 0.58;
+        const u = Math.min(1, emptySeatT / slideDur);
+        const s = u * u * (3 - 2 * u);
+        // Away from table toward the glass — stay inside the room volume.
+        emptySeat.position.x = EMPTY_SEAT_X - 0.48 * s;
+        emptySeat.position.z = EMPTY_SEAT_Z + 0.12 * s;
+        emptySeat.rotation.y = -0.22 * s;
+        const dip = Math.sin(Math.min(1, emptySeatT / 0.42) * Math.PI);
+        meetingLight.intensity = meetingLightBase * (1 - 0.52 * dip);
+        if (!state.emptySeatSteadyReady && emptySeatT >= (reduced ? 0 : 0.06)) {
+          state.emptySeatSteadyReady = true;
+        }
+      } else {
+        meetingLight.intensity = meetingLightBase;
       }
       // The original far-end door never opens. The new side passage is the exit.
     },
@@ -596,6 +641,11 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       if (keyFob.userData) keyFob.userData.taken = false;
       cigarette.visible = true;
       cigarette.userData.taken = false;
+      emptySeatT = -1;
+      emptySeatScrapePending = false;
+      emptySeat.position.set(EMPTY_SEAT_X, 0, EMPTY_SEAT_Z);
+      emptySeat.rotation.y = 0;
+      meetingLight.intensity = meetingLightBase;
     },
     dispose() {
       batchesToDispose.forEach(mesh => mesh.dispose());

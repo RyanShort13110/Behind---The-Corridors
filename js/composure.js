@@ -18,11 +18,12 @@ export const COMPOSURE_CONFIG = Object.freeze({
     empty: { min: 0, max: 1, id: 'empty' },
   }),
   /**
-   * L04–L06 damage is provisional and disabled until the survival pass
-   * expands past Records. Keep IDs for future wiring.
+   * Night keeps atmospheric-only composure (no hits). Threshold / Unseen
+   * STEADY encounters are wired explicitly in main — do not flip this on
+   * to dump the old provisional unavoidable tables.
    */
   enableLateChapterDamage: false,
-  /** Office +5 anomaly reserved until creatively approved. */
+  /** Office ambient light dip — no composure tax. */
   enableOfficeSecondAnomaly: false,
 });
 
@@ -53,41 +54,43 @@ export function fillCopyWithEffect(el, flavor, effect, effectClass = 'copy-effec
 }
 
 /**
- * One-shot hits for L01–L03. STEADY encounters list max damage only;
+ * One-shot hits. STEADY encounters list max damage only;
  * actual damage is scaled by the timing result.
- *
- * Budgets: Corridor 40 · Office 45 (40 + reserved 5) · Records 50
+ * Atmospheric beats are 0 — major impossible events use STEADY or a small tax.
  */
 export const COMPOSURE_HITS = Object.freeze({
-  'corridor-breath': 10,
-  'corridor-altered-door': 12,
+  'corridor-breath': 0,
+  'corridor-altered-door': 4,
   'corridor-cascade': 18,
-  'office-phone-unanswered': 10,
-  'office-phone-silence': 12,
-  'office-latch': 18,
-  'office-second-anomaly': 5,
-  'records-polaroid-proximity': 6,
-  'records-drawers-open': 10,
+  'office-phone-unanswered': 0,
+  'office-phone-silence': 0,
+  'office-latch': 0, // retired — latch remains audio/puzzle only
+  'office-empty-seat': 18,
+  'office-second-anomaly': 0,
+  'records-polaroid-proximity': 0,
+  'records-drawers-open': 0,
   'records-dart': 20,
-  'records-peek': 14,
+  'records-peek': 4,
   // DEV — The Ward / hospital-reverse (squeak/proximity amounts set dynamically)
   'ward-squeak': 12,
   'ward-clank': 0, // atmospheric scare — no composure damage
   'ward-crying': 22,
   'ward-proximity': 16,
-  // Provisional — gated by enableLateChapterDamage (absence beat, not pursuit)
-  'night-first-step': 10,
-  'night-cadence': 12,
-  'night-stop': 10,
-  'threshold-first-damage': 12,
-  'threshold-organic': 18,
-  'threshold-red-hall': 22,
-  'threshold-restore': 8,
-  'unseen-barrier': 12,
-  'unseen-cabinet': 8,
-  'unseen-roar-presence': 20,
-  'unseen-blackout': 15,
-  'unseen-final-click': 10,
+  // Night: emotional lull — never tax composure (keep enableLateChapterDamage false)
+  'night-first-step': 0,
+  'night-cadence': 0,
+  'night-stop': 0,
+  // Threshold / Unseen: STEADY owns the major hit; legacy IDs stay 0
+  'threshold-first-damage': 0,
+  'threshold-organic': 0,
+  'threshold-rupture': 18,
+  'threshold-red-hall': 0,
+  'threshold-restore': 0,
+  'unseen-barrier': 0,
+  'unseen-cabinet': 0,
+  'unseen-roar-presence': 0,
+  'unseen-blackout': 22,
+  'unseen-final-click': 0,
 });
 
 /** Encounters that open a STEADY timing window instead of full unavoidable hits. */
@@ -98,7 +101,7 @@ export const STEADY_ENCOUNTERS = Object.freeze({
     partialDamage: 9,
     tutorial: true,
   }),
-  'office-latch': Object.freeze({
+  'office-empty-seat': Object.freeze({
     maxDamage: 18,
     perfectDamage: 4,
     partialDamage: 9,
@@ -108,6 +111,18 @@ export const STEADY_ENCOUNTERS = Object.freeze({
     maxDamage: 20,
     perfectDamage: 4,
     partialDamage: 10,
+    tutorial: false,
+  }),
+  'threshold-rupture': Object.freeze({
+    maxDamage: 18,
+    perfectDamage: 4,
+    partialDamage: 9,
+    tutorial: false,
+  }),
+  'unseen-blackout': Object.freeze({
+    maxDamage: 22,
+    perfectDamage: 4,
+    partialDamage: 11,
     tutorial: false,
   }),
   'ward-crying': Object.freeze({

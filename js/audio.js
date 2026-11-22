@@ -1158,6 +1158,32 @@ export function createAudioDirector() {
     }, 90);
   }
 
+  /** Restrained chair scrape for the empty-seat beat — not a sting. */
+  function playOfficeChairScrape() {
+    if (!enabled || !ctx || ctx.state !== 'running') return;
+    playNoiseBurst({ duration: 0.28, band: 420, q: 0.55, level: 0.038, pan: 0.48 });
+    playTone({ freq: 140, duration: 0.22, level: 0.018, type: 'triangle', pan: 0.46 });
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.14, band: 280, q: 0.7, level: 0.022, pan: 0.5 });
+    }, 70);
+  }
+
+  /** Deep structural groan for Threshold rupture — restrained, no sting. */
+  function playThresholdRupture() {
+    if (!enabled || !ctx || ctx.state !== 'running') return;
+    playTone({ freq: 55, duration: 0.85, level: 0.045, type: 'sine', pan: -0.1 });
+    playTone({ freq: 78, duration: 0.7, level: 0.028, type: 'triangle', pan: 0.12 });
+    playNoiseBurst({ duration: 0.55, band: 90, q: 0.4, level: 0.03, pan: 0 });
+  }
+
+  /** Low-frequency presence swell for Unseen blackout peak. */
+  function playUnseenBlackoutPeak() {
+    if (!enabled || !ctx || ctx.state !== 'running') return;
+    playTone({ freq: 42, duration: 1.1, level: 0.05, type: 'sine', pan: 0 });
+    playTone({ freq: 63, duration: 0.9, level: 0.028, type: 'triangle', pan: 0.08 });
+    playNoiseBurst({ duration: 0.7, band: 70, q: 0.35, level: 0.032, pan: 0 });
+  }
+
   const RECORDS_PHRASES = [
     { notes: [196.0, 207.65], gaps: [2.8], rest: 11.5 },
     { notes: [174.61], gaps: [], rest: 14.0 },
@@ -2421,7 +2447,8 @@ export function createAudioDirector() {
     enterMemoryStaging, enterMemoryWhite, enterMemoryBlack, exitMemoryWhite, exitMemoryBlack,
     enterHospitalReverse,
     playMemoryDoorLeave,
-    playOfficeLatch, playNightStep, playInteract, playUnlock, playHallDoorCascade,
+    playOfficeLatch, playOfficeChairScrape, playThresholdRupture, playUnseenBlackoutPeak,
+    playNightStep, playInteract, playUnlock, playHallDoorCascade,
     playRecordsFobAccess,
     playWardSqueak, playWardClankWarn, playWardClank, playWardProximity,
     playWardDoorButton, playWardDoorFail, playWardDoorOpen,

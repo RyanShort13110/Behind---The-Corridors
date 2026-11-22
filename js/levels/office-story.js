@@ -12,6 +12,8 @@ export const OFFICE_REINVESTIGATE = 0.448;
 export const OFFICE_BRANCH_START = 0.71;
 export const OFFICE_BRANCH_END = 0.89;
 export const OFFICE_EXIT_PROGRESS = 0.875;
+/** Second approach: empty-seat STEADY while the conference room is ahead. */
+export const OFFICE_EMPTY_SEAT_PROGRESS = 0.66;
 
 /** Fresh 4-digit service code for each office playthrough. */
 export function rollOfficeKeypadCode() {
@@ -40,6 +42,9 @@ export function createOfficeStory() {
     phoneUnanswered: false,
     phoneSilence: false,
     secondApproachAnomaly: false,
+    // Empty-seat visual + STEADY (latch sound is separate; no latch QTE).
+    emptySeatTriggered: false,
+    emptySeatSteadyReady: false,
   };
 
   return {
@@ -76,6 +81,14 @@ export function createOfficeStory() {
           current >= OFFICE_REINVESTIGATE) {
         if (!state.secondApproachStarted) state.secondApproachAnomaly = true;
         state.secondApproachStarted = true;
+      }
+      // One-shot empty seat while the glass room is ahead on the second approach.
+      if (state.secondApproachStarted
+          && !state.emptySeatTriggered
+          && current >= OFFICE_EMPTY_SEAT_PROGRESS
+          && previous < OFFICE_EMPTY_SEAT_PROGRESS
+          && current > previous) {
+        state.emptySeatTriggered = true;
       }
       // Records exit needs the fob — never complete Office without it.
       if (state.secondApproachStarted && state.keypadUnlocked
