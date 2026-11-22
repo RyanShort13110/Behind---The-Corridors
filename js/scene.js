@@ -304,7 +304,7 @@ export function createCorridor(scene) {
       title: 'DOOR HANDLE',
       body: 'Locked.',
       lockedBody: 'Locked.',
-      unlockedBody: 'It opens. I can’t see inside.',
+      unlockedBody: 'Opens to nothingness.',
       requiresItem: 'brass-key',
       requiresItemLabel: 'BRASS KEY',
     },
