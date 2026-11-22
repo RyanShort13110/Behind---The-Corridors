@@ -1160,21 +1160,24 @@ export function createAudioDirector() {
 
   /** Empty-seat scrape + low uneasy undertone — spooky, not a sting. */
   function playOfficeChairScrape() {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || !ctx) return;
+    if (ctx.state === 'suspended') ctx.resume?.();
     const pan = 0.52;
-    // Wood legs dragging on tile — irregular, directional.
-    playNoiseBurst({ duration: 0.42, band: 380, q: 0.48, level: 0.052, pan });
-    playNoiseBurst({ duration: 0.28, band: 620, q: 0.85, level: 0.028, pan: pan + 0.06 });
+    // Wood legs dragging on tile — louder and longer so it reads on speakers.
+    playNoiseBurst({ duration: 0.55, band: 340, q: 0.45, level: 0.095, pan });
+    playNoiseBurst({ duration: 0.38, band: 580, q: 0.75, level: 0.055, pan: pan + 0.06 });
     // Low uneasy body under the scrape.
-    playTone({ freq: 58, duration: 0.85, level: 0.032, type: 'sine', pan });
-    playTone({ freq: 87, freq2: 91, duration: 0.7, level: 0.02, type: 'triangle', pan: pan - 0.04 });
+    playTone({ freq: 52, duration: 1.05, level: 0.06, type: 'sine', pan });
+    playTone({ freq: 78, freq2: 83, duration: 0.9, level: 0.038, type: 'triangle', pan: pan - 0.04 });
     window.setTimeout(() => {
-      playNoiseBurst({ duration: 0.22, band: 240, q: 0.6, level: 0.034, pan });
-      playTone({ freq: 72, duration: 0.45, level: 0.016, type: 'sine', pan });
-    }, 110);
+      if (!enabled || !ctx) return;
+      playNoiseBurst({ duration: 0.3, band: 220, q: 0.55, level: 0.06, pan });
+      playTone({ freq: 64, duration: 0.55, level: 0.03, type: 'sine', pan });
+    }, 90);
     window.setTimeout(() => {
-      playNoiseBurst({ duration: 0.16, band: 510, q: 1.1, level: 0.02, pan: pan + 0.08 });
-    }, 260);
+      if (!enabled || !ctx) return;
+      playNoiseBurst({ duration: 0.22, band: 480, q: 1.0, level: 0.04, pan: pan + 0.08 });
+    }, 240);
   }
 
   /** Deep structural groan for Threshold rupture — restrained, no sting. */

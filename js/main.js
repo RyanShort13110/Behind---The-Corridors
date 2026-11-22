@@ -3,7 +3,7 @@ import { createCorridor } from './scene.js?v=exit-deinteract-1';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
-import { createAudioDirector } from './audio.js?v=chair-spook-1';
+import { createAudioDirector } from './audio.js?v=chair-spook-2';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
 import { createLookControls } from './look.js';
@@ -1344,7 +1344,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=records-sign-2');
+    const { createOffice } = await import('./levels/office.js?v=chair-spook-2');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -1621,7 +1621,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=records-sign-2');
+      const { createOffice } = await import('./levels/office.js?v=chair-spook-2');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
@@ -2070,13 +2070,16 @@ function frame(now) {
     if (chapterId === 'corridor') story.observe(previousDisplayed, p);
     else if (chapterId === 'office') {
       const previouslyTriggered = officeStory.state.soundTriggered;
+      const wasEmptySeat = officeStory.state.emptySeatTriggered;
       officeStory.observe(previousDisplayed, p, dt);
       // A one-shot mechanical latch, never replayed at this progress value.
       // Even with sound disabled, the on-screen description fires normally.
       if (!previouslyTriggered && officeStory.state.soundTriggered) {
         audio.playOfficeLatch();
       }
-      if (director.get('office')?.consumeEmptySeatScrape?.()) {
+      // Fire with the story arm (same frame the chair starts) — not via a
+      // consume that ran before director.update armed the pending flag.
+      if (!wasEmptySeat && officeStory.state.emptySeatTriggered) {
         audio.playOfficeChairScrape?.();
       }
     } else if (chapterId === 'records') {

@@ -388,7 +388,6 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   add(0.48, 0.055, 0.09, 0, 0.075, 0, materials.metal, emptySeat);
   add(0.08, 0.055, 0.48, 0, 0.075, 0, materials.metal, emptySeat);
   let emptySeatT = -1;
-  let emptySeatScrapePending = false;
   // A chair at each end completes the table layout. The ends are kept well
   // inside the room, not intersecting the glass wall or the table itself.
   for (const [z, outward] of [[-36.72, 1], [-43.82, -1]]) {
@@ -601,12 +600,6 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
     keyFob,
     keypad,
     interactables,
-    /** True once when the empty-seat scrape should play. */
-    consumeEmptySeatScrape() {
-      if (!emptySeatScrapePending) return false;
-      emptySeatScrapePending = false;
-      return true;
-    },
     update(progress, state, dt, reduced) {
       const doorAngle = (state.keypadUnlocked || state.serviceDoorOpen) ? -1.46 : 0;
       serviceDoor.rotation.y = follow(serviceDoor.rotation.y, doorAngle, dt, reduced);
@@ -622,7 +615,6 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       // Empty seat: one chair slides back from the table; lights dip with it.
       if (state.emptySeatTriggered && emptySeatT < 0) {
         emptySeatT = 0;
-        emptySeatScrapePending = true;
       }
       if (emptySeatT >= 0) {
         emptySeatT += Math.max(0, dt);
@@ -653,7 +645,6 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       cigarette.visible = true;
       cigarette.userData.taken = false;
       emptySeatT = -1;
-      emptySeatScrapePending = false;
       emptySeat.position.set(EMPTY_SEAT_X, 0, EMPTY_SEAT_Z);
       emptySeat.rotation.y = 0;
       meetingLight.intensity = meetingLightBase;
