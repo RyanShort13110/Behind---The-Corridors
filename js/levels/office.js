@@ -465,23 +465,32 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   keypadHit.userData.inspectHitOnly = true;
   keypad.add(keypadHit);
 
-  // Small directional sign visible when approaching the junction.
+  // RECORDS ACCESS plaque on the aisle face of the alcove, under a small sconce.
   const passageCanvas = document.createElement('canvas');
-  passageCanvas.width = 512; passageCanvas.height = 128;
+  passageCanvas.width = 512; passageCanvas.height = 160;
   const passageCtx = passageCanvas.getContext('2d');
-  passageCtx.fillStyle = '#1e292b'; passageCtx.fillRect(0, 0, 512, 128);
-  passageCtx.fillStyle = '#a7b6b0';
-  passageCtx.font = '30px monospace'; passageCtx.textAlign = 'center';
-  passageCtx.fillText('RECORDS ACCESS', 256, 78);
+  passageCtx.fillStyle = '#3a4846';
+  passageCtx.fillRect(0, 0, 512, 160);
+  passageCtx.strokeStyle = '#9aaba4';
+  passageCtx.lineWidth = 8;
+  passageCtx.strokeRect(10, 10, 492, 140);
+  passageCtx.fillStyle = '#e8f2ec';
+  passageCtx.font = 'bold 44px monospace';
+  passageCtx.textAlign = 'center';
+  passageCtx.textBaseline = 'middle';
+  passageCtx.fillText('RECORDS ACCESS', 256, 82);
   const passageTexture = new THREE.CanvasTexture(passageCanvas);
   passageTexture.colorSpace = THREE.SRGBColorSpace;
   const passageMaterial = new THREE.MeshBasicMaterial({ map: passageTexture, side: THREE.DoubleSide });
-  const passageSign = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 0.27), passageMaterial);
+  const passageSign = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.30), passageMaterial);
   passageSign.rotation.y = -Math.PI / 2;
-  passageSign.position.set(2.108, 2.72, -33.67);
+  passageSign.position.set(2.105, 2.16, -34.12);
   world.add(passageSign);
-  const passageLight = new THREE.PointLight(0x899b91, 0.45, 3.2, 2);
-  passageLight.position.set(3.55, 2.85, -33.65);
+  // Wall sconce plate + emissive strip above the plaque.
+  add(0.05, 0.04, 0.46, 2.13, 2.40, -34.12, materials.metal);
+  add(0.03, 0.02, 0.36, 2.10, 2.37, -34.12, materials.diffuse);
+  const passageLight = new THREE.PointLight(0xd0e4da, 1.05, 2.8, 2);
+  passageLight.position.set(1.82, 2.38, -34.12);
   world.add(passageLight);
 
   // The far Records door is intentionally still LOCKED. The side passage
