@@ -423,9 +423,9 @@ export function createCorridor(scene) {
         );
       }
 
-      // Start as soon as the rear cabin is entered — while elevator doors are
-      // still open — so hallway swings read before the seal occludes the view.
-      if (story.enteredRearElevator && hallCascadeT < 0) {
+      // Start on approach to the rear cabin (before entry) so hallway swings
+      // read while the elevator mouth is still open and the corridor is visible.
+      if (story.hallCascadeArmed && hallCascadeT < 0) {
         hallCascadeT = 0;
         hallCascadeStarted = true;
       }

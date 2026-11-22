@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { createCorridor } from './scene.js';
+import { createCorridor } from './scene.js?v=cascade-early-1';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
-import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js';
+import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
 import { createAudioDirector } from './audio.js?v=cig-breath-2';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
@@ -754,7 +754,7 @@ function seedCompletedComposureHits() {
   if (chapterId === 'corridor') {
     mark(story.state.breathHeard, 'corridor-breath');
     mark(story.state.alteredDoorNoticed, 'corridor-altered-door');
-    mark(story.state.enteredRearElevator, 'corridor-cascade');
+    mark(story.state.hallCascadeArmed, 'corridor-cascade');
   } else if (chapterId === 'office') {
     mark(officeStory.state.phoneUnanswered, 'office-phone-unanswered');
     mark(officeStory.state.phoneSilence, 'office-phone-silence');

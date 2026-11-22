@@ -4,6 +4,8 @@
  */
 export const START_PROGRESS = 0.09; // Reserve space to back into the rear elevator.
 export const DEAD_END_PROGRESS = 0.965;
+/** Hall doors + STEADY cascade — fires on approach, before cabin entry. */
+export const HALL_CASCADE_PROGRESS = 0.11;
 
 /**
  * Progress floor for Level 01. Until the return pass begins, the visitor cannot
@@ -21,6 +23,7 @@ export function createStory() {
     reachedDeadEnd: false,
     rearElevatorUnlocked: false,
     enteredRearElevator: false,
+    hallCascadeArmed: false,
     furthestProgress: START_PROGRESS,
     // Composure: first entry into the mid-corridor breathing zone.
     breathHeard: false,
@@ -35,6 +38,10 @@ export function createStory() {
       // Ignore input jitter, and don't reveal the anomaly prematurely.
       if (state.reachedDeadEnd && current < previous - 0.0001) state.hasBacktracked = true;
       if (state.hasBacktracked && current < 0.20) state.rearElevatorUnlocked = true;
+      // Cascade while still in the hall so swings read before the cabin seals.
+      if (state.rearElevatorUnlocked && current <= HALL_CASCADE_PROGRESS) {
+        state.hallCascadeArmed = true;
+      }
       if (state.rearElevatorUnlocked && current <= 0.037) state.enteredRearElevator = true;
       if (!state.breathHeard && !state.hasBacktracked
           && current >= 0.72 && previous < 0.72) {
@@ -51,6 +58,7 @@ export function createStory() {
       state.reachedDeadEnd = false;
       state.rearElevatorUnlocked = false;
       state.enteredRearElevator = false;
+      state.hallCascadeArmed = false;
       state.furthestProgress = START_PROGRESS;
       state.breathHeard = false;
       state.alteredDoorNoticed = false;
