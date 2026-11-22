@@ -278,8 +278,8 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   // On the left desk that already has a mug (z≈-7.5); look left to take it.
   const stickyNote = new THREE.Group();
   stickyNote.name = 'Sticky note / four-digit code';
-  stickyNote.position.set(-3.55, 0.945, -7.42);
-  stickyNote.rotation.y = 0.35;
+  stickyNote.position.set(-3.88, 0.945, -7.34);
+  stickyNote.rotation.y = 0.28;
   stickyNote.rotation.z = -0.05;
   world.add(stickyNote);
   add(0.11, 0.002, 0.12, 0, 0, 0, materials.sticky, stickyNote);
