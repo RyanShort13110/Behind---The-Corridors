@@ -275,15 +275,12 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   lighter.add(lighterHit);
 
   // Sticky note with the service-door code — takeable, readable in inventory.
-  // On a short aisle ledge (not behind cubicle glass/partitions — those bled clicks).
-  add(0.38, 0.05, 0.30, 1.22, 1.06, -9.85, materials.wood);
-  add(0.04, 0.9, 0.04, 1.34, 0.55, -9.96, materials.metal);
-  add(0.04, 0.9, 0.04, 1.10, 0.55, -9.74, materials.metal);
+  // On the left desk that already has a mug (z≈-7.5); look left to take it.
   const stickyNote = new THREE.Group();
   stickyNote.name = 'Sticky note / four-digit code';
-  stickyNote.position.set(1.18, 1.112, -9.82);
-  stickyNote.rotation.y = 0.22;
-  stickyNote.rotation.z = -0.04;
+  stickyNote.position.set(-3.55, 0.945, -7.42);
+  stickyNote.rotation.y = 0.35;
+  stickyNote.rotation.z = -0.05;
   world.add(stickyNote);
   add(0.11, 0.002, 0.12, 0, 0, 0, materials.sticky, stickyNote);
   add(0.07, 0.0015, 0.012, 0, 0.002, 0.02, materials.stickyInk, stickyNote);
