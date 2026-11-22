@@ -73,9 +73,9 @@ There is no combat, no free walking, and no automatic drain from time, ordinary 
 | 1–20 | Critical | Heavy vignette, irregular stress audio, subtle camera sway (honors reduced-motion) |
 | 0 | Game over | Movement locked; failure screen |
 
-### STEADY (**IMPLEMENTED** L01–L03)
+### STEADY (**IMPLEMENTED** major encounters)
 
-Timed defensive reaction (X / tap) during major encounters. Not combat. Results: Perfect / Partial / Missed → ~20% / ~50% / 100% of encounter damage (exact values per encounter in `STEADY_ENCOUNTERS`). First corridor cascade includes a brief non-blocking tutorial cue. Not every scare uses STEADY.
+Timed defensive reaction (X / tap) during major impossible events. Not combat. Results: Perfect / Partial / Missed → scaled damage from `STEADY_ENCOUNTERS`. First corridor cascade includes a brief non-blocking tutorial cue. Atmospheric oddities (phone ring, lights, photo proximity) do **not** open STEADY and deal 0 composure.
 
 ### Chapter damage budgets
 
@@ -83,9 +83,12 @@ Timed defensive reaction (X / tap) during major encounters. Not combat. Results:
 
 | Chapter | Budget | Hits |
 |---|---|---|
-| 01 Corridor | 40 | Breath 10 (unavoidable) · Altered door noticed on return 12 (unavoidable, **not** inspect) · Cascade STEADY 18/9/4 |
-| 02 Office | 45 | Phone 10 · Silence 12 · Latch STEADY 18/9/4 · Second anomaly **+5 reserved / disabled** until approved |
-| 03 Records | 50 | Polaroid proximity 6 (not inspect panel) · Drawers 10 · Dart STEADY 20/10/4 · Peek 14 unavoidable |
+| 01 Corridor | ~22 | Breath 0 · Altered door noticed on return **4** (unavoidable, **not** inspect) · Cascade STEADY 18/9/4 |
+| 02 Office | ~18 | Phone / silence **0** · Latch audio only (no QTE) · Empty-seat STEADY 18/9/4 at ~0.66 second approach |
+| 03 Records | ~24 | Polaroid / drawers **0** · Dart STEADY 20/10/4 · Peek **4** unavoidable |
+| 04 Night | 0 | Emotional lull — lamp / chair / hush never tax composure |
+| 05 Threshold | ~18 | Rupture STEADY 18/9/4 at ~0.605 (organic contraction); other provisional hits retired |
+| 06 Unseen | ~22 | Blackout STEADY 22/11/4 at darkness (~0.43 retreat); other provisional hits retired |
 
 **PROVISIONAL (L04–L06):** Prior budget numbers remain design targets; damage application is **gated off** (`enableLateChapterDamage: false`) until this pass expands.
 
@@ -269,13 +272,11 @@ The dead-end, return, and elevator movement instructions remain independent of d
 | Object | Text |
 |---|---|
 | Brass key | “A plain brass key. No label.” |
-| Locked door | “Locked.” / unlocked: “It opens. I can’t see inside.” |
+| Locked door | “Locked.” / unlocked: “Opens to nothingness.” |
 | Unmarked changed door | “That door was shut. I’m sure of it.” |
-| Door plaque | “13-B. No name.” |
-| Exit sign | “Still lit. Doesn’t tell me much.” |
 | Far call panel | “The panel is dead.” |
 
-**Events:** Breath only on first pass. Return reveals the ajar unmarked door and brass key. Rear elevator unlocks after backtrack; hallway door cascade begins on cabin entry while elevator doors are still open; cabin then seals. End card after doors close.
+**Events:** Breath only on first pass. Return reveals the ajar unmarked door and brass key. Rear elevator unlocks after backtrack; hallway door cascade + STEADY arm on approach (~0.11) before cabin entry; cabin then seals. End card after doors close. Exit sign is visual-only (not inspectable).
 
 **Narrative intent:** Ordinary seeking → sensory doubt → memory friction at the door → involuntary reaction to the elevator behind them.
 
@@ -293,18 +294,18 @@ The dead-end, return, and elevator movement instructions remain independent of d
 - Ringing phone, then silence after return begins.
 - One chair permanently in the aisle (not a move/scare beat).
 - Lighter (inspect), sticky note (take), key fob (take), wall keypad (second approach only).
-- Empty glass meeting room.
+- Empty glass meeting room. On the second approach, one conference chair slides back from the table once (empty-seat STEADY); aisle chair stays static.
 - Service door opens only after correct keypad entry.
 
 ### Dialogue Revision 002 (IMPLEMENTED)
 
-Only one brief spoken reaction remains: **“Was that a latch?”** on the return sound cue. The ringing phone, unattended workstations, far door, and keypad discovery carry themselves without protagonist commentary.
+Only one brief spoken reaction remains: **“Was that a latch?”** on the return sound cue. The ringing phone, unattended workstations, far door, and keypad discovery carry themselves without protagonist commentary. The latch sound remains part of the backtrack puzzle but no longer opens STEADY or deals composure damage.
 
 Movement prompts, keypad guidance, and the **TAKE THE KEY FOB** reminder remain independent of subtitles. The latch reaction continues to convey the sound event to sound-off players.
 
 **Object inspect copy (IMPLEMENTED):** lighter / sticky / fob / keypad as listed under Recurring objects. Keypad interaction remains UI-driven; door state follows `keypadUnlocked`.
 
-**Emotional arc:** Rationalize vacancy → unanswered phone → forced retreat → auditory doubt → pragmatic code entry without lore dump.
+**Emotional arc:** Rationalize vacancy → unanswered phone → forced retreat → auditory doubt → empty-seat disturbance on re-approach → pragmatic code entry without lore dump.
 
 ---
 
@@ -313,8 +314,8 @@ Movement prompts, keypad guidance, and the **TAKE THE KEY FOB** reminder remain 
 **Emotion:** Grief-adjacent avoidance and involuntary recognition — the first hint that discomfort may be personal, without naming why.  
 **Entry:** A side service passage near the Office meeting room. Brief occlusion handoff, not another elevator.  
 **Architecture:** Lower ceiling, older filing cabinets, receiving counter, quiet sorting station, box storage, locked far exit with an ordinary wall card reader.  
-**Motif — face-down Polaroid:** Rests on the sorting surface mid-floor. Camera never reveals the front; no artwork, name, or Take. Discovery via A/D look; proximity still affects composure but triggers no ambient dialogue. Inspect-only panel: title **PHOTOGRAPH**, body **“No.”** A refusal without explanation. Do not connect the Polaroid to any off-screen person in player-facing text.  
-**Environmental memory:** A right-side drawer is ajar on first approach; after the camera passes, it is closed. No close animation or sound. Optional backtrack may yield **“That was open.”** Not required for progression. Separately, drawers on the last filing cabinets toward the exit ease open ahead of the player mid-hall (quiet, no dialogue, no sting). Past the sorting station, a one-shot dark blot darts across the aisle behind the last filing row (left → right, fast, no dialogue, no sting; skipped under reduced motion). Later, a head-only shadow peeks once from behind the second right-hand shelf stack and withdraws (no dialogue, no sting; skipped under reduced motion).  
+**Motif — face-down Polaroid:** Rests on the sorting surface mid-floor. Camera never reveals the front; no artwork, name, or Take. Discovery via A/D look; proximity triggers no composure damage and no ambient dialogue. Inspect-only panel: title **PHOTOGRAPH**, body **“No.”** A refusal without explanation. Do not connect the Polaroid to any off-screen person in player-facing text.  
+**Environmental memory:** A right-side drawer is ajar on first approach; after the camera passes, it is closed. No close animation or sound. Optional backtrack may yield **“That was open.”** Not required for progression. Separately, drawers on the last filing cabinets toward the exit ease open ahead of the player mid-hall (quiet, no composure tax). Past the sorting station, a one-shot dark blot darts across the aisle (STEADY). Later, a head-only shadow peeks once (small unavoidable composure tax; skipped under reduced motion).  
 **Other dialogue (Revision 002):** The optional one-shot **“That was open.”** plays if the player notices the altered drawer on return. Otherwise silence. The locked card reader still provides an instruction hint.  
 **Exit (IMPLEMENTED):** Far door locked until the Office key fob is used on the card reader. Soft beep + latch + quiet hinge. Progress cannot complete the chapter while the door is locked. Unlock opens the path into Night Shift.  
 **Audio direction:** Near-silence — faint sustained tones, sparse unresolved two-note fragments, long rests; low HVAC / thin ballast; rare distant metal settle. Duck music slightly at the Polaroid. No stings, whispers, footsteps, or crash references.
@@ -371,7 +372,7 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **Dialogue (Revision 002):** Two brief one-shot thoughts: **“This floor feels different.”** early and **“Much colder back here.”** in the later hall. The lamp, empty chair, and hush remain nonverbal. Never name a person, diagnose grief, or claim a haunting.
 
-**Pacing:** No mandatory backtrack, QTEs, jumpscares, or chase. Forward path stays open.
+**Pacing:** No mandatory backtrack, STEADY/QTEs, jumpscares, or chase. Forward path stays open. Atmospheric events deal **0** composure.
 
 **Motifs:** Do not add the lighter or face-down photograph here. The house key remains available for Chapter 05.
 
@@ -387,6 +388,8 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 **Movement:** Forward route is always open. Backtracking is optional and shows the comparatively normal space behind. Door stays open when crossed. No required return trip. Scroll movement remains at most 5.5m/s.
 **Implementation:** Single Three.js scene, one reused cube for instanced architecture, procedural organic meshes, few non-shadow-casting lights. Three corruption curves change lighting/fog/audio by scroll progress. Scene disposable on future chapter transition.
 **Narrative discipline:** Avoid diagnosing the building, revealing a person's identity, or asserting a memory. The protagonist is now disturbed by what they physically see, but the personal history remains hidden.
+
+**STEADY — Threshold Rupture (IMPLEMENTED):** Around progress `0.605`, organic wall seams contract inward once with a deep groan and a brief light weaken; STEADY (`threshold-rupture`, 18/9/4) peaks with the contraction. No monster, sting, or new dialogue.
 
 ## Chapter 06: The Unseen — Prototype 006.0 / first playable pass
 
@@ -409,6 +412,8 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 ### Prototype 006.1 — Level 06 Retreat Pass (2026-10-25)
 
 Environmental horror operates in descending backward-scroll beats: first taps, a right-hand electrical cabinet opening, irregular scraping migrating between walls, ceiling vibration, an advancing blackout, near-absolute silence, and an impossible final click close to the protagonist. The presence is never shown. Player speed modulates scratching; stopping invites one small tap. All changes remain one-way after triggering, not reversible by scrubbing. Developer jump checkpoints preserve each staged state and never play historical sounds.
+
+**STEADY — Unseen Blackout (IMPLEMENTED):** At darkness onset (~progress `0.43` on retreat), fixtures dim as the blackout advances; a low-frequency swell and STEADY (`unseen-blackout`, 22/11/4) fire at the peak. Retreat controls and side-door escape unchanged; presence stays unseen.
 
 ---
 
@@ -443,3 +448,4 @@ Do not delete or reorder chapters in code based on this table alone.
 | 2026-11 | **Dialogue Revision 002:** L01–L04: 3 / 1 / 1 optional thought + photo inspect / 2. All subtitles are brief one-shots; puzzles and accessibility instructions remain independent. |
 | 2026-11 | **Composure Survival Balance Pass:** Max/start 100; cigarette restore 40; one pack→one cig per chapter (all six mains); persist unused cigs; block use at full; chapter damage budgets + one-shot story flags; Overwhelmed soft retry; debug presets; no time/movement drain. |
 | 2026-11 | **Psychological Survival System v2 (L01–L03):** Stages; STEADY (cascade/latch/dart); game over at 0; checkpoints; cig restore 40; L04–L06 damage gated; office +5 anomaly reserved/disabled. |
+| 2026-11 | **STEADY expansion & composure rebalance:** Office empty-seat replaces latch QTE; Threshold rupture + Unseen blackout STEADY; atmospheric hits zeroed (phone/photo/drawers/breath/Night); altered-door & peek small taxes; latch remains audio-only. |

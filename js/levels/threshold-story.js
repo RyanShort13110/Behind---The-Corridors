@@ -11,6 +11,8 @@ export const THRESHOLD_END_PROGRESS = 0.975;
 export const THRESHOLD_RESTORE_PROGRESS = 0.930;
 export const THRESHOLD_DOOR_START = 0.135;
 export const THRESHOLD_DOOR_OPEN = 0.204;
+/** Organic wall contraction + STEADY — unmistakable corruption beat. */
+export const THRESHOLD_RUPTURE_PROGRESS = 0.605;
 
 const clamp01 = n => Math.max(0, Math.min(1, n));
 export function smoothstep(a, b, value) {
@@ -35,6 +37,8 @@ export function createThresholdStory() {
     reachedRedHall: false,
     reachedKey: false, // near the key, NOT confirmation of seeing it
     nightmareCleared: false, // one-way reveal; backtracking cannot restart it
+    ruptureArmed: false,
+    ruptureSteadyReady: false,
     hasBacktracked: false,
     direction: 'forward',
     completed: false,
@@ -51,6 +55,11 @@ export function createThresholdStory() {
       if (current >= 0.24) state.crossedDoor = true;
       if (current >= 0.38) state.sawFirstDamage = true;
       if (current >= 0.58) state.reachedOrganic = true;
+      if (!state.ruptureArmed
+          && current >= THRESHOLD_RUPTURE_PROGRESS
+          && previous < THRESHOLD_RUPTURE_PROGRESS) {
+        state.ruptureArmed = true;
+      }
       if (current >= 0.78) state.reachedRedHall = true;
       if (current >= 0.83) state.reachedKey = true;
       if (current >= THRESHOLD_RESTORE_PROGRESS) state.nightmareCleared = true;

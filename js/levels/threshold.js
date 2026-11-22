@@ -373,9 +373,16 @@ export function createThreshold(scene) {
   ];
 
   const doorStart=0; let doorAngle=doorStart; let pulseTime=0;
+  let ruptureT = -1;
+  let ruptureSfxPending = false;
   return {
     interactables,
     get doorAngle() { return doorAngle; },
+    consumeRuptureStarted() {
+      if (!ruptureSfxPending) return false;
+      ruptureSfxPending = false;
+      return true;
+    },
     update(progress,state,dt,reduced) {
       pulseTime += dt;
       // A one-way latch. Once opened, it stays open even if player retreats.
@@ -427,19 +434,41 @@ export function createThreshold(scene) {
       // still gets the growth/lunge, but not the extra writhing oscillation.
       const lunge = smoothstep(0.84, 0.975, progress);
       const active = cleared ? 0 : Math.max(corruption.organic, corruption.visceral) * lunge;
+      // One-shot rupture contraction at organic recognition — STEADY peaks with it.
+      if (state.ruptureArmed && ruptureT < 0 && !cleared) {
+        ruptureT = 0;
+        ruptureSfxPending = true;
+      }
+      let rupturePulse = 0;
+      if (ruptureT >= 0 && !cleared) {
+        ruptureT += Math.max(0, dt);
+        const dur = reduced ? 0.2 : 0.62;
+        const u = Math.min(1, ruptureT / dur);
+        rupturePulse = Math.sin(u * Math.PI);
+        if (!state.ruptureSteadyReady && ruptureT >= (reduced ? 0 : 0.12)) {
+          state.ruptureSteadyReady = true;
+        }
+        // Brief light weaken at contraction peak.
+        ambient.intensity *= 1 - 0.28 * rupturePulse;
+        for (const { light } of lights) {
+          light.intensity *= 1 - 0.35 * rupturePulse;
+        }
+      }
       for (const actor of seamActors) {
         const zoneBias = 0.28 + actor.zoneStrength * 0.72;
         const wiggle = reduced ? 0 : Math.sin(pulseTime * (2.0 + actor.zoneStrength * 1.7) + actor.phase) * 0.5 + 0.5;
         const surge = reduced ? active : active * (0.74 + wiggle * 0.26);
-        actor.mesh.position.x = actor.baseX - actor.side * surge * (0.03 + actor.zoneStrength * 0.11);
+        const breath = rupturePulse * (0.08 + actor.zoneStrength * 0.22);
+        actor.mesh.position.x = actor.baseX - actor.side * (surge * (0.03 + actor.zoneStrength * 0.11) + breath);
         actor.mesh.position.y = actor.baseY + surge * 0.01 * zoneBias;
         actor.mesh.position.z = actor.baseZ + surge * (0.07 + actor.zoneStrength * 0.30);
-        actor.mesh.scale.y = actor.baseScaleY * (1 + surge * 0.05 * zoneBias);
+        actor.mesh.scale.y = actor.baseScaleY * (1 + surge * 0.05 * zoneBias + breath * 0.12);
         actor.mesh.scale.z = actor.baseScaleZ * (1 + surge * 0.025 * zoneBias);
       }
     },
     reset() {
       doorAngle=0; hinge.rotation.y=0; pulseTime=0;
+      ruptureT = -1; ruptureSfxPending = false;
       nightmare.visible=true; elevator.visible=false;
       scene.fog.color.copy(coolFog);
       scene.fog.density=0.032;

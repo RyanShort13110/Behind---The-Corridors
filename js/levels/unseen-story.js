@@ -48,7 +48,8 @@ const fresh = () => ({
   sideDoorOpen: false, completed: false, direction: 'forward',
   presenceDistance: 16, retreatMeters: 0, retreatSpeed: 0, stillTime: 0,
   firstTaps: false, cabinetOpen: false, roarHeard: false, shadowAppeared: false, scratching: false,
-  ceilingRattle: false, darkness: false, cartonOpen: false, silence: false, finalClick: false,
+  ceilingRattle: false, darkness: false, blackoutSteadyReady: false,
+  cartonOpen: false, silence: false, finalClick: false,
   scratchSide: 1, scratchPulse: 0, ceilingPulse: 0,
   // Incrementing counters signal ONE audio cue (not one per rendered frame).
   tapEvents: 0, cabinetEvents: 0, roarEvents: 0, scratchEvents: 0,
@@ -118,7 +119,10 @@ export function createUnseenStory() {
       state.ceilingPulse = 1;
       state.nextCeilingAt = state.encounterElapsed + 2.8;
     }
-    if (atOrPast(UNSEEN_BEATS.darkness)) state.darkness = true;
+    if (!state.darkness && atOrPast(UNSEEN_BEATS.darkness)) {
+      state.darkness = true;
+      state.blackoutSteadyReady = true;
+    }
     if (!state.cartonOpen && atOrPast(UNSEEN_BEATS.carton)) {
       state.cartonOpen = true;
       state.cartonEvents++;
@@ -178,6 +182,7 @@ export function createUnseenStory() {
     state.scratching = state.retreatStarted && p <= UNSEEN_BEATS.scratching;
     state.ceilingRattle = state.retreatStarted && p <= UNSEEN_BEATS.ceiling;
     state.darkness = state.retreatStarted && p <= UNSEEN_BEATS.darkness;
+    state.blackoutSteadyReady = false; // seek past the beat — STEADY already resolved/seeded
     state.cartonOpen = state.retreatStarted && p <= UNSEEN_BEATS.carton;
     state.sideDoorOpen = state.retreatStarted && p <= UNSEEN_BEATS.exitDoor;
     state.silence = state.retreatStarted && p <= UNSEEN_BEATS.silence;
