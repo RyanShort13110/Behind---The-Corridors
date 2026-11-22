@@ -131,16 +131,24 @@ export function createThreshold(scene) {
     liftZ + 0.183, mat.liftSignal, elevator);
 
   // Regular framed doors, still institutionally legible even inside the red hall.
-  // Their wall-side shapes acquire organic overlays only further along.
+  // Only the first deep-hall pair (i===9) is forced organic — its trim leaf sat
+  // aisle-side of the flesh sheets and read as a blank void.
   for(let i=0;i<15;i++) {
     const z=-7-i*5.15;
+    const organicPair = i === 9;
     for(const side of [-1,1]) {
       const x=side*3.53;
-      box(0.085,2.76,1.84,x,1.39,z, i>8?mat.trim:mat.door);
-      box(0.20,2.85,0.11,x-side*0.04,1.43,z-0.99,mat.trim);
-      box(0.20,2.85,0.11,x-side*0.04,1.43,z+0.99,mat.trim);
-      box(0.20,0.11,2.10,x-side*0.04,2.85,z,mat.trim);
-      box(0.17,0.06,0.15,x-side*0.19,1.17,z+0.48,mat.handle);
+      const leafMat = organicPair ? mat.vein : (i > 8 ? mat.trim : mat.door);
+      const frameMat = organicPair ? mat.deeper : mat.trim;
+      box(0.085,2.76,1.84,x,1.39,z, leafMat);
+      box(0.20,2.85,0.11,x-side*0.04,1.43,z-0.99,frameMat);
+      box(0.20,2.85,0.11,x-side*0.04,1.43,z+0.99,frameMat);
+      box(0.20,0.11,2.10,x-side*0.04,2.85,z,frameMat);
+      if (organicPair) {
+        box(0.045,2.62,1.68,x-side*0.06,1.39,z, mat.vein);
+      } else {
+        box(0.17,0.06,0.15,x-side*0.19,1.17,z+0.48,mat.handle);
+      }
     }
   }
 
