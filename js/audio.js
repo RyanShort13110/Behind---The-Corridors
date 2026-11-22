@@ -1158,14 +1158,23 @@ export function createAudioDirector() {
     }, 90);
   }
 
-  /** Restrained chair scrape for the empty-seat beat — not a sting. */
+  /** Empty-seat scrape + low uneasy undertone — spooky, not a sting. */
   function playOfficeChairScrape() {
     if (!enabled || !ctx || ctx.state !== 'running') return;
-    playNoiseBurst({ duration: 0.28, band: 420, q: 0.55, level: 0.038, pan: 0.48 });
-    playTone({ freq: 140, duration: 0.22, level: 0.018, type: 'triangle', pan: 0.46 });
+    const pan = 0.52;
+    // Wood legs dragging on tile — irregular, directional.
+    playNoiseBurst({ duration: 0.42, band: 380, q: 0.48, level: 0.052, pan });
+    playNoiseBurst({ duration: 0.28, band: 620, q: 0.85, level: 0.028, pan: pan + 0.06 });
+    // Low uneasy body under the scrape.
+    playTone({ freq: 58, duration: 0.85, level: 0.032, type: 'sine', pan });
+    playTone({ freq: 87, freq2: 91, duration: 0.7, level: 0.02, type: 'triangle', pan: pan - 0.04 });
     window.setTimeout(() => {
-      playNoiseBurst({ duration: 0.14, band: 280, q: 0.7, level: 0.022, pan: 0.5 });
-    }, 70);
+      playNoiseBurst({ duration: 0.22, band: 240, q: 0.6, level: 0.034, pan });
+      playTone({ freq: 72, duration: 0.45, level: 0.016, type: 'sine', pan });
+    }, 110);
+    window.setTimeout(() => {
+      playNoiseBurst({ duration: 0.16, band: 510, q: 1.1, level: 0.02, pan: pan + 0.08 });
+    }, 260);
   }
 
   /** Deep structural groan for Threshold rupture — restrained, no sting. */
