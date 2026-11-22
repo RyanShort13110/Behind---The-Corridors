@@ -202,16 +202,6 @@ export function createCorridor(scene) {
   sign.name = 'exit-sign';
   world.add(sign);
 
-  // Dedicated inspectable nameplate (non-instanced) so proximity / raycast can target it.
-  const plaqueGeo = new THREE.BoxGeometry(0.03, 0.16, 0.42);
-  const plaqueMat = new THREE.MeshStandardMaterial({
-    color: 0x1a2423, metalness: 0.55, roughness: 0.4,
-  });
-  const plaque = new THREE.Mesh(plaqueGeo, plaqueMat);
-  plaque.position.set(-2.60, 1.92, -11.35);
-  plaque.name = 'door-plaque';
-  world.add(plaque);
-
   // Lockable fourth-right bay: swingable door into a black recess — nothing to see.
   for (const offset of [-0.61, 0.61]) {
     add(0.30, 2.55, 0.11, 2.60, 1.39, lockedDoorZ + offset, mats.trim);
@@ -336,13 +326,6 @@ export function createCorridor(scene) {
       radius: 4.2,
       title: 'EXIT',
       body: 'Still lit. Doesn’t tell me much.',
-    },
-    {
-      id: 'door-plaque',
-      object: plaque,
-      radius: 2.8,
-      title: '13-B',
-      body: '13-B. No name.',
     },
     {
       id: 'altered-door',
@@ -473,8 +456,6 @@ export function createCorridor(scene) {
       sign.geometry.dispose();
       exitTexture.dispose();
       signMat.dispose();
-      plaqueGeo.dispose();
-      plaqueMat.dispose();
       knobRoseGeo.dispose();
       knobLeverGeo.dispose();
       knobHitGeo.dispose();
