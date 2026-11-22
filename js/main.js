@@ -1490,7 +1490,7 @@ async function enterThreshold() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createThreshold } = await import('./levels/threshold.js?v=steady-expand-1');
+    const { createThreshold } = await import('./levels/threshold.js?v=organic-doors-1');
     module = createThreshold(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1631,7 +1631,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
-      const { createThreshold } = await import('./levels/threshold.js?v=steady-expand-1');
+      const { createThreshold } = await import('./levels/threshold.js?v=organic-doors-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
       const { createMemoryWhite } = await import('./levels/memory-white.js');

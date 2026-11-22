@@ -130,17 +130,27 @@ export function createThreshold(scene) {
   box(0.042, 0.042, 0.012, 1.48, 1.49,
     liftZ + 0.183, mat.liftSignal, elevator);
 
-  // Regular framed doors, still institutionally legible even inside the red hall.
-  // Their wall-side shapes acquire organic overlays only further along.
+  // Regular framed doors. Past organic onset they must read as flesh too —
+  // leaves sit aisle-side of the wall sheets, so a dark trim leaf looked blank.
   for(let i=0;i<15;i++) {
     const z=-7-i*5.15;
+    const corrupted = z < -34;
+    const deep = z < -49;
     for(const side of [-1,1]) {
       const x=side*3.53;
-      box(0.085,2.76,1.84,x,1.39,z, i>8?mat.trim:mat.door);
-      box(0.20,2.85,0.11,x-side*0.04,1.43,z-0.99,mat.trim);
-      box(0.20,2.85,0.11,x-side*0.04,1.43,z+0.99,mat.trim);
-      box(0.20,0.11,2.10,x-side*0.04,2.85,z,mat.trim);
-      box(0.17,0.06,0.15,x-side*0.19,1.17,z+0.48,mat.handle);
+      // Avoid mat.infected here — it requires vertex colors and reads black on boxes.
+      const leafMat = corrupted ? (deep ? mat.deeper : mat.vein) : mat.door;
+      const frameMat = corrupted ? (deep ? mat.tendon : mat.deeper) : mat.trim;
+      box(0.085,2.76,1.84,x,1.39,z, leafMat);
+      box(0.20,2.85,0.11,x-side*0.04,1.43,z-0.99,frameMat);
+      box(0.20,2.85,0.11,x-side*0.04,1.43,z+0.99,frameMat);
+      box(0.20,0.11,2.10,x-side*0.04,2.85,z,frameMat);
+      if (corrupted) {
+        // Aisle-facing flesh skin so the leaf matches the surrounding tissue.
+        box(0.045,2.62,1.68,x-side*0.06,1.39,z, deep ? mat.tendon : mat.vein);
+      } else {
+        box(0.17,0.06,0.15,x-side*0.19,1.17,z+0.48,mat.handle);
+      }
     }
   }
 
