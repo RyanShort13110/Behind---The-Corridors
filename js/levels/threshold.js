@@ -131,11 +131,11 @@ export function createThreshold(scene) {
     liftZ + 0.183, mat.liftSignal, elevator);
 
   // Regular framed doors, still institutionally legible even inside the red hall.
-  // Only the first deep-hall pair (i===9) is forced organic — its trim leaf sat
-  // aisle-side of the flesh sheets and read as a blank void.
+  // Only the last grey pair before the deep red stretch (i===8, z≈-48) — left and
+  // right — is forced organic so it matches the flesh walls ahead.
   for(let i=0;i<15;i++) {
     const z=-7-i*5.15;
-    const organicPair = i === 9;
+    const organicPair = i === 8;
     for(const side of [-1,1]) {
       const x=side*3.53;
       const leafMat = organicPair ? mat.vein : (i > 8 ? mat.trim : mat.door);
