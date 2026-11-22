@@ -650,7 +650,7 @@ export function createAudioDirector() {
       playTone({ freq: 180, duration: 0.11, level: 0.02, type: 'triangle', pan: 0.05 });
       return;
     }
-    if (id === 'altered-door' || id === 'exit-sign') {
+    if (id === 'altered-door') {
       playTone({ freq: 410, duration: 0.08, level: 0.012, type: 'sine', pan: 0 });
       playNoiseBurst({ duration: 0.06, band: 900, q: 0.9, level: 0.01, pan: 0 });
     }

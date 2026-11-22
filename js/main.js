@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { createCorridor } from './scene.js?v=cascade-snap-1';
+import { createCorridor } from './scene.js?v=exit-deinteract-1';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
-import { createAudioDirector } from './audio.js?v=no-plaque-1';
+import { createAudioDirector } from './audio.js?v=exit-deinteract-1';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js';
 import { createLookControls } from './look.js';

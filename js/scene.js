@@ -322,13 +322,6 @@ export function createCorridor(scene) {
       tooltip: 'A plain brass key. No label.',
     },
     {
-      id: 'exit-sign',
-      object: sign,
-      radius: 4.2,
-      title: 'EXIT',
-      body: 'Still lit. Doesn’t tell me much.',
-    },
-    {
       id: 'altered-door',
       object: changedDoor,
       // Tight radius so the floor key beside this bay stays clickable.
