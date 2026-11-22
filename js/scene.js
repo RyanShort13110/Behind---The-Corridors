@@ -90,13 +90,14 @@ export function createCorridor(scene) {
 
   // End-of-level cascade: ordinary doors that swing open while the elevator seals.
   // Skip the unmarked ajar bay and the keyed bay — those beats stay singular.
+  // Most leaves ease open; bay 4 + bay 8 snap so one or two feel like they fly.
   const endSwingSpecs = [
     { bay: 0, side: 1, delay: 0.0, duration: 1.7, maxYaw: 1.05 },
     { bay: 1, side: -1, delay: 0.35, duration: 2.35, maxYaw: -0.92 },
-    { bay: 4, side: 1, delay: 0.12, duration: 2.05, maxYaw: 1.18 },
+    { bay: 4, side: 1, delay: 0.18, duration: 0.48, maxYaw: 1.28 },
     { bay: 5, side: -1, delay: 0.7, duration: 1.55, maxYaw: -1.1 },
     { bay: 7, side: 1, delay: 0.95, duration: 2.5, maxYaw: 0.88 },
-    { bay: 8, side: -1, delay: 0.5, duration: 1.9, maxYaw: -1.02 },
+    { bay: 8, side: -1, delay: 0.55, duration: 0.42, maxYaw: -1.18 },
   ];
   const endSwingDoors = [];
   let hallCascadeT = -1;
