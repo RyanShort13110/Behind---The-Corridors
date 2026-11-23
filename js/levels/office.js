@@ -580,8 +580,9 @@ export function createOffice(scene, {
   cigarette.rotation.set(0.18, 1.05, 0.22);
   world.add(cigarette);
 
-  // Optional VHS-C cassette on the aisle-side counter (same surface family as the
-  // lighter) — left cubicle desks bury props behind partitions from the walk line.
+  // Optional VHS-C cassette — tucked behind a left-desk monitor (z≈-27.5),
+  // against the outer wall. Easy to walk past; readable only if you look left
+  // into that cubicle past the screen.
   let officeTape = null;
   let officeTapeProp = null;
   const officeTapeDef = getTapeById('tape-office-01');
@@ -591,9 +592,9 @@ export function createOffice(scene, {
       tint: officeTapeDef.previewColor ?? 0x1e2226,
     });
     officeTape = officeTapeProp.group;
-    // Counter top ≈ y 1.102; leave a hair of clearance so it doesn't sink into wood.
-    officeTape.position.set(1.12, 1.118, -17.18);
-    officeTape.rotation.set(0.02, -0.85, 0.03);
+    // Desk top ≈ y 0.94; sit just behind the monitor toward the outer wall.
+    officeTape.position.set(-4.18, 0.948, -27.82);
+    officeTape.rotation.set(0.05, 1.15, 0.08);
     world.add(officeTape);
   }
 
@@ -628,12 +629,14 @@ export function createOffice(scene, {
       itemId: 'key-fob',
       itemLabel: 'KEY FOB',
     }] : []),
-    ...(officeTape && officeTapeDef ? [
-      vhsCCassetteInteractable(officeTapeDef, officeTape, {
+    ...(officeTape && officeTapeDef ? [{
+      ...vhsCCassetteInteractable(officeTapeDef, officeTape, {
         id: 'office-tape-office-01',
-        radius: 4.8,
+        radius: 3.55,
       }),
-    ] : []),
+      // Partition would otherwise x-ray the outline from the aisle.
+      occludeOutline: true,
+    }] : []),
     {
       id: 'office-keypad',
       object: keypad,
