@@ -1,4 +1,4 @@
-import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=look-up-end-1';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=head-gaze-1';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
@@ -97,7 +97,6 @@ function samplePath(t) {
   const hitch = { x: 0.62, y: 1.53, z: -39.0, look: { ...creatureAim } };
   // Panic: eyes go to the elevator, body follows.
   const turnRun = { x: 0.28, y: 1.56, z: -38.2, look: { ...exitAim } };
-  const midRun = { x: 0.12, y: 1.60, z: -18.0, look: { x: 0.2, y: 1.4, z: 4.0 } };
   const behindJamb = {
     x: 1.02, y: 1.50, z: 1.95,
     look: { x: 2.4, y: 1.4, z: 3.2 },
@@ -121,8 +120,8 @@ function samplePath(t) {
   if (t < 10.9) return lerpPose(glanceIn, hitch, (t - 10) / 0.9);
   if (t < 11.15) return { ...hitch, look: { ...creatureAim } };
   if (t < 11.9) return lerpPose(hitch, turnRun, (t - 11.15) / 0.75);
-  if (t < 14.2) return lerpPose(turnRun, midRun, (t - 11.9) / 2.3);
-  if (t < 16) return lerpPose(midRun, behindJamb, (t - 14.2) / 1.8);
+  // One continuous scramble — linear so mid-aisle doesn't ease/slow.
+  if (t < 16) return lerpPose(turnRun, behindJamb, (t - 11.9) / 4.1, clamp01);
   if (t < 18.5) return { ...behindJamb };
   if (t < 23) return lerpPose(behindJamb, peekOut, (t - 18.5) / 4.5);
   if (t < 25.2) return lerpPose(peekOut, noticeHall, (t - 23) / 2.2);
@@ -149,10 +148,10 @@ function handheld(t, reduced) {
   };
 }
 
-/** Fast look-up during the terror hitch — done before he breaks and runs. */
+/** Slow look-up — starts during the glance, finishes as he breaks and runs. */
 function sampleGaze(t) {
-  if (t < 9.7) return 0;
-  if (t < 11.1) return smooth((t - 9.7) / 1.4);
+  if (t < 9.0) return 0;
+  if (t < 11.2) return smooth((t - 9.0) / 2.2);
   return 1;
 }
 
@@ -161,7 +160,13 @@ function mountTapeChrome() {
   overlay.className = 'tape-overlay';
   overlay.setAttribute('aria-hidden', 'true');
   overlay.innerHTML = `
+    <div class="tape-overlay__wear"></div>
+    <div class="tape-overlay__noise"></div>
+    <div class="tape-overlay__chroma"></div>
     <div class="tape-overlay__scanlines"></div>
+    <div class="tape-overlay__scanlines tape-overlay__scanlines--fine"></div>
+    <div class="tape-overlay__tracking"></div>
+    <div class="tape-overlay__flicker"></div>
     <div class="tape-overlay__vignette"></div>
     <div class="tape-overlay__hud">
       <span class="tape-overlay__rec">● REC</span>

@@ -71,23 +71,102 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
   const ownedLights = [];
   const originalColors = new WeakMap();
   let content = null;
+  /** @type {null | { meshes: { attr: THREE.BufferAttribute, original: Float32Array, neckX: number, neckY: number, neckZ: number, blend: number }[] }} */
+  let headBind = null;
 
   // 0 = chin down; 1 = head raised toward the cameraperson.
+  // Head-only pitch (GLB has no skeleton — we bend vertices above the neck).
   let gaze = 0;
-  const PITCH_DOWN = 0.52;
-  const PITCH_UP = -0.04;
+  const PITCH_DOWN = 0.58;
+  const PITCH_UP = -0.08;
 
   function smooth01(n) {
     const u = Math.max(0, Math.min(1, n));
     return u * u * (3 - 2 * u);
   }
 
+  /**
+   * Snapshot mesh positions after scale/fit so gaze can bend only the head.
+   * The Waiting Thing .glb is a single sculpt (no bones). Neck pivot is in
+   * each mesh's local geometry space (not world), since Object3D scale stays
+   * on the parent.
+   */
+  function captureHeadBind(model) {
+    headBind = null;
+    const meshes = [];
+    model.traverse(obj => {
+      if (!obj.isMesh || !obj.geometry?.attributes?.position) return;
+      const attr = obj.geometry.attributes.position;
+      // Own a writable copy; GLTF buffers are often immutable.
+      if (attr.isInterleavedBufferAttribute) return;
+      const copy = Float32Array.from(attr.array);
+      obj.geometry.setAttribute('position', new THREE.BufferAttribute(copy, 3));
+      const writable = obj.geometry.attributes.position;
+      const original = Float32Array.from(writable.array);
+
+      obj.geometry.computeBoundingBox();
+      const bb = obj.geometry.boundingBox;
+      if (!bb) return;
+      const h = bb.max.y - bb.min.y;
+      if (h < 1e-4) return;
+      // Neck high on this tall silhouette; soft blend avoids a hard crease.
+      meshes.push({
+        attr: writable,
+        original,
+        neckX: (bb.min.x + bb.max.x) * 0.5,
+        neckY: bb.min.y + h * 0.78,
+        neckZ: (bb.min.z + bb.max.z) * 0.5,
+        blend: Math.max(h * 0.08, 1e-3),
+      });
+    });
+    if (meshes.length) headBind = { meshes };
+  }
+
+  /** Pitch only verts above the neck around a local neck pivot (axis = local +X). */
+  function applyHeadGaze() {
+    if (!headBind) return;
+    const pitch = PITCH_DOWN + (PITCH_UP - PITCH_DOWN) * smooth01(gaze);
+    const cos = Math.cos(pitch);
+    const sin = Math.sin(pitch);
+
+    for (const { attr, original, neckX, neckY, neckZ, blend } of headBind.meshes) {
+      const dst = attr.array;
+      for (let i = 0; i < original.length; i += 3) {
+        const x0 = original[i];
+        const y0 = original[i + 1];
+        const z0 = original[i + 2];
+        if (y0 <= neckY) {
+          dst[i] = x0;
+          dst[i + 1] = y0;
+          dst[i + 2] = z0;
+          continue;
+        }
+        const w = Math.min(1, (y0 - neckY) / blend);
+        const ly = y0 - neckY;
+        const lz = z0 - neckZ;
+        // Rotate around local X through the neck (look up / down).
+        const ry = ly * cos - lz * sin;
+        const rz = ly * sin + lz * cos;
+        dst[i] = x0;
+        dst[i + 1] = neckY + ly + (ry - ly) * w;
+        dst[i + 2] = neckZ + lz + (rz - lz) * w;
+      }
+      attr.needsUpdate = true;
+    }
+  }
+
   function applyOrientation() {
     root.rotation.order = 'YXZ';
     root.rotation.y = cfg.yaw;
-    // Raise the whole silhouette from a downcast pose toward camera eye-line.
-    root.rotation.x = PITCH_DOWN + (PITCH_UP - PITCH_DOWN) * smooth01(gaze);
     root.rotation.z = 0;
+    if (headBind) {
+      // Body stays upright; only the head sculpt bends.
+      root.rotation.x = 0;
+      applyHeadGaze();
+    } else {
+      // Image-plane fallback: whole card tips.
+      root.rotation.x = PITCH_DOWN + (PITCH_UP - PITCH_DOWN) * smooth01(gaze);
+    }
   }
 
   function applyPlacement() {
@@ -105,6 +184,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
 
   function clearContent() {
     clearLights();
+    headBind = null;
     if (!content) return;
     root.remove(content);
     content.traverse?.(obj => {
@@ -266,6 +346,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
 
     content = model;
     root.add(model);
+    captureHeadBind(model);
     mountRimLights();
     applyShading();
   }

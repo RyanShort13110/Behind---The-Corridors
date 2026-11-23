@@ -15,7 +15,7 @@ import {
  * @param {object} [options]
  * @param {string} [options.keypadCode]
  * @param {{x:number,z:number}[]} [options.omitConferenceChairs] Tape-only: skip side chairs near these xz points.
- * @param {boolean} [options.omitAisleClutter] Tape-only: skip aisle chair + side table (and cup/lighter on it).
+ * @param {boolean} [options.omitAisleClutter] Tape-only: skip aisle chair, side tables, cup/lighter, and key-fob ledge.
  */
 export function createOffice(scene, {
   keypadCode = '0000',
@@ -151,6 +151,7 @@ export function createOffice(scene, {
   // Aisle chair + side table (with cup/lighter) are ordinary Office clutter.
   // Found-footage tape can clear them for a clean walk down the aisle.
   let lighter = null;
+  let lighterHit = null;
   if (!omitAisleClutter) {
   // A single office chair left permanently in the aisle — ordinary clutter,
   // not a scene-change beat. Stays clear of the walking line and captions.
@@ -280,7 +281,7 @@ export function createOffice(scene, {
   // Tap target for inspect (not takeable — the lighter recurs later).
   const lighterHitGeo = new THREE.BoxGeometry(0.14, 0.28, 0.12);
   separateGeometries.push(lighterHitGeo);
-  const lighterHit = new THREE.Mesh(
+  lighterHit = new THREE.Mesh(
     lighterHitGeo,
     new THREE.MeshBasicMaterial({ visible: false })
   );
@@ -311,10 +312,13 @@ export function createOffice(scene, {
   stickyHit.userData.inspectHitOnly = true;
   stickyNote.add(stickyHit);
 
-  // Round orange employee key fob — takeable; used later in Records.
+  // Round orange employee key fob + aisle ledge — omitted with aisle clutter in tape.
+  let keyFob = null;
+  let fobHit = null;
+  if (!omitAisleClutter) {
   // Cylinder axis is +Y, so leave it upright in local space: the disc lies
   // flat on the ledge (not on its edge like a standing coin).
-  const keyFob = new THREE.Group();
+  keyFob = new THREE.Group();
   keyFob.name = 'Orange employee key fob';
   keyFob.position.set(1.14, 1.091, -24.22);
   keyFob.rotation.order = 'YXZ';
@@ -336,7 +340,7 @@ export function createOffice(scene, {
   separateGeometries.push(fobRing.geometry);
   const fobHitGeo = new THREE.BoxGeometry(0.12, 0.05, 0.1);
   separateGeometries.push(fobHitGeo);
-  const fobHit = new THREE.Mesh(
+  fobHit = new THREE.Mesh(
     fobHitGeo,
     new THREE.MeshBasicMaterial({ visible: false })
   );
@@ -347,6 +351,7 @@ export function createOffice(scene, {
   add(0.42, 0.05, 0.32, 1.18, 1.06, -24.28, materials.wood);
   add(0.04, 0.9, 0.04, 1.31, 0.55, -24.40, materials.metal);
   add(0.04, 0.9, 0.04, 1.05, 0.55, -24.16, materials.metal);
+  }
 
   // Ringing phone, always without an onscreen explanation. The sound system
   // adds distant, low-volume analogue rings while the player approaches.
@@ -591,7 +596,7 @@ export function createOffice(scene, {
       itemId: 'sticky-note',
       itemLabel: 'STICKY NOTE',
     },
-    {
+    ...(keyFob ? [{
       id: 'office-key-fob',
       object: keyFob,
       radius: 5.0,
@@ -601,7 +606,7 @@ export function createOffice(scene, {
       takeable: true,
       itemId: 'key-fob',
       itemLabel: 'KEY FOB',
-    },
+    }] : []),
     {
       id: 'office-keypad',
       object: keypad,
@@ -666,8 +671,10 @@ export function createOffice(scene, {
       serviceDoor.rotation.y = 0;
       stickyNote.visible = true;
       if (stickyNote.userData) stickyNote.userData.taken = false;
-      keyFob.visible = true;
-      if (keyFob.userData) keyFob.userData.taken = false;
+      if (keyFob) {
+        keyFob.visible = true;
+        if (keyFob.userData) keyFob.userData.taken = false;
+      }
       cigarette.visible = true;
       cigarette.userData.taken = false;
       emptySeatT = -1;
@@ -686,9 +693,9 @@ export function createOffice(scene, {
       label.geometry.dispose();
       labelTexture.dispose();
       labelMaterial.dispose();
-      lighterHit.material.dispose();
+      lighterHit?.material.dispose();
       stickyHit.material.dispose();
-      fobHit.material.dispose();
+      fobHit?.material.dispose();
       keypadHit.material.dispose();
       separateGeometries.forEach(geometry => geometry.dispose());
       Object.values(materials).forEach(material => material.dispose());
