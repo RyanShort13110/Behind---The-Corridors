@@ -412,8 +412,9 @@ try {
  */
 async function bootDebugTape(id) {
   if (!DEBUG_MODE || !renderer || !scene || !camera || !director) return;
-  if (id !== 'office-01') {
-    console.warn(`[Behind. TAPE] Unknown tape id "${id}". Use tape=office-01.`);
+  const known = id === 'office-01' || id === 'black-dragon-01';
+  if (!known) {
+    console.warn(`[Behind. TAPE] Unknown tape id "${id}". Use tape=office-01 or tape=black-dragon-01.`);
     return;
   }
   try {
@@ -422,19 +423,36 @@ async function bootDebugTape(id) {
     el.veil?.classList.add('is-active');
     look?.setEnabled?.(false);
     interaction?.clear?.();
-    const { createOffice } = await import('./levels/office.js?v=omit-aisle-1');
-    const { startOfficeTape01 } = await import('./tapes/office-01.js?v=clear-aisle-1');
-    tapeSession = await startOfficeTape01({
-      scene,
-      camera,
-      renderer,
-      createOffice,
-      director,
-      createSceneDirector,
-      reduced,
-    });
+
+    if (id === 'office-01') {
+      const { createOffice } = await import('./levels/office.js?v=omit-aisle-2');
+      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=vhs-2');
+      tapeSession = await startOfficeTape01({
+        scene,
+        camera,
+        renderer,
+        createOffice,
+        director,
+        createSceneDirector,
+        reduced,
+      });
+      chapterId = 'tape-office-01';
+    } else {
+      const { createMemoryBlack } = await import('./levels/memory-black.js?v=bd-tape-1');
+      const { startBlackDragonTape01 } = await import('./tapes/black-dragon-01.js?v=bd-1');
+      tapeSession = await startBlackDragonTape01({
+        scene,
+        camera,
+        renderer,
+        createMemoryBlack,
+        director,
+        createSceneDirector,
+        reduced,
+      });
+      chapterId = 'tape-black-dragon-01';
+    }
+
     director = null; // tape owns its own director; block normal chapter jumps from stomping
-    chapterId = 'tape-office-01';
     started = true;
     el.experience?.classList.add('is-playing', 'tape-mode');
     el.topbar?.classList.add('active');
@@ -1393,7 +1411,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=omit-aisle-1');
+    const { createOffice } = await import('./levels/office.js?v=omit-aisle-2');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -1670,7 +1688,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=omit-aisle-1');
+      const { createOffice } = await import('./levels/office.js?v=omit-aisle-2');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {

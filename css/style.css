@@ -174,18 +174,120 @@ body.debug-performance .perf-hud{display:block}
 .keypad-close:hover,.keypad-close:focus-visible{color:#fff}
 @media(prefers-reduced-motion:reduce){.keypad{transition:none}}
 
-/* Found-footage tape prototype (debug-only: ?debug=1&tape=office-01) */
-#experience.tape-mode .grain{opacity:.42;background-size:120px;mix-blend-mode:soft-light;animation:tape-grain 0.18s steps(2) infinite}
-#experience.tape-mode .vignette{opacity:.85;background:radial-gradient(ellipse at center,transparent 28%,rgba(0,0,0,.72) 100%)}
+/* Found-footage tape prototype (debug-only: ?debug=1&tape=office-01)
+   VHS look is CSS overlays only (transform/opacity) — no WebGL post, no blur filters. */
+#experience.tape-mode .grain{
+  opacity:.62;
+  background-size:72px;
+  mix-blend-mode:overlay;
+  animation:tape-grain .12s steps(1) infinite;
+}
+#experience.tape-mode .vignette{opacity:.9;background:radial-gradient(ellipse at center,transparent 22%,rgba(0,0,0,.78) 100%)}
 #experience.tape-mode .composure,#experience.tape-mode .inventory,#experience.tape-mode .bottom,#experience.tape-mode .narrative,#experience.tape-mode .intro{display:none !important}
 #experience.tape-mode .topbar .time{color:#c45a52}
 .tape-overlay{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
-.tape-overlay__scanlines{position:absolute;inset:0;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.14) 0 1px,transparent 1px 3px);opacity:.45;mix-blend-mode:multiply}
-.tape-overlay__vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(8,4,2,.55) 100%);box-shadow:inset 0 0 80px rgba(0,0,0,.55)}
+.tape-overlay__wear{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(180deg,rgba(55,32,18,.28),transparent 14%,transparent 86%,rgba(18,10,6,.32)),
+    linear-gradient(90deg,rgba(20,40,55,.12),transparent 20%,transparent 80%,rgba(55,25,20,.1));
+  mix-blend-mode:soft-light;opacity:.95;
+}
+.tape-overlay__noise{
+  position:absolute;inset:-8%;
+  opacity:.38;
+  mix-blend-mode:soft-light;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.15' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+  background-size:96px;
+  animation:tape-noise .09s steps(2) infinite;
+}
+.tape-overlay__chroma{
+  position:absolute;inset:-3px;
+  background:
+    linear-gradient(90deg,rgba(255,30,40,.09),transparent 18%,transparent 82%,rgba(35,90,255,.1)),
+    linear-gradient(0deg,rgba(255,180,80,.04),transparent 40%,rgba(80,140,255,.04));
+  mix-blend-mode:screen;opacity:.85;
+  animation:tape-chroma 4.8s steps(3) infinite;
+}
+.tape-overlay__scanlines{
+  position:absolute;inset:0;
+  background-image:repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,.28) 0px,
+    rgba(0,0,0,.28) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity:.62;mix-blend-mode:multiply;
+}
+.tape-overlay__scanlines--fine{
+  position:absolute;inset:0;
+  background-image:repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,.035) 0px,
+    transparent 1px,
+    transparent 2px
+  );
+  opacity:.35;mix-blend-mode:soft-light;animation:tape-scan-drift 2.8s linear infinite;
+}
+.tape-overlay__tracking{
+  position:absolute;left:-2%;right:-2%;height:14%;
+  background:linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255,255,255,.11) 35%,
+    rgba(0,0,0,.28) 55%,
+    rgba(255,255,255,.06) 70%,
+    transparent
+  );
+  opacity:.7;mix-blend-mode:soft-light;
+  animation:tape-tracking 3.8s linear infinite;
+  will-change:transform;
+}
+.tape-overlay__flicker{
+  position:absolute;inset:0;
+  background:rgba(255,245,230,.045);
+  mix-blend-mode:soft-light;
+  animation:tape-flicker 1.7s steps(1) infinite;
+}
+.tape-overlay__vignette{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,transparent 30%,rgba(6,3,2,.7) 100%);
+  box-shadow:inset 0 0 110px rgba(0,0,0,.72),inset 0 0 28px rgba(0,0,0,.45);
+}
 .tape-overlay__hud{position:absolute;top:78px;left:4vw;right:4vw;display:flex;justify-content:space-between;align-items:center;gap:12px;font:11px/1 'Courier New',monospace;letter-spacing:.16em;color:#d8e4df;text-shadow:0 1px 8px #000}
 .tape-overlay__rec{color:#e05a52;animation:tape-rec 1.2s steps(1) infinite}
 .tape-overlay__timecode{color:#b7c9c2}
 .tape-overlay__footer{position:absolute;bottom:28px;left:4vw;font:10px/1 'Courier New',monospace;letter-spacing:.2em;color:#8a9a96}
-@keyframes tape-grain{0%{transform:translate(0,0)}100%{transform:translate(-2%,1%)}}
+@keyframes tape-grain{0%{transform:translate(0,0)}25%{transform:translate(-1.5%,.8%)}50%{transform:translate(1.2%,-1%)}75%{transform:translate(-.6%,1.4%)}100%{transform:translate(1%,-.5%)}}
+@keyframes tape-noise{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(-1.8%,1.2%,0)}100%{transform:translate3d(1.4%,-1%,0)}}
 @keyframes tape-rec{0%,49%{opacity:1}50%,100%{opacity:0}}
-@media(prefers-reduced-motion:reduce){#experience.tape-mode .grain,.tape-overlay__rec{animation:none}}
+@keyframes tape-tracking{0%{transform:translate3d(0,-130%,0)}100%{transform:translate3d(0,720%,0)}}
+@keyframes tape-chroma{0%,100%{opacity:.65;transform:translate3d(0,0,0)}33%{opacity:.95;transform:translate3d(1px,0,0)}66%{opacity:.75;transform:translate3d(-1px,.5px,0)}}
+@keyframes tape-scan-drift{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(0,3px,0)}}
+@keyframes tape-flicker{0%,100%{opacity:.15}8%{opacity:.55}9%{opacity:.1}40%{opacity:.2}41%{opacity:.7}42%{opacity:.12}70%{opacity:.18}71%{opacity:.45}72%{opacity:.1}}
+/* Black Dragon tape: quiet found-footage — no heavy VHS stacks (Firefox cost). */
+#experience.tape-mode[data-tape="black-dragon-01"] .grain{
+  opacity:.22;
+  background-size:140px;
+  mix-blend-mode:soft-light;
+  animation:tape-grain .35s steps(2) infinite;
+}
+#experience.tape-mode[data-tape="black-dragon-01"] .vignette{
+  opacity:.75;
+  background:radial-gradient(ellipse at center,transparent 34%,rgba(0,0,0,.7) 100%);
+}
+.tape-overlay--quiet .tape-overlay__scanlines{opacity:.28;mix-blend-mode:multiply}
+.tape-overlay--quiet .tape-overlay__vignette{
+  background:radial-gradient(ellipse at center,transparent 42%,rgba(4,6,10,.58) 100%);
+  box-shadow:inset 0 0 70px rgba(0,0,0,.5);
+}
+@media(prefers-reduced-motion:reduce){
+  #experience.tape-mode .grain,
+  .tape-overlay__rec,
+  .tape-overlay__tracking,
+  .tape-overlay__chroma,
+  .tape-overlay__noise,
+  .tape-overlay__flicker,
+  .tape-overlay__scanlines--fine{animation:none}
+}

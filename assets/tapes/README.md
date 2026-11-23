@@ -1,11 +1,17 @@
 # Found-footage tape assets
 
-## The Waiting Thing (Office-01)
+Debug-only. Requires `?debug=1&tape=<id>`. Normal gameplay never loads these modules.
 
-- **Model (active):** `waiting-thing.glb` — loaded only when `?debug=1&tape=office-01` boots.
-- **Image fallback:** `office-01-creature.png` — used if `OFFICE_01_CREATURE.mode` is `'image'`.
+## Office-01 — The Waiting Thing
 
-Placement / scale: `OFFICE_01_CREATURE` in `js/tapes/creature.js`
-(`position`, `height` ≈ 3 m, `yaw`, `opacity`, `darkness`).
+- URL: `?debug=1&tape=office-01`
+- **Model:** `waiting-thing.glb` — lazy-loaded via `js/tapes/creature.js`
+- **Image fallback:** `office-01-creature.png`
+- Placement / shading: `OFFICE_01_CREATURE` in `js/tapes/creature.js`
 
-Normal gameplay never imports this folder’s GLB or `GLTFLoader`.
+## Black-Dragon-01 — Apartment knocking tape
+
+- URL: `?debug=1&tape=black-dragon-01`
+- Reuses `createMemoryBlack` / `js/levels/memory-home.js` (black variant). No extra GLB.
+- Scripted path + synth knocks: `js/tapes/black-dragon-01.js`, `js/tapes/black-dragon-audio.js`
+- Live knobs: `window.__tapeBlackDragon` / on-screen inspector
