@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * GLTFLoader is dynamically imported only when a tape asks for a model —
  * normal gameplay never loads this module or the .glb.
  *
- * Tune placement on OFFICE_01_CREATURE. No procedural box figures.
+ * Shading knobs (tape-only): darkness, roughness, metalness, rimLight*.
  */
 
 /**
@@ -17,10 +17,15 @@ import * as THREE from 'three';
  * @property {string} [gltfUrl]
  * @property {{x:number,y:number,z:number}} position  World origin (feet).
  * @property {number} height  Visible height in meters (image plane / gltf uniform scale basis).
- * @property {number} [yaw]  Radians; π/2 faces the aisle glass (−X).
+ * @property {number} [yaw]  Radians; −π/2 faces the aisle glass (−X).
  * @property {number} [opacity]
- * @property {number} [darkness]  0..1 multiply darken for glass-room reading.
- * @property {number} [billboard]  If true, yaw tracks the camera each frame.
+ * @property {number} [darkness]  0..1 — how near-black the albedo goes (0.80 ≈ 20% residual detail).
+ * @property {number} [roughness]  Matte target for Standard/Physical materials.
+ * @property {number} [metalness]
+ * @property {number} [rimLightIntensity]  Cool rim that reads shoulders / head / arms.
+ * @property {number} [rimLightColor]  Hex cool tone.
+ * @property {number} [rimLightDistance]
+ * @property {boolean} [billboard]  If true, yaw tracks the camera each frame.
  */
 
 export const OFFICE_01_CREATURE = {
@@ -33,7 +38,14 @@ export const OFFICE_01_CREATURE = {
   height: 3.0,
   yaw: -Math.PI * 0.5,
   opacity: 1,
-  darkness: 0.08,
+  // Near-black silhouette; leave a little albedo so anatomy still reads.
+  darkness: 0.80,
+  roughness: 0.97,
+  metalness: 0,
+  // Cool rim from behind / beside — front stays in shadow.
+  rimLightIntensity: 1.15,
+  rimLightColor: 0x6a8a9a,
+  rimLightDistance: 4.2,
   billboard: false,
 };
 
@@ -56,6 +68,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
   const ownedTextures = [];
   const ownedGeometries = [];
   const ownedMaterials = [];
+  const ownedLights = [];
   let content = null;
 
   function applyPlacement() {
@@ -63,7 +76,16 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
     if (!cfg.billboard) root.rotation.y = cfg.yaw;
   }
 
+  function clearLights() {
+    while (ownedLights.length) {
+      const light = ownedLights.pop();
+      light.removeFromParent();
+      light.dispose?.();
+    }
+  }
+
   function clearContent() {
+    clearLights();
     if (!content) return;
     root.remove(content);
     content.traverse?.(obj => {
@@ -77,6 +99,58 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
       }
     });
     content = null;
+  }
+
+  function applySilhouetteMaterial(material) {
+    const residual = Math.max(0.04, 1 - cfg.darkness);
+    if (material.color) {
+      // Crush toward near-black while keeping a hint of authored hue/detail.
+      material.color.multiplyScalar(residual);
+    }
+    if (material.map) {
+      // Dim the albedo map so it doesn't punch through the silhouette.
+      material.color.multiplyScalar(0.85);
+    }
+    if ('roughness' in material) material.roughness = cfg.roughness ?? 0.97;
+    if ('metalness' in material) material.metalness = cfg.metalness ?? 0;
+    if ('envMapIntensity' in material) material.envMapIntensity = 0.05;
+    if ('emissive' in material && material.emissive) {
+      material.emissive.setHex(0x000000);
+      material.emissiveIntensity = 0;
+    }
+    if (cfg.opacity < 1 && 'opacity' in material) {
+      material.transparent = true;
+      material.opacity = Math.min(material.opacity ?? 1, cfg.opacity);
+    }
+    material.needsUpdate = true;
+  }
+
+  /**
+   * Cool rim lights live in root-local space.
+   * With yaw −π/2 the model faces aisle (−X); local +Z is behind (outer wall).
+   * Keep lights off the front so the camera-facing side stays shadowed.
+   */
+  function mountRimLights() {
+    clearLights();
+    const intensity = cfg.rimLightIntensity ?? 0;
+    if (intensity <= 0) return;
+
+    const color = cfg.rimLightColor ?? 0x6a8a9a;
+    const distance = cfg.rimLightDistance ?? 4.2;
+
+    // Primary: high behind the shoulders / head.
+    const back = new THREE.PointLight(color, intensity, distance, 2);
+    back.name = 'Tape / Waiting Thing rim (back)';
+    back.position.set(0.15, cfg.height * 0.72, 1.05);
+    root.add(back);
+    ownedLights.push(back);
+
+    // Secondary: cooler, weaker kiss on the long arm / flank.
+    const side = new THREE.PointLight(color, intensity * 0.45, distance * 0.85, 2);
+    side.name = 'Tape / Waiting Thing rim (side)';
+    side.position.set(0.85, cfg.height * 0.48, 0.35);
+    root.add(side);
+    ownedLights.push(side);
   }
 
   async function buildImagePlane() {
@@ -100,7 +174,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
       depthWrite: false,
       side: THREE.DoubleSide,
       alphaTest: 0.08,
-      color: new THREE.Color().setScalar(1 - cfg.darkness),
+      color: new THREE.Color().setScalar(Math.max(0.04, 1 - cfg.darkness)),
     });
     ownedMaterials.push(mat);
 
@@ -153,23 +227,14 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
         obj.frustumCulled = true;
         if (obj.material) {
           const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          mats.forEach(m => {
-            // Keep the authored look; only a light darken for the dim office.
-            if (m.color && cfg.darkness > 0) {
-              m.color.multiplyScalar(1 - cfg.darkness);
-            }
-            if (cfg.opacity < 1 && 'opacity' in m) {
-              m.transparent = true;
-              m.opacity = Math.min(m.opacity ?? 1, cfg.opacity);
-            }
-            m.needsUpdate = true;
-          });
+          mats.forEach(applySilhouetteMaterial);
         }
       }
     });
 
     content = model;
     root.add(model);
+    mountRimLights();
   }
 
   async function rebuild() {
@@ -183,8 +248,12 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
   return {
     root,
     config: cfg,
-    setVisible(v) { root.visible = Boolean(v); },
-    /** Re-apply position / height / opacity after editing cfg fields. */
+    setVisible(v) {
+      const on = Boolean(v);
+      root.visible = on;
+      ownedLights.forEach(light => { light.visible = on; });
+    },
+    /** Re-apply position / height / shading after editing cfg fields. */
     async applyConfig() {
       await rebuild();
     },
