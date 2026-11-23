@@ -38,14 +38,14 @@ export const OFFICE_01_CREATURE = {
   height: 3.0,
   yaw: -Math.PI * 0.5,
   opacity: 1,
-  // Near-black silhouette; leave a little albedo so anatomy still reads.
-  darkness: 0.80,
-  roughness: 0.97,
+  // Near-black silhouette; tiny residual albedo so edges still read under rim.
+  darkness: 0.92,
+  roughness: 1,
   metalness: 0,
-  // Cool rim from behind / beside — front stays in shadow.
-  rimLightIntensity: 1.15,
-  rimLightColor: 0x6a8a9a,
-  rimLightDistance: 4.2,
+  // Single cool rim strictly behind — no front / hand spill.
+  rimLightIntensity: 0.72,
+  rimLightColor: 0x4a6570,
+  rimLightDistance: 3.4,
   billboard: false,
 };
 
@@ -128,29 +128,22 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
   /**
    * Cool rim lights live in root-local space.
    * With yaw −π/2 the model faces aisle (−X); local +Z is behind (outer wall).
-   * Keep lights off the front so the camera-facing side stays shadowed.
+   * Only a high back rim — no side light (that washed the forward hand/arm).
    */
   function mountRimLights() {
     clearLights();
     const intensity = cfg.rimLightIntensity ?? 0;
     if (intensity <= 0) return;
 
-    const color = cfg.rimLightColor ?? 0x6a8a9a;
-    const distance = cfg.rimLightDistance ?? 4.2;
+    const color = cfg.rimLightColor ?? 0x4a6570;
+    const distance = cfg.rimLightDistance ?? 3.4;
 
-    // Primary: high behind the shoulders / head.
-    const back = new THREE.PointLight(color, intensity, distance, 2);
+    // Strictly behind the torso/head; decay keeps spill off the camera face.
+    const back = new THREE.PointLight(color, intensity, distance, 2.4);
     back.name = 'Tape / Waiting Thing rim (back)';
-    back.position.set(0.15, cfg.height * 0.72, 1.05);
+    back.position.set(0.05, cfg.height * 0.78, 1.35);
     root.add(back);
     ownedLights.push(back);
-
-    // Secondary: cooler, weaker kiss on the long arm / flank.
-    const side = new THREE.PointLight(color, intensity * 0.45, distance * 0.85, 2);
-    side.name = 'Tape / Waiting Thing rim (side)';
-    side.position.set(0.85, cfg.height * 0.48, 0.35);
-    root.add(side);
-    ownedLights.push(side);
   }
 
   async function buildImagePlane() {

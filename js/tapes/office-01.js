@@ -1,4 +1,4 @@
-import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=silhouette-1';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=silhouette-2';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
