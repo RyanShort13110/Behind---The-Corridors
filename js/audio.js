@@ -21,6 +21,8 @@ const MUSIC_REVERB_DRY = 0.32;
 export function createAudioDirector() {
   let ctx = null;
   let enabled = false;
+  /** When true, chapter ambience stays silent while a found-footage tape plays. */
+  let levelBedMuted = false;
   let humGain, buzzGain, motorGain, breathingGain, breathing;
   let phoneHigh, phoneLow;
   let officeAudioOrigin = 0;
@@ -942,6 +944,34 @@ export function createAudioDirector() {
     composureMul = 1 - Math.max(0, Math.min(1, stress)) * depth;
   }
 
+  /** Kill chapter ambience loops without flipping SOUND: OFF (tapes keep using audio). */
+  function silenceLevelBeds(fade = 0.12) {
+    stopBreathing();
+    try { stopUnseenRoars(); } catch (_) { /* optional during early init */ }
+    try { stopMemoryRain(fade); } catch (_) { /* optional */ }
+    setGain(humGain, 0, fade);
+    setGain(buzzGain, 0, fade);
+    setGain(motorGain, 0, fade);
+    setGain(phoneHigh, 0, fade);
+    setGain(phoneLow, 0, fade);
+    silenceHorrorScore(fade);
+    officeMusicActive = false;
+    musicNextNote = 0;
+    setGain(nightAirGain, 0, fade);
+    setGain(nightDroneGain, 0, fade);
+    setGain(unseenNoiseGain, 0, fade);
+    setGain(unseenToneGain, 0, fade);
+    setGain(unseenRoarBus, 0, fade);
+    setGain(unseenCueBus, 0, fade);
+    setGain(unseenFinalBus, 0, fade);
+    setGain(breathingGain, 0, fade);
+  }
+
+  function setLevelBedMuted(muted) {
+    levelBedMuted = Boolean(muted);
+    if (levelBedMuted) silenceLevelBeds(0.14);
+  }
+
   function fadeForGameOver() {
     stopBreathing();
     stopUnseenRoars();
@@ -1007,7 +1037,7 @@ export function createAudioDirector() {
   }
 
   function update(progress, reduced, story, elev = {}) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     ensureHorrorScore();
     const t = ctx.currentTime;
     // Shape dread by depth: quiet near the sealed door, hollow on the return.
@@ -1140,7 +1170,7 @@ export function createAudioDirector() {
   }
 
   function updateOffice(progress, state) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     setGain(humGain, 0.007, 0.4);
     setGain(buzzGain, 0.00035, 0.4);
     setGain(motorGain, 0, 0.2);
@@ -1298,7 +1328,7 @@ export function createAudioDirector() {
   }
 
   function updateRecords(progress, state) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     setGain(phoneHigh, 0, 0.15);
     setGain(phoneLow, 0, 0.15);
     setGain(motorGain, 0, 0.3);
@@ -1370,7 +1400,7 @@ export function createAudioDirector() {
   }
 
   function updateNight(progress, state) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     setGain(motorGain, 0, 0.3);
     setGain(phoneHigh, 0, 0.2);
     setGain(phoneLow, 0, 0.2);
@@ -1503,7 +1533,7 @@ export function createAudioDirector() {
   }
 
   function updateThreshold(progress, state) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     if (state?.nightmareCleared) {
       // Same-frame cutoff as the scene reveal. A 7ms de-click prevents a
       // speaker pop without sounding like an audible fade-out.
@@ -1553,7 +1583,7 @@ export function createAudioDirector() {
   function updateUnseen(progress, state, camera) {
     // This still runs with SOUND: OFF: events experienced in silence must not
     // be replayed when the user later enables sound or jumps checkpoints.
-    if (!enabled || !ctx || ctx.state !== 'running') {
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') {
       syncUnseenCues(state);
       return;
     }
@@ -1777,7 +1807,7 @@ export function createAudioDirector() {
   }
 
   function updateMemoryHome(_progress, state) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     setGain(phoneHigh, 0, 0.1);
     setGain(phoneLow, 0, 0.1);
     setGain(buzzGain, 0, 0.2);
@@ -2091,7 +2121,7 @@ export function createAudioDirector() {
   }
 
   function updateHospitalReverse(progress, state) {
-    if (!enabled || !ctx || ctx.state !== 'running') return;
+    if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     setGain(humGain, 0.0028 + (state?.cryingIntensity || 0) * 0.0012, 0.35);
     setGain(buzzGain, 0.0002 + (state?.mutateWarmLight ? 0.00015 : 0), 0.4);
     setGain(motorGain, 0, 0.2);
@@ -2483,6 +2513,8 @@ export function createAudioDirector() {
     get wardCryUsesHrtf() { return wardCryUseHrtf; },
     setComposureStress,
     fadeForGameOver,
+    setLevelBedMuted,
+    get levelBedMuted() { return levelBedMuted; },
     reset, suspend, resume, dispose,
     get enabled() { return enabled; },
   };

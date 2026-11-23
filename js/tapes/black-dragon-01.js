@@ -1,4 +1,4 @@
-import { createBlackDragonTapeAudio } from './black-dragon-audio.js?v=bd-reveal-7';
+import { createBlackDragonTapeAudio } from './black-dragon-audio.js?v=cam-7';
 import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=bd-warm-1';
 
 /**
@@ -259,6 +259,7 @@ function dimApartmentLights(home, darkness) {
  * @param {object} opts.director
  * @param {() => object} opts.createSceneDirector
  * @param {boolean} [opts.reduced]
+ * @param {boolean} [opts.initialSoundOn] Match game SOUND: ON when entering from camcorder.
  */
 export async function startBlackDragonTape01({
   scene,
@@ -268,6 +269,7 @@ export async function startBlackDragonTape01({
   director,
   createSceneDirector,
   reduced = false,
+  initialSoundOn = false,
 }) {
   const cfg = { ...BLACK_DRAGON_01 };
   const experience = document.getElementById('experience');
@@ -339,12 +341,20 @@ export async function startBlackDragonTape01({
   const chrome = mountTapeChrome();
   const tcEl = chrome.querySelector('[data-tape-tc]');
   const soundBtn = chrome.querySelector('[data-tape-sound]');
+  const syncSoundUi = (on) => {
+    if (!soundBtn) return;
+    soundBtn.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
+    soundBtn.setAttribute('aria-pressed', String(on));
+  };
+  if (initialSoundOn) {
+    await audio.setEnabled(true);
+    syncSoundUi(true);
+  } else {
+    syncSoundUi(false);
+  }
   soundBtn?.addEventListener('click', async () => {
     const on = await audio.setEnabled(!audio.enabled);
-    if (soundBtn) {
-      soundBtn.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
-      soundBtn.setAttribute('aria-pressed', String(on));
-    }
+    syncSoundUi(on);
   });
 
   // Debug inspector — playback / darkness / knock only.

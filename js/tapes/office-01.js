@@ -259,8 +259,9 @@ function formatTimecode(seconds) {
  * @param {() => object} opts.createOffice
  * @param {object} opts.director
  * @param {() => object} opts.createSceneDirector
- * @param {{ toggle: () => Promise<boolean> }} [opts.audio] Game audio director (SOUND toggle).
+ * @param {{ toggle: () => Promise<boolean>, enabled?: boolean }} [opts.audio] Game audio director (SOUND toggle).
  * @param {boolean} [opts.reduced]
+ * @param {boolean} [opts.initialSoundOn] Match game SOUND: ON when entering from camcorder.
  */
 export async function startOfficeTape01({
   scene,
@@ -271,6 +272,7 @@ export async function startOfficeTape01({
   createSceneDirector,
   audio = null,
   reduced = false,
+  initialSoundOn = false,
 }) {
   const experience = document.getElementById('experience');
   experience?.classList.add('tape-mode');
@@ -311,17 +313,29 @@ export async function startOfficeTape01({
   const chrome = mountTapeChrome();
   const tcEl = chrome.querySelector('[data-tape-tc]');
   const soundBtn = chrome.querySelector('[data-tape-sound]');
-  soundBtn?.addEventListener('click', async () => {
-    let on = false;
-    if (audio?.toggle) on = await audio.toggle();
-    else on = soundBtn.getAttribute('aria-pressed') !== 'true';
-    soundBtn.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
-    soundBtn.setAttribute('aria-pressed', String(on));
+  const syncSoundUi = (on) => {
+    if (soundBtn) {
+      soundBtn.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
+      soundBtn.setAttribute('aria-pressed', String(on));
+    }
     const gameSound = document.getElementById('sound');
     if (gameSound) {
       gameSound.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
       gameSound.setAttribute('aria-pressed', String(on));
     }
+  };
+  // Camcorder / game SOUND: ON → tape starts with sound already live.
+  if (initialSoundOn && audio) {
+    if (!audio.enabled && audio.toggle) await audio.toggle();
+    syncSoundUi(Boolean(audio.enabled));
+  } else {
+    syncSoundUi(Boolean(audio?.enabled));
+  }
+  soundBtn?.addEventListener('click', async () => {
+    let on = false;
+    if (audio?.toggle) on = await audio.toggle();
+    else on = soundBtn.getAttribute('aria-pressed') !== 'true';
+    syncSoundUi(on);
   });
 
   // Tape-only lighting inspector; normal gameplay and chapter dev controls

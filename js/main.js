@@ -3,7 +3,7 @@ import { createCorridor } from './scene.js?v=cam-5';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
-import { createAudioDirector } from './audio.js?v=cam-1';
+import { createAudioDirector } from './audio.js?v=cam-7';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
@@ -434,6 +434,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     return false;
   }
   transitioning = true;
+  const preferSoundOn = Boolean(audio?.enabled);
   try {
     el.begin.disabled = true;
     el.intro?.classList.add('is-hidden');
@@ -444,10 +445,12 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     closeItemDetail();
     steady?.cancel?.(true);
     keypad?.close?.();
+    // Keep game SOUND state, but duck chapter ambience under the tape.
+    audio?.setLevelBedMuted?.(true);
 
     if (id === 'office-01') {
       const { createOffice } = await import('./levels/office.js?v=cam-6');
-      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-3');
+      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-7');
       tapeSession = await startOfficeTape01({
         scene,
         camera,
@@ -457,11 +460,12 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
         createSceneDirector,
         audio,
         reduced,
+        initialSoundOn: preferSoundOn,
       });
       chapterId = 'tape-office-01';
     } else {
       const { createMemoryBlack } = await import('./levels/memory-black.js?v=bd-tape-1');
-      const { startBlackDragonTape01 } = await import('./tapes/black-dragon-01.js?v=bd-reveal-7');
+      const { startBlackDragonTape01 } = await import('./tapes/black-dragon-01.js?v=cam-7');
       tapeSession = await startBlackDragonTape01({
         scene,
         camera,
@@ -470,6 +474,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
         director,
         createSceneDirector,
         reduced,
+        initialSoundOn: preferSoundOn,
       });
       chapterId = 'tape-black-dragon-01';
     }
@@ -485,6 +490,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     return true;
   } catch (error) {
     console.error('[Behind. TAPE] Boot failed:', error);
+    audio?.setLevelBedMuted?.(false);
     if (!fromCamcorder) {
       el.fallback.hidden = false;
       el.fallback.textContent = `Tape "${id}" could not start: ${error.message}`;
@@ -530,6 +536,7 @@ async function endCamcorderPlayback() {
   try {
     tapeSession?.dispose?.();
     tapeSession = null;
+    audio?.setLevelBedMuted?.(false);
     el.experience?.classList.remove('tape-mode');
     el.experience?.removeAttribute('data-tape');
 
