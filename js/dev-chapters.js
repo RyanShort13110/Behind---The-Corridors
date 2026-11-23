@@ -18,7 +18,7 @@ const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 const WARD_CHAPTERS = new Set(['hospital-reverse']);
 const STORAGE_KEY = 'behind.devPanelCollapsed';
 
-export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null, camcorderApi = null) {
+export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null, camcorderApi = null, finaleApi = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
   panel.setAttribute('aria-label', 'Developer tools');
@@ -136,6 +136,13 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         <button type="button" data-cam-open>OPEN</button>
       </div>
       <p class="dev-chapters__status" id="dev-camcorder-status" aria-live="polite">Cam: —</p>
+    </div>
+    <div class="dev-chapters__composure" id="dev-finale-row">
+      <div class="dev-chapters__title">FINALE</div>
+      <div class="dev-chapters__row">
+        <button type="button" data-finale-proto>PROTOTYPE</button>
+      </div>
+      <p class="dev-chapters__status" id="dev-finale-status" aria-live="polite">Ending: —</p>
     </div>
     <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
     </div>
@@ -362,6 +369,16 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     refreshCam();
   });
   refreshCam();
+
+  const finaleStatus = panel.querySelector('#dev-finale-status');
+  panel.querySelector('[data-finale-proto]')?.addEventListener('click', () => {
+    if (finaleStatus) finaleStatus.textContent = 'Ending: loading…';
+    void Promise.resolve(finaleApi?.launchPrototype?.()).then((ok) => {
+      if (finaleStatus) {
+        finaleStatus.textContent = ok ? 'Ending: prototype' : 'Ending: failed';
+      }
+    });
+  });
 
   const refreshCryVol = () => {
     if (!cryStatus) return;

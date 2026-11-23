@@ -68,6 +68,8 @@ const urlParams = new URLSearchParams(location.search);
 const DEBUG_MODE = urlParams.get('debug') === '1';
 /** Debug-only found-footage tapes. Requires ?debug=1&tape=<id>. */
 const TAPE_ID = DEBUG_MODE ? urlParams.get('tape') : null;
+/** Debug-only ending prototype. Requires ?debug=1&ending=finale-prototype. */
+const ENDING_ID = DEBUG_MODE ? urlParams.get('ending') : null;
 if (DEBUG_MODE) document.body.classList.add('debug-performance');
 const el = {
   intro: $('intro'), begin: $('begin'), topbar: $('topbar'), bottom: $('bottom'),
@@ -131,9 +133,13 @@ let quality = 'auto';
 let started = false;
 /** Active found-footage tape session (null during normal play). */
 let tapeSession = null;
+/** Debug-only ending prototype session (null during normal play). */
+let endingSession = null;
 /** Checkpoint snapshot to restore after camcorder LCD playback ends. */
 let camcorderResumeSnapshot = null;
 let camcorderReturning = false;
+/** Must be declared before init — tape/ending boot can call closeItemDetail(). */
+let openDetailItemId = null;
 let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let ended = false;
@@ -428,7 +434,8 @@ try {
   monitor = createPerformanceMonitor(renderer, resize, () => quality, el.perf);
   resize();
   window.addEventListener('resize', resize, { passive: true });
-  if (TAPE_ID) void bootDebugTape(TAPE_ID);
+  if (ENDING_ID) void bootDebugEnding(ENDING_ID);
+  else if (TAPE_ID) void bootDebugTape(TAPE_ID);
 } catch (err) {
   console.error('[Behind.] Initialization failed:', err);
   el.fallback.hidden = false;
@@ -520,6 +527,67 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
 async function bootDebugTape(id) {
   if (!DEBUG_MODE) return;
   await startTapeRecording(id, { fromCamcorder: false });
+}
+
+/** Debug-only URL boot: `?debug=1&ending=finale-prototype`. */
+async function bootDebugEnding(id) {
+  if (!DEBUG_MODE) return;
+  await startEndingPrototype(id);
+}
+
+/**
+ * Standalone ending prototype. Suspends normal chapter gameplay.
+ * Staging / debug only — never part of the published chapter chain yet.
+ */
+async function startEndingPrototype(id) {
+  if (!renderer || !scene || !camera || tapeSession || endingSession || transitioning) {
+    return false;
+  }
+  if (!director) {
+    console.warn('[Behind. FINALE] No active director to hand off from.');
+    return false;
+  }
+  if (id !== 'finale-prototype') {
+    console.warn(`[Behind. FINALE] Unknown ending id "${id}". Use ending=finale-prototype.`);
+    return false;
+  }
+  transitioning = true;
+  try {
+    el.begin.disabled = true;
+    el.intro?.classList.add('is-hidden');
+    el.veil?.classList.add('is-active');
+    look?.setEnabled?.(false);
+    interaction?.close?.();
+    interaction?.clear?.();
+    closeItemDetail();
+    steady?.cancel?.(true);
+    keypad?.close?.();
+
+    const { startFinalePrototype } = await import('./finale/prototype.js?v=fin-1');
+    endingSession = await startFinalePrototype({
+      scene,
+      camera,
+      renderer,
+      director,
+      createSceneDirector,
+      reduced,
+    });
+    director = null;
+    started = true;
+    chapterId = 'ending-finale-prototype';
+    el.experience?.classList.add('is-playing');
+    el.topbar?.classList.add('active');
+    console.info('[Behind. FINALE] Prototype running. Normal gameplay is suspended.');
+    return true;
+  } catch (error) {
+    console.error('[Behind. FINALE] Boot failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `Ending "${id}" could not start: ${error.message}`;
+    return false;
+  } finally {
+    transitioning = false;
+    el.veil?.classList.remove('is-active');
+  }
 }
 
 /**
@@ -1294,8 +1362,6 @@ async function restartCurrentChapterFromStart() {
   syncComposureUi();
   saveChapterStartCheckpoint();
 }
-
-let openDetailItemId = null;
 
 function closeItemDetail() {
   if (!el.itemDetail) return;
@@ -2194,6 +2260,17 @@ if (DEBUG_MODE) {
         const n = tapesOnCamcorder().length;
         return `Cam: ${cam} · tapes ${n}/${TAPE_LIBRARY.length}`;
       },
+    }, {
+      launchPrototype() {
+        if (endingSession) return true;
+        // Prefer a full reload so the prototype owns boot cleanly.
+        const url = new URL(location.href);
+        url.searchParams.set('debug', '1');
+        url.searchParams.set('ending', 'finale-prototype');
+        url.searchParams.delete('tape');
+        location.href = url.toString();
+        return true;
+      },
     });
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
 }
@@ -2410,6 +2487,15 @@ function frame(now) {
     if (camcorderResumeSnapshot && tapeSession.finished && !camcorderReturning) {
       void endCamcorderPlayback();
     }
+    return;
+  }
+
+  // Debug ending prototype: owns corridor walk + scripted reveal.
+  if (endingSession) {
+    endingSession.update(dt);
+    cigaretteFx?.update(dt);
+    renderer.render(scene, camera);
+    monitor?.update(dt, true, !document.hidden);
     return;
   }
 
