@@ -129,8 +129,11 @@ let gameOverBusy = false;
 let reduced = reduceQuery.matches;
 let quality = 'auto';
 let started = false;
-/** Active debug tape session (null during normal play). */
+/** Active found-footage tape session (null during normal play). */
 let tapeSession = null;
+/** Checkpoint snapshot to restore after camcorder LCD playback ends. */
+let camcorderResumeSnapshot = null;
+let camcorderReturning = false;
 let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let ended = false;
@@ -421,25 +424,30 @@ try {
 }
 
 /**
- * Debug-only found-footage tapes. Loads the named environment and a scripted
- * camera pass without entering normal chapter progression or STEADY/puzzle state.
+ * Start a scripted found-footage recording. Used by ?debug=1&tape= and by the
+ * camcorder LCD. Suspends chapter gameplay for the duration of the tape.
  */
-async function bootDebugTape(id) {
-  if (!DEBUG_MODE || !renderer || !scene || !camera || !director) return;
+async function startTapeRecording(id, { fromCamcorder = false } = {}) {
+  if (!renderer || !scene || !camera || !director || tapeSession || transitioning) return false;
   const known = id === 'office-01' || id === 'black-dragon-01';
   if (!known) {
     console.warn(`[Behind. TAPE] Unknown tape id "${id}". Use tape=office-01 or tape=black-dragon-01.`);
-    return;
+    return false;
   }
+  transitioning = true;
   try {
     el.begin.disabled = true;
     el.intro?.classList.add('is-hidden');
     el.veil?.classList.add('is-active');
     look?.setEnabled?.(false);
+    interaction?.close?.();
     interaction?.clear?.();
+    closeItemDetail();
+    steady?.cancel?.(true);
+    keypad?.close?.();
 
     if (id === 'office-01') {
-      const { createOffice } = await import('./levels/office.js?v=cam-1');
+      const { createOffice } = await import('./levels/office.js?v=cam-2');
       const { startOfficeTape01 } = await import('./tapes/office-01.js?v=bd-warm-1');
       tapeSession = await startOfficeTape01({
         scene,
@@ -472,12 +480,113 @@ async function bootDebugTape(id) {
     el.experience?.classList.add('is-playing', 'tape-mode');
     el.topbar?.classList.add('active');
     noteFogBase();
-    console.info(`[Behind. TAPE] Playing ${id}. Normal gameplay is suspended.`);
+    console.info(
+      `[Behind. TAPE] Playing ${id}${fromCamcorder ? ' (camcorder)' : ''}. Normal gameplay is suspended.`,
+    );
+    return true;
   } catch (error) {
     console.error('[Behind. TAPE] Boot failed:', error);
-    el.fallback.hidden = false;
-    el.fallback.textContent = `Tape "${id}" could not start: ${error.message}`;
+    if (!fromCamcorder) {
+      el.fallback.hidden = false;
+      el.fallback.textContent = `Tape "${id}" could not start: ${error.message}`;
+    }
+    return false;
   } finally {
+    transitioning = false;
+    el.veil?.classList.remove('is-active');
+  }
+}
+
+/** Debug-only URL boot: `?debug=1&tape=<id>`. */
+async function bootDebugTape(id) {
+  if (!DEBUG_MODE) return;
+  await startTapeRecording(id, { fromCamcorder: false });
+}
+
+/**
+ * Load a collected cassette into the camcorder and begin playback immediately.
+ * Chapter progress is snapshotted and restored when the recording ends.
+ */
+async function playCamcorderTape(tape) {
+  if (!tape?.recordingId || !director || tapeSession || transitioning || camcorderReturning) return;
+  if (!inventory?.has(CAMCORDER_ITEM_ID)) return;
+  camcorderResumeSnapshot = captureCheckpointSnapshot();
+  const ok = await startTapeRecording(tape.recordingId, { fromCamcorder: true });
+  if (!ok) {
+    camcorderResumeSnapshot = null;
+    if (el.itemDetailTapeNote) {
+      el.itemDetailTapeNote.hidden = false;
+      el.itemDetailTapeNote.textContent = 'Could not play this cassette.';
+    }
+  }
+}
+
+/** Rebuild the chapter world and restore the pre-playback snapshot. */
+async function endCamcorderPlayback() {
+  if (!camcorderResumeSnapshot || camcorderReturning) return;
+  camcorderReturning = true;
+  const snap = camcorderResumeSnapshot;
+  camcorderResumeSnapshot = null;
+  el.veil?.classList.add('is-active');
+  try {
+    tapeSession?.dispose?.();
+    tapeSession = null;
+    el.experience?.classList.remove('tape-mode');
+    el.experience?.removeAttribute('data-tape');
+
+    const target = snap.chapterId || 'corridor';
+    director = createSceneDirector();
+    if (target === 'corridor') {
+      director.add('corridor', createCorridor(scene));
+      director.add('elevator', createElevator(scene));
+      el.location.innerHTML = ORIGINAL_LOCATION_HTML;
+    } else if (target === 'office') {
+      const { createOffice } = await import('./levels/office.js?v=cam-2');
+      director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
+      el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
+    } else if (target === 'records') {
+      const { createRecords } = await import('./levels/records.js?v=notice-flat-1');
+      director.add('records', createRecords(scene));
+      el.location.textContent = 'EAST ANNEX / RECORDS';
+    } else if (target === 'night') {
+      const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
+      director.add('night', createNightShift(scene));
+      el.location.textContent = 'SOUTH WING / NIGHT STAFF';
+    } else if (target === 'threshold') {
+      const { createThreshold } = await import('./levels/threshold.js?v=organic-pair-2');
+      director.add('threshold', createThreshold(scene));
+      el.location.textContent = 'SOUTH WING / THE THRESHOLD';
+    } else if (target === 'unseen') {
+      const { createUnseen } = await import('./levels/unseen.js?v=steady-expand-1');
+      director.add('unseen', createUnseen(scene));
+      el.location.textContent = 'SERVICE LEVEL / MAINTENANCE';
+    } else if (target === 'memory-white') {
+      const { createMemoryWhite } = await import('./levels/memory-white.js');
+      director.add('memory-white', createMemoryWhite(scene));
+    } else if (target === 'memory-black') {
+      const { createMemoryBlack } = await import('./levels/memory-black.js');
+      director.add('memory-black', createMemoryBlack(scene));
+    } else if (target === 'hospital-reverse') {
+      const { createHospitalReverse } = await import('./levels/hospital-reverse.js');
+      director.add('hospital-reverse', createHospitalReverse(scene));
+    } else {
+      director.add('corridor', createCorridor(scene));
+      director.add('elevator', createElevator(scene));
+    }
+    director.activate(target === 'corridor' ? 'corridor' : target);
+    chapterId = target;
+
+    el.inventory?.setAttribute('aria-hidden', 'false');
+    el.composure?.classList.add('is-active');
+    el.composure?.setAttribute('aria-hidden', 'false');
+    el.bottom?.classList.add('active');
+    look?.setEnabled?.(true);
+    await restoreCheckpoint(snap);
+    console.info('[Behind. CAM] Returned from tape to', target);
+  } catch (error) {
+    console.error('[Behind. CAM] Failed to restore chapter after tape:', error);
+  } finally {
+    camcorderReturning = false;
     el.veil?.classList.remove('is-active');
   }
 }
@@ -1185,18 +1294,13 @@ function populateCamcorderTapePanel() {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = tape.label;
+    btn.textContent = `LOAD · ${tape.label}`;
     btn.addEventListener('click', () => {
-      // Contained LCD playback (secondary viewer) is not wired yet — keep chapter intact.
       if (el.itemDetailTapeNote) {
         el.itemDetailTapeNote.hidden = false;
-        el.itemDetailTapeNote.textContent = DEBUG_MODE
-          ? `Playback viewer pending. Debug: ?debug=1&${tape.debugQuery}`
-          : 'No cassette transport yet.';
+        el.itemDetailTapeNote.textContent = 'Loading…';
       }
-      if (DEBUG_MODE) {
-        console.info('[Behind. CAM] Tape selected:', tape.recordingId, debugTapeUrl(tape));
-      }
+      void playCamcorderTape(tape);
     });
     li.appendChild(btn);
     el.itemDetailTapeList.appendChild(li);
@@ -1507,7 +1611,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=cam-1');
+    const { createOffice } = await import('./levels/office.js?v=cam-2');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -1784,7 +1888,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=cam-1');
+      const { createOffice } = await import('./levels/office.js?v=cam-2');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
@@ -2058,7 +2162,14 @@ el.inventory?.addEventListener('click', event => {
 });
 composure.subscribe(syncComposureUi);
 function onWalkKeyDown(event) {
-  if (event.key === 'Escape') closeItemDetail();
+  if (event.key === 'Escape') {
+    if (tapeSession && camcorderResumeSnapshot) {
+      event.preventDefault();
+      void endCamcorderPlayback();
+      return;
+    }
+    closeItemDetail();
+  }
   if (!started || transitioning || ended) return;
   if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
   if (event.code === 'ArrowUp' || event.code === 'KeyW') {
@@ -2234,12 +2345,16 @@ function frame(now) {
   lastTime = now;
   if (document.hidden) return;
 
-  // Found-footage tape prototype: scripted camera only, no scroll gameplay.
+  // Found-footage tape: scripted camera only, no scroll gameplay.
   if (tapeSession) {
     tapeSession.update(dt);
     cigaretteFx?.update(dt);
     renderer.render(scene, camera);
     monitor?.update(dt, true, !document.hidden);
+    // Camcorder loads autoplay; return to the chapter when the recording ends.
+    if (camcorderResumeSnapshot && tapeSession.finished && !camcorderReturning) {
+      void endCamcorderPlayback();
+    }
     return;
   }
 

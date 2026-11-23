@@ -2,7 +2,8 @@
 
 Debug-only standalone boot: `?debug=1&tape=<id>`. Normal gameplay never loads these modules via URL.
 
-In-game camcorder collectible uses `js/tapes/library.js` for cassette IDs. LCD playback should mount a contained viewer (do **not** call `bootDebugTape` — that suspends the chapter director). Standalone debug URLs stay independent.
+In-game camcorder collectible uses `js/tapes/library.js` for cassette IDs.
+Loading a cassette from the camcorder LCD starts the recording immediately, then restores the chapter checkpoint when it ends (Esc also returns). Standalone `?debug=1&tape=` URLs stay independent.
 
 ## Office-01 — The Waiting Thing
 

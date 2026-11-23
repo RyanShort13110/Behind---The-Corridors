@@ -580,7 +580,8 @@ export function createOffice(scene, {
   cigarette.rotation.set(0.18, 1.05, 0.22);
   world.add(cigarette);
 
-  // Optional VHS-C cassette on a left desk — independent of the camcorder / keypad.
+  // Optional VHS-C cassette on the aisle-side counter (same surface family as the
+  // lighter) — left cubicle desks bury props behind partitions from the walk line.
   let officeTape = null;
   let officeTapeProp = null;
   const officeTapeDef = getTapeById('tape-office-01');
@@ -590,8 +591,9 @@ export function createOffice(scene, {
       tint: officeTapeDef.previewColor ?? 0x1e2226,
     });
     officeTape = officeTapeProp.group;
-    officeTape.position.set(-3.15, 0.895, -12.55);
-    officeTape.rotation.set(0.02, 0.55, 0.04);
+    // Counter top ≈ y 1.102; leave a hair of clearance so it doesn't sink into wood.
+    officeTape.position.set(1.12, 1.118, -17.18);
+    officeTape.rotation.set(0.02, -0.85, 0.03);
     world.add(officeTape);
   }
 
