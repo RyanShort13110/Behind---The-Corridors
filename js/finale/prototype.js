@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFinaleCorridor } from './corridor.js?v=fin-2';
-import { createFinaleCreature } from './creature.js?v=fin-2';
+import { createFinaleCorridor } from './corridor.js?v=fin-3';
+import { createFinaleCreature } from './creature.js?v=fin-3';
 
 /**
  * Debug-only ending prototype with the authored organism GLB.
@@ -202,12 +202,24 @@ export async function startFinalePrototype({
   loadNote.remove();
 
   // Align −Z entrance with the corridor exit plane (visual handoff only).
+  // Hidden during the hall so the aisle stays straight institutional walls —
+  // the GLB entrance tunnel was reading as curved "ribs" down the corridor.
   const exitDoorWorldZ = corridor.exitZ;
-  creature.placeEntranceAt(exitDoorWorldZ - 0.35, 0);
+  const ORGANISM_EXTERIOR_SCALE = 3.15;
+  creature.placeEntranceAt(exitDoorWorldZ - 0.5, 0, ORGANISM_EXTERIOR_SCALE);
   exterior.add(creature.root);
-  const entrance = creature.getEntranceWorldPosition();
-  organismKey.position.set(entrance.x, 9, entrance.z + 6);
-  rimCool.position.set(entrance.x + 8, 6, entrance.z - 10);
+  creature.root.visible = false;
+  creature.setStabilizeExit(true);
+
+  function syncOrganismLights() {
+    const entrance = creature.getEntranceWorldPosition();
+    const s = creature.root.scale.x;
+    organismKey.position.set(entrance.x, 8 + 4 * s, entrance.z + 8 * s);
+    organismKey.distance = 40 + 25 * s;
+    rimCool.position.set(entrance.x + 10 * s, 5 + 3 * s, entrance.z - 12 * s);
+    rimCool.distance = 35 + 20 * s;
+  }
+  syncOrganismLights();
 
   // Doorway occlusion veil — hides the geometry seam during exit.
   const maskGeo = new THREE.PlaneGeometry(4.2, 3.6);
@@ -219,17 +231,19 @@ export async function startFinalePrototype({
   doorMask.visible = false;
   scene.add(doorMask);
 
+  // Solid black beyond the exit so a closed/open peek never shows the GLB.
+  const voidGeo = new THREE.PlaneGeometry(5.2, 4.2);
+  const voidMat = new THREE.MeshBasicMaterial({ color: 0x010303 });
+  const exitVoid = new THREE.Mesh(voidGeo, voidMat);
+  exitVoid.position.set(0, 1.7, exitDoorWorldZ - 0.4);
+  scene.add(exitVoid);
+
   scene.background = new THREE.Color(0x0a1214);
   scene.fog = new THREE.FogExp2(0x0a1214, 0.048);
-  const fogBase = { corridor: 0.048, exterior: 0.012 };
+  const fogBase = { corridor: 0.048, exterior: 0.01 };
   let fogMul = 1;
   const ambient = new THREE.HemisphereLight(0x8ca6a0, 0x131915, 0.85);
   scene.add(ambient);
-
-  // Hide most of the organism while still in the corridor — doorway framing
-  // + fog should dominate; shell can faintly exist beyond the door.
-  creature.root.visible = true;
-  creature.setStabilizeExit(true);
 
   const ambience = createFinaleAmbience();
 
@@ -316,13 +330,25 @@ export async function startFinalePrototype({
   };
 
   // Entrance faces −Z; walk out continuing −Z, then turn to face +Z.
+  // Pull-back distances scale with the exterior organism so the shell fills frame.
+  const S = ORGANISM_EXTERIOR_SCALE;
   const poseDoor = { x: 0, y: eyeY, z: exitDoorWorldZ + 1.85, yaw: 0, pitch: 0 };
   const poseThreshold = { x: 0, y: eyeY, z: exitDoorWorldZ - 1.2, yaw: 0.04, pitch: 0.02 };
-  const poseOutside = { x: 0.35, y: eyeY + 0.05, z: exitDoorWorldZ - 11, yaw: 0.18, pitch: 0.04 };
-  const poseReveal = {
-    x: -4.5, y: eyeY + 1.1, z: exitDoorWorldZ - 28,
-    yaw: Math.PI * 0.96, pitch: 0.1,
+  const poseOutside = {
+    x: 0.5 * S, y: eyeY + 0.15, z: exitDoorWorldZ - (9 + 4 * S),
+    yaw: 0.2, pitch: 0.04,
   };
+  const poseReveal = {
+    x: -3.2 * S, y: eyeY + 0.6 * S, z: exitDoorWorldZ - (18 + 8 * S),
+    yaw: Math.PI * 0.96, pitch: 0.08,
+  };
+
+  function revealOrganism() {
+    creature.root.visible = true;
+    creature.placeEntranceAt(exitDoorWorldZ - 0.5, 0, ORGANISM_EXTERIOR_SCALE);
+    syncOrganismLights();
+    exitVoid.visible = false;
+  }
 
   function setPhase(next) {
     phase = next;
@@ -337,6 +363,7 @@ export async function startFinalePrototype({
     scene.background = new THREE.Color(0x161e24);
     if (scene.fog) scene.fog.color.set(0x161e24);
     doorMask.visible = true;
+    revealOrganism();
     ambience.start().then(() => ambience.setLevel(0.15));
     creature.setStabilizeExit(true);
     console.info('[Behind. FINALE] Reveal sequence started.');
@@ -361,7 +388,9 @@ export async function startFinalePrototype({
     doorMask.visible = false;
     maskMat.opacity = 1;
     corridor.exitDoor.rotation.y = 0;
+    creature.root.visible = false;
     creature.setStabilizeExit(true);
+    exitVoid.visible = true;
     ambience.setLevel(0);
     scene.background = new THREE.Color(0x0a1214);
     if (scene.fog) {
@@ -423,6 +452,7 @@ export async function startFinalePrototype({
     revealT = REVEAL.doorDur + REVEAL.walkDur + REVEAL.turnDur + 0.5;
     doorMask.visible = false;
     corridor.exitDoor.rotation.y = 1.35;
+    revealOrganism();
     creature.setStabilizeExit(false);
     ambience.start().then(() => ambience.setLevel(0.7));
     scene.background = new THREE.Color(0x161e24);
@@ -562,6 +592,9 @@ export async function startFinalePrototype({
     doorMask.removeFromParent();
     maskGeo.dispose();
     maskMat.dispose();
+    exitVoid.removeFromParent();
+    voidGeo.dispose();
+    voidMat.dispose();
     corridor.dispose();
     creature.dispose();
     ambience.dispose();

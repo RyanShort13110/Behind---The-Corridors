@@ -227,19 +227,29 @@ export async function createFinaleCreature({
   /**
    * Place organism so its −Z entrance aligns with a world Z plane
    * (typically just beyond the corridor exit door).
+   * @param {number} worldZ
+   * @param {number} [y]
+   * @param {number} [scale] Uniform root scale (1 = authored meters).
    */
-  function placeEntranceAt(worldZ, y = 0) {
-    root.position.set(0, y, 0);
+  function placeEntranceAt(worldZ, y = 0, scale = 1) {
+    const s = Math.max(0.01, scale);
+    root.scale.setScalar(s);
     root.rotation.set(0, 0, 0);
+    // Model entrance local Z → world: root.position.z + entranceLocalZ * s
+    root.position.z = worldZ - entranceLocalZ * s;
+    root.position.y = y - box.min.y * s;
+    root.position.x = 0;
     root.updateMatrixWorld(true);
-    // Model entrance local Z → world: root.position.z + entranceLocalZ
-    root.position.z = worldZ - entranceLocalZ;
-    root.position.y = y - box.min.y; // sit on floor
   }
 
   function getEntranceWorldPosition(target = new THREE.Vector3()) {
     root.updateMatrixWorld(true);
-    return target.set(root.position.x, root.position.y + 1.7, root.position.z + entranceLocalZ);
+    const s = root.scale.x;
+    return target.set(
+      root.position.x,
+      root.position.y + 1.7 * s,
+      root.position.z + entranceLocalZ * s,
+    );
   }
 
   return {
