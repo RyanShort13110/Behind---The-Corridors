@@ -287,15 +287,15 @@ export function createCorridor(scene) {
   world.add(redLight);
   const lights = [];
   for (let i = 0; i < 8; i++) {
-    const light = new THREE.PointLight(0xcce5d7, i % 3 === 0 ? 4 : 2.5, 8, 2);
+    const light = new THREE.PointLight(0xcce5d7, i % 3 === 0 ? 4.5 : 2.85, 8, 2);
     light.position.set(0, 3.5, -3.7 - i * 5.3);
     world.add(light);
     lights.push(light);
   }
-  const ambient = new THREE.HemisphereLight(0x8ca6a0, 0x131915, 1);
+  const ambient = new THREE.HemisphereLight(0x8ca6a0, 0x131915, 1.15);
   scene.add(ambient);
-  scene.background = new THREE.Color(0x060b0d);
-  scene.fog = new THREE.FogExp2(0x060b0d, 0.065);
+  scene.background = new THREE.Color(0x0a1214);
+  scene.fog = new THREE.FogExp2(0x0a1214, 0.055);
 
   const interactables = [
     {
@@ -347,7 +347,7 @@ export function createCorridor(scene) {
       lights.forEach((light, i) => {
         const flicker = fault && i >= 4
           ? (Math.sin(progress * 930 + i * 22) > -0.15 ? 0.06 : 1) : 1;
-        light.intensity = (i % 3 === 0 ? 4 : 2.5) * flicker;
+        light.intensity = (i % 3 === 0 ? 4.5 : 2.85) * flicker;
       });
       mats.tube.emissiveIntensity = fault ? (Math.sin(progress * 870) > 0 ? 0.15 : 0.8) : 0.8;
       redLight.intensity = progress > 0.7 ? 4.5 : 1.1;

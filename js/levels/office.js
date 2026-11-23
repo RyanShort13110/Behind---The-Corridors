@@ -15,8 +15,8 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   const world = new THREE.Group();
   world.name = 'Level 02 / The Office';
   scene.add(world);
-  scene.background = new THREE.Color(0x080c0e);
-  scene.fog = new THREE.FogExp2(0x080c0e, 0.039);
+  scene.background = new THREE.Color(0x0b1214);
+  scene.fog = new THREE.FogExp2(0x0b1214, 0.033);
 
   const materials = {
     floor: new THREE.MeshStandardMaterial({ color: 0x303938, metalness: 0.08, roughness: 0.94 }),
@@ -523,14 +523,15 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
   // Light sources are few and fixed. Shadows are disabled deliberately.
   for (const z of [0, -10, -20, -30, -40, -48]) {
     add(1.6, 0.055, 0.48, 0, 3.70, z, materials.diffuse);
-    const lamp = new THREE.PointLight(0xbfd6d3, z === -30 ? 2.6 : 2.2, 10, 2);
+    const lamp = new THREE.PointLight(0xbfd6d3, z === -30 ? 2.9 : 2.45, 10, 2);
     lamp.position.set(0, 3.28, z);
     world.add(lamp);
   }
-  const exitLight = new THREE.PointLight(0xb2aa89, 1.05, 4.0, 2);
+  const exitLight = new THREE.PointLight(0xb2aa89, 1.2, 4.0, 2);
   exitLight.position.set(0, 3.24, -49.2);
   world.add(exitLight);
-  const ambient = new THREE.HemisphereLight(0x8aaba6, 0x1a2222, 0.9);
+  const ambientBase = 1.05;
+  const ambient = new THREE.HemisphereLight(0x8aaba6, 0x1a2222, ambientBase);
   scene.add(ambient);
 
   for (const [material, matrices] of batches) {
@@ -614,9 +615,9 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
       // No scare sting, no new dialogue — just a wrongness in the lights.
       if (!reduced && state.secondApproachAnomaly && !state.keypadUnlocked) {
         const dip = Math.max(0, 1 - Math.min(1, (progress - 0.45) * 8));
-        ambient.intensity = 0.9 - dip * 0.18;
+        ambient.intensity = ambientBase - dip * 0.18;
       } else {
-        ambient.intensity = 0.9;
+        ambient.intensity = ambientBase;
       }
 
       // Empty seat: one chair slides back from the table; lights dip with it.

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCorridor } from './scene.js?v=exit-deinteract-1';
+import { createCorridor } from './scene.js?v=brighten-1';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
@@ -1344,7 +1344,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=chair-spook-3');
+    const { createOffice } = await import('./levels/office.js?v=brighten-1');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -1621,7 +1621,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=chair-spook-3');
+      const { createOffice } = await import('./levels/office.js?v=brighten-1');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
