@@ -1,11 +1,11 @@
-import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=creature-plane-1';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=waiting-thing-2';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
  * Scripted handheld pass through the existing Office mesh.
  * Does not touch Office puzzles, STEADY, dialogue, or chapter progression.
  *
- * Creature: transparent image plane (see OFFICE_01_CREATURE). No box/primitive figure.
+ * Creature: The Waiting Thing (.glb via lazy GLTFLoader). See OFFICE_01_CREATURE.
  *
  * Timeline (~26s):
  *  0–7s   aisle walk toward the glass conference room
@@ -185,6 +185,7 @@ export async function startOfficeTape01({
   let elapsed = 0;
   let vanished = false;
   let finished = false;
+  let holdFraming = false;
 
   // Seed camera before first paint.
   camera.rotation.order = 'YXZ';
@@ -194,17 +195,28 @@ export async function startOfficeTape01({
   renderer.render(scene, camera);
 
   console.info(
-    '[Behind. TAPE] office-01 ready · image-plane creature ·',
+    '[Behind. TAPE] office-01 ready · The Waiting Thing ·',
     `mode=${OFFICE_01_CREATURE.mode} height=${OFFICE_01_CREATURE.height}m`,
   );
   console.info(
-    '[Behind. TAPE] Tune OFFICE_01_CREATURE in js/tapes/creature.js (position/height/opacity).',
+    '[Behind. TAPE] Tune OFFICE_01_CREATURE in js/tapes/creature.js (position/height/yaw).',
   );
   if (typeof window !== 'undefined') {
     // Live tweak while the tape runs, e.g.:
     // __tapeCreature.config.height = 3.2; await __tapeCreature.applyConfig();
     window.__tapeCreature = creature;
     window.__tapeCamera = camera;
+    /** Freeze timeline and stare at the creature for framing checks. */
+    window.__tapeHoldOnCreature = () => {
+      holdFraming = true;
+      elapsed = 11.2;
+      finished = false;
+      vanished = false;
+      creature.setVisible(true);
+      const pose = samplePath(elapsed);
+      applyPose(camera, pose, { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 });
+      return { t: elapsed, look: pose.look, creature: { ...OFFICE_01_CREATURE.position } };
+    };
   }
 
   return {
@@ -213,6 +225,19 @@ export async function startOfficeTape01({
     get elapsed() { return elapsed; },
     get finished() { return finished; },
     update(dt) {
+      if (holdFraming) {
+        const pose = samplePath(11.2);
+        const shake = handheld(11.2, reduced);
+        applyPose(camera, pose, {
+          x: shake.x * 0.4, y: shake.y * 0.4, z: shake.z * 0.4,
+          yaw: shake.yaw * 0.4, pitch: shake.pitch * 0.4, roll: shake.roll * 0.4,
+        });
+        creature.setVisible(true);
+        creature.update(dt, camera);
+        if (tcEl) tcEl.textContent = formatTimecode(11.2);
+        return;
+      }
+
       if (finished) {
         // Soft hold on final frame with residual handheld.
         const hold = samplePath(DURATION);

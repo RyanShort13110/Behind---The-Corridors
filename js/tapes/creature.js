@@ -3,11 +3,11 @@ import * as THREE from 'three';
 /**
  * Found-footage creature presenter.
  *
- * Current mode: transparent image plane (detailed PNG/WebP).
- * Future mode: imported .glb via GLTFLoader — same placement config.
+ * Modes: 'gltf' (The Waiting Thing) or 'image' (transparent plane fallback).
+ * GLTFLoader is dynamically imported only when a tape asks for a model —
+ * normal gameplay never loads this module or the .glb.
  *
- * Tuning lives on the CREATURE config object passed to createTapeCreature.
- * Do not build the figure from box/cylinder primitives.
+ * Tune placement on OFFICE_01_CREATURE. No procedural box figures.
  */
 
 /**
@@ -24,16 +24,16 @@ import * as THREE from 'three';
  */
 
 export const OFFICE_01_CREATURE = {
-  mode: 'image',
+  mode: 'gltf',
   imageUrl: './assets/tapes/office-01-creature.png',
-  // Drop a model here later; mode: 'gltf' swaps the presenter.
-  gltfUrl: './assets/tapes/office-01-creature.glb',
-  // Inside glass room (glass wall ≈ x=2.58). Easy knobs — tweak freely.
-  position: { x: 4.72, y: 0.02, z: -39.55 },
-  height: 2.95,
-  yaw: Math.PI * 0.5,
-  opacity: 0.94,
-  darkness: 0.22,
+  gltfUrl: './assets/tapes/waiting-thing.glb',
+  // Inside glass conference room (glass ≈ x=2.58, table center x=4.36 ±0.76).
+  // Sit past the table toward the outer wall; face the aisle (−X) toward camera.
+  position: { x: 5.55, y: 0, z: -38.85 },
+  height: 3.0,
+  yaw: -Math.PI * 0.5,
+  opacity: 1,
+  darkness: 0.08,
   billboard: false,
 };
 
@@ -114,6 +114,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
 
   async function buildGltfModel() {
     clearContent();
+    // Lazy: GLTFLoader + .glb only pull when a tape boots.
     const { GLTFLoader } = await import(
       'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js'
     );
@@ -123,7 +124,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
     });
     const model = gltf.scene || gltf.scenes?.[0];
     if (!model) throw new Error(`GLTF had no scene: ${cfg.gltfUrl}`);
-    model.name = 'Tape / creature gltf';
+    model.name = 'Tape / The Waiting Thing';
 
     // Fit model height to cfg.height while keeping aspect.
     model.updateMatrixWorld(true);
@@ -138,18 +139,30 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
     // Sit feet on local y=0.
     model.position.y -= fitted.min.y;
 
+    // Stay motionless — ignore any embedded clips.
+    if (gltf.animations?.length) {
+      console.info(
+        `[Behind. TAPE] Waiting Thing has ${gltf.animations.length} clip(s); leaving them paused.`,
+      );
+    }
+
     model.traverse(obj => {
       if (obj.isMesh) {
         obj.castShadow = false;
         obj.receiveShadow = false;
+        obj.frustumCulled = true;
         if (obj.material) {
           const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
           mats.forEach(m => {
-            if ('transparent' in m) m.transparent = true;
-            if ('opacity' in m) m.opacity = Math.min(m.opacity ?? 1, cfg.opacity);
+            // Keep the authored look; only a light darken for the dim office.
             if (m.color && cfg.darkness > 0) {
               m.color.multiplyScalar(1 - cfg.darkness);
             }
+            if (cfg.opacity < 1 && 'opacity' in m) {
+              m.transparent = true;
+              m.opacity = Math.min(m.opacity ?? 1, cfg.opacity);
+            }
+            m.needsUpdate = true;
           });
         }
       }
