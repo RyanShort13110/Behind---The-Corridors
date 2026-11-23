@@ -1,9 +1,11 @@
-import * as THREE from 'three';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=creature-plane-1';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
  * Scripted handheld pass through the existing Office mesh.
  * Does not touch Office puzzles, STEADY, dialogue, or chapter progression.
+ *
+ * Creature: transparent image plane (see OFFICE_01_CREATURE). No box/primitive figure.
  *
  * Timeline (~26s):
  *  0–7s   aisle walk toward the glass conference room
@@ -15,7 +17,8 @@ import * as THREE from 'three';
  */
 
 const DURATION = 26;
-const CREATURE_POS = { x: 5.05, y: 0, z: -39.6 };
+const CREATURE_POS = OFFICE_01_CREATURE.position;
+const CREATURE_AIM_Y = OFFICE_01_CREATURE.height * 0.62;
 
 function clamp01(n) {
   return Math.max(0, Math.min(1, n));
@@ -68,7 +71,7 @@ function applyPose(camera, pose, shake) {
  * Glass conference room sits at +X; aisle forward is -Z.
  */
 function samplePath(t) {
-  const creatureAim = { x: CREATURE_POS.x, y: 1.85, z: CREATURE_POS.z };
+  const creatureAim = { x: CREATURE_POS.x, y: CREATURE_AIM_Y, z: CREATURE_POS.z };
   const aisleAim = { x: -0.4, y: 1.45, z: -48.5 };
   const aisleStart = { x: 0.05, y: 1.62, z: 2.4, look: { x: 0.1, y: 1.5, z: -8 } };
   const aisleMid = { x: 0.12, y: 1.64, z: -18.0, look: { x: 0.2, y: 1.5, z: -28 } };
@@ -101,50 +104,6 @@ function handheld(t, reduced) {
     yaw: breath * 0.012 + tremor * 0.008 + sway * 0.01,
     pitch: Math.sin(t * 1.9) * 0.01 + tremor * 0.006,
     roll: Math.sin(t * 1.35) * 0.018 + tremor * 0.01,
-  };
-}
-
-function buildCreature(THREE_NS) {
-  const root = new THREE_NS.Group();
-  root.name = 'Tape / office-01 thin figure';
-  root.position.set(CREATURE_POS.x, CREATURE_POS.y, CREATURE_POS.z);
-  // Face the aisle glass (toward -X).
-  root.rotation.y = Math.PI * 0.5;
-
-  const mat = new THREE_NS.MeshStandardMaterial({
-    color: 0x121418,
-    roughness: 0.92,
-    metalness: 0.04,
-  });
-  const owned = [mat];
-  const geoms = [];
-
-  function part(w, h, d, x, y, z) {
-    const geo = new THREE_NS.BoxGeometry(w, h, d);
-    geoms.push(geo);
-    const mesh = new THREE_NS.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    root.add(mesh);
-    return mesh;
-  }
-
-  // Unnaturally tall, stick-thin silhouette (~3.15 m).
-  part(0.16, 1.35, 0.14, 0, 1.55, 0); // torso
-  part(0.13, 0.38, 0.12, 0, 2.45, 0); // neck stretch
-  part(0.18, 0.28, 0.20, 0, 2.85, 0.02); // head
-  part(0.05, 1.55, 0.05, -0.22, 1.45, 0); // L arm
-  part(0.05, 1.55, 0.05, 0.22, 1.45, 0); // R arm
-  part(0.07, 1.45, 0.07, -0.08, 0.72, 0); // L leg
-  part(0.07, 1.45, 0.07, 0.08, 0.72, 0); // R leg
-  part(0.11, 0.05, 0.22, -0.08, 0.04, 0.04); // L foot
-  part(0.11, 0.05, 0.22, 0.08, 0.04, 0.04); // R foot
-
-  return {
-    root,
-    dispose() {
-      geoms.forEach(g => g.dispose());
-      owned.forEach(m => m.dispose());
-    },
   };
 }
 
@@ -216,7 +175,7 @@ export async function startOfficeTape01({
   tapeDirector.add('office', office);
   tapeDirector.activate('office');
 
-  const creature = buildCreature(THREE);
+  const creature = await createTapeCreature(OFFICE_01_CREATURE);
   scene.add(creature.root);
 
   const chrome = mountTapeChrome();
@@ -234,7 +193,19 @@ export async function startOfficeTape01({
   camera.updateProjectionMatrix();
   renderer.render(scene, camera);
 
-  console.info('[Behind. TAPE] office-01 ready · scripted handheld · no gameplay');
+  console.info(
+    '[Behind. TAPE] office-01 ready · image-plane creature ·',
+    `mode=${OFFICE_01_CREATURE.mode} height=${OFFICE_01_CREATURE.height}m`,
+  );
+  console.info(
+    '[Behind. TAPE] Tune OFFICE_01_CREATURE in js/tapes/creature.js (position/height/opacity).',
+  );
+  if (typeof window !== 'undefined') {
+    // Live tweak while the tape runs, e.g.:
+    // __tapeCreature.config.height = 3.2; await __tapeCreature.applyConfig();
+    window.__tapeCreature = creature;
+    window.__tapeCamera = camera;
+  }
 
   return {
     id: 'office-01',
@@ -256,7 +227,7 @@ export async function startOfficeTape01({
       const t = Math.min(elapsed, DURATION);
 
       if (!vanished && t >= 17.05) {
-        creature.root.visible = false;
+        creature.setVisible(false);
         vanished = true;
       }
 
@@ -272,10 +243,12 @@ export async function startOfficeTape01({
         pitch: shake.pitch * focus,
         roll: shake.roll * focus,
       });
+      creature.update(dt, camera);
       if (typeof window !== 'undefined') {
         window.__tapeDebug = {
           t: Number(t.toFixed(2)),
           vanished,
+          creature: { ...OFFICE_01_CREATURE.position, height: OFFICE_01_CREATURE.height },
           cam: {
             x: Number(camera.position.x.toFixed(2)),
             y: Number(camera.position.y.toFixed(2)),
