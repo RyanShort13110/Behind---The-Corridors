@@ -423,7 +423,7 @@ async function bootDebugTape(id) {
     look?.setEnabled?.(false);
     interaction?.clear?.();
     const { createOffice } = await import('./levels/office.js?v=tape-chair-1');
-    const { startOfficeTape01 } = await import('./tapes/office-01.js?v=silhouette-2');
+    const { startOfficeTape01 } = await import('./tapes/office-01.js?v=silhouette-3');
     tapeSession = await startOfficeTape01({
       scene,
       camera,
