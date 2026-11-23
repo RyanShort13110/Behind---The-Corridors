@@ -11,8 +11,8 @@
  *   3. On close: dispose the tape session, restore chapter director / interaction
  *      / composure / scroll pose exactly as left.
  *
- * Until that viewer exists, the camcorder UI lists collected tapes and points
- * at the standalone debug URLs. Debug grants stay independent of checkpoints.
+ * Discovered tapes stay on the camcorder library after the first viewing removes
+ * the loose cassette from inventory. Debug grants stay independent of checkpoints.
  */
 
 /** @typedef {{
@@ -63,12 +63,32 @@ export function isTapeItemId(id) {
   return byId.has(id);
 }
 
-/** Tapes currently in inventory (discovered only). */
-export function listCollectedTapes(inventory) {
+/** Tapes currently carried as loose inventory cassettes. */
+export function listInventoryTapes(inventory) {
   if (!inventory?.list) return [];
   return inventory.list()
     .map(item => byId.get(item.id))
     .filter(Boolean);
+}
+
+/**
+ * Tapes available in the camcorder LCD — discovered cassettes, whether or not
+ * a loose copy is still in the inventory bar.
+ * @param {Iterable<string>|null|undefined} discoveredIds
+ */
+export function listDiscoveredTapes(discoveredIds) {
+  if (!discoveredIds) return [];
+  const out = [];
+  for (const id of discoveredIds) {
+    const tape = byId.get(id);
+    if (tape) out.push(tape);
+  }
+  return out;
+}
+
+/** @deprecated Use listInventoryTapes / listDiscoveredTapes. */
+export function listCollectedTapes(inventory) {
+  return listInventoryTapes(inventory);
 }
 
 export function debugTapeUrl(tape, { origin = typeof location !== 'undefined' ? location.origin + location.pathname : '' } = {}) {

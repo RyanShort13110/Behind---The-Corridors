@@ -15,12 +15,12 @@ import { drawVhsCCassettePreview } from './props/vhs-c-cassette.js?v=cam-1';
 import {
   TAPE_LIBRARY,
   CAMCORDER_ITEM_ID,
-  listCollectedTapes,
+  listDiscoveredTapes,
   isTapeItemId,
   tapeInventoryMeta,
   camcorderInventoryMeta,
   getTapeById,
-} from './tapes/library.js?v=cam-2';
+} from './tapes/library.js?v=cam-9';
 import {
   createComposure, COMPOSURE_MAX, CIGARETTE_RESTORE, COMPOSURE_HITS,
   CIGARETTE_TOOLTIP, CIGARETTE_FLAVOR, cigaretteEffectLine, fillCopyWithEffect,
@@ -168,7 +168,19 @@ const memory = {
   photographPassed: false,
   extraStepHeard: false,
   keyPassed: false,
+  /** Cassette ids found in the world — stay on the camcorder after inventory consume. */
+  discoveredTapes: [],
 };
+
+function discoverTape(tapeId) {
+  if (!isTapeItemId(tapeId)) return;
+  if (!Array.isArray(memory.discoveredTapes)) memory.discoveredTapes = [];
+  if (!memory.discoveredTapes.includes(tapeId)) memory.discoveredTapes.push(tapeId);
+}
+
+function hasDiscoveredTape(tapeId) {
+  return Boolean(isTapeItemId(tapeId) && memory.discoveredTapes?.includes(tapeId));
+}
 const ORIGINAL_LOCATION_HTML = 'NORTH WING <span class="separator">/</span> LEVEL 13';
 
 // Dialogue Revision 002: one-shot thoughts, never held by scroll position.
@@ -343,6 +355,7 @@ try {
     },
     onTake: (itemId, entryId) => {
       audio.playInteract(itemId);
+      if (isTapeItemId(itemId)) discoverTape(itemId);
       if (entryId === 'office-sticky-note') officeStory.state.stickyTaken = true;
       if (entryId === 'office-key-fob') {
         officeStory.takeKeyFob();
@@ -515,10 +528,21 @@ async function bootDebugTape(id) {
 async function playCamcorderTape(tape) {
   if (!tape?.recordingId || !director || tapeSession || transitioning || camcorderReturning) return;
   if (!inventory?.has(CAMCORDER_ITEM_ID)) return;
+  discoverTape(tape.id);
+  // First viewing loads the loose cassette into the camcorder — leave the bar.
+  const hadCassette = inventory.has(tape.id);
+  if (hadCassette) {
+    inventory.remove(tape.id);
+    renderInventory();
+  }
   camcorderResumeSnapshot = captureCheckpointSnapshot();
   const ok = await startTapeRecording(tape.recordingId, { fromCamcorder: true });
   if (!ok) {
     camcorderResumeSnapshot = null;
+    if (hadCassette) {
+      inventory.add(tape.id, tapeInventoryMeta(tape));
+      renderInventory();
+    }
     if (el.itemDetailTapeNote) {
       el.itemDetailTapeNote.hidden = false;
       el.itemDetailTapeNote.textContent = 'Could not play this cassette.';
@@ -625,7 +649,8 @@ function bindChapterInteractables() {
         }
         continue;
       }
-      if (spec.itemId && isTapeItemId(spec.itemId) && inventory?.has(spec.itemId)) {
+      if (spec.itemId && isTapeItemId(spec.itemId)
+          && (inventory?.has(spec.itemId) || hasDiscoveredTape(spec.itemId))) {
         if (spec.object) {
           spec.object.visible = false;
           spec.object.userData.taken = true;
@@ -1011,7 +1036,11 @@ function captureCheckpointSnapshot() {
       kind: item.kind ?? null,
       recordingId: item.recordingId ?? null,
     })),
-    memory: { ...memory, chaptersCompleted: [...(memory.chaptersCompleted || [])] },
+    memory: {
+      ...memory,
+      chaptersCompleted: [...(memory.chaptersCompleted || [])],
+      discoveredTapes: [...(memory.discoveredTapes || [])],
+    },
     story: { ...story.state },
     office: { ...officeStory.state },
     records: { ...recordsStory.state },
@@ -1133,6 +1162,15 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     Object.assign(memory, snapshot.memory || {});
     if (Array.isArray(snapshot.memory?.chaptersCompleted)) {
       memory.chaptersCompleted = [...snapshot.memory.chaptersCompleted];
+    }
+    if (Array.isArray(snapshot.memory?.discoveredTapes)) {
+      memory.discoveredTapes = [...snapshot.memory.discoveredTapes];
+    } else if (!Array.isArray(memory.discoveredTapes)) {
+      memory.discoveredTapes = [];
+    }
+    // Pre-feature saves: any cassette still carried counts as discovered.
+    for (const item of inventory?.list() || []) {
+      if (isTapeItemId(item.id)) discoverTape(item.id);
     }
     // Re-offer chapter cigarette only if it was not yet collected at this checkpoint.
     const cigId = chapterCigaretteId(target);
@@ -1282,9 +1320,17 @@ function clearCamcorderTapePanel() {
   }
 }
 
+function tapesOnCamcorder() {
+  const ids = new Set(memory.discoveredTapes || []);
+  for (const item of inventory?.list() || []) {
+    if (isTapeItemId(item.id)) ids.add(item.id);
+  }
+  return listDiscoveredTapes(ids);
+}
+
 function populateCamcorderTapePanel() {
   if (!el.itemDetailTapes || !el.itemDetailTapeList) return;
-  const collected = listCollectedTapes(inventory);
+  const collected = tapesOnCamcorder();
   el.itemDetailTapes.hidden = false;
   el.itemDetailTapeList.replaceChildren();
   if (el.itemDetailTapeNote) {
@@ -1589,6 +1635,7 @@ function reset() {
   memory.photographPassed = false;
   memory.extraStepHeard = false;
   memory.keyPassed = false;
+  memory.discoveredTapes = [];
   keypad?.close();
   audio.reset();
   composure.reset();
@@ -2128,6 +2175,7 @@ if (DEBUG_MODE) {
         if (!inventory) return;
         for (const tape of TAPE_LIBRARY) {
           inventory.add(tape.id, tapeInventoryMeta(tape));
+          discoverTape(tape.id);
         }
         renderInventory();
         bindChapterInteractables();
@@ -2142,7 +2190,7 @@ if (DEBUG_MODE) {
       },
       status() {
         const cam = inventory?.has(CAMCORDER_ITEM_ID) ? 'yes' : 'no';
-        const n = listCollectedTapes(inventory).length;
+        const n = tapesOnCamcorder().length;
         return `Cam: ${cam} · tapes ${n}/${TAPE_LIBRARY.length}`;
       },
     });
