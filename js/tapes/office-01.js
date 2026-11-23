@@ -1,4 +1,4 @@
-import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=silhouette-2';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=silhouette-3';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
@@ -185,6 +185,53 @@ export async function startOfficeTape01({
   const chrome = mountTapeChrome();
   const tcEl = chrome.querySelector('[data-tape-tc]');
 
+  // Tape-only lighting inspector; normal gameplay and chapter dev controls
+  // remain untouched. Sliders adjust existing GLB materials/light in place.
+  const inspector = document.createElement('aside');
+  inspector.setAttribute('aria-label', 'Tape creature lighting controls');
+  inspector.style.cssText = [
+    'position:fixed', 'right:16px', 'top:76px', 'z-index:9999',
+    'width:220px', 'padding:12px 14px', 'border:1px solid #4a657077',
+    'background:#080e12ed', 'color:#c2d2d8', 'font:12px/1.5 monospace',
+    'border-radius:5px', 'pointer-events:auto',
+  ].join(';');
+  const addSlider = (label, property, min, max, step) => {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:block;margin:0 0 10px';
+    const title = document.createElement('div');
+    title.style.cssText = 'display:flex;justify-content:space-between';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const value = document.createElement('output');
+    value.textContent = Number(creature.config[property]).toFixed(2);
+    title.append(name, value);
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = String(min);
+    slider.max = String(max);
+    slider.step = String(step);
+    slider.value = String(creature.config[property]);
+    slider.style.cssText = 'display:block;width:100%;accent-color:#7897a6';
+    slider.addEventListener('input', () => {
+      creature.config[property] = Number(slider.value);
+      value.textContent = Number(slider.value).toFixed(2);
+      creature.applyShading();
+    });
+    row.append(title, slider);
+    inspector.appendChild(row);
+  };
+  const inspectorTitle = document.createElement('div');
+  inspectorTitle.textContent = 'WAITING THING / LIGHTING';
+  inspectorTitle.style.cssText = 'font-weight:bold;letter-spacing:0.06em;margin-bottom:10px';
+  inspector.appendChild(inspectorTitle);
+  addSlider('DARKNESS', 'darkness', 0, 1, 0.01);
+  addSlider('RIM INTENSITY', 'rimLightIntensity', 0, 3, 0.01);
+  const note = document.createElement('small');
+  note.textContent = 'Debug tape only · changes are not saved';
+  note.style.opacity = '0.7';
+  inspector.appendChild(note);
+  experience?.appendChild(inspector);
+
   const baseFov = camera.fov;
   let elapsed = 0;
   let vanished = false;
@@ -309,6 +356,12 @@ export async function startOfficeTape01({
       creature.root.removeFromParent();
       creature.dispose();
       chrome.remove();
+      inspector.remove();
+      if (typeof window !== 'undefined') {
+        delete window.__tapeCreature;
+        delete window.__tapeCamera;
+        delete window.__tapeHoldOnCreature;
+      }
       experience?.classList.remove('tape-mode');
       experience?.removeAttribute('data-tape');
       camera.fov = baseFov;
