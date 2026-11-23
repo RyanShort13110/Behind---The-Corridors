@@ -1,244 +1,260 @@
 import * as THREE from 'three';
 
 /**
- * First-pass finale organism — architecture that was always flesh.
- * Procedural mound + draped appendages + biological exit opening.
- * No skeletal rig; alive via layered scale / sway / membrane pulse.
+ * Finale organism — loads `behind_final_organism_v01.glb` only when the
+ * ending prototype boots. Procedural motion on named mesh parts; no clips.
  */
 
-function mat(opts) {
-  return new THREE.MeshStandardMaterial(opts);
+export const FINALE_ORGANISM_URL = './assets/finale/behind_final_organism_v01.glb';
+
+const PART_NAMES = [
+  'BREATH_SHELL',
+  'DORSAL_CURLED_LIMB',
+  'LEFT_HANGING_LIMB',
+  'RIB_01', 'RIB_02', 'RIB_03', 'RIB_04', 'RIB_05',
+  'EXIT_SCAR_RIM',
+  'EXIT_FOLD_L',
+  'EXIT_FOLD_R',
+  'ROOT_BUTTRESS_1', 'ROOT_BUTTRESS_2', 'ROOT_BUTTRESS_3', 'ROOT_BUTTRESS_4',
+];
+
+function clamp01(n) {
+  return Math.max(0, Math.min(1, n));
+}
+
+/** Uneven breath envelope — long inhale, shorter exhale, slight hold. */
+function breathWave(t, speed) {
+  const cycle = ((t * speed) % 1 + 1) % 1;
+  if (cycle < 0.55) {
+    const u = cycle / 0.55;
+    return u * u * (3 - 2 * u); // ease inhale
+  }
+  if (cycle < 0.72) return 1; // soft hold
+  const u = (cycle - 0.72) / 0.28;
+  return 1 - (u * u * (3 - 2 * u));
 }
 
 /**
  * @param {object} [opts]
- * @param {number} [opts.scale]
+ * @param {string} [opts.url]
+ * @param {(msg: string) => void} [opts.onProgress]
  */
-export function createFinaleCreature({ scale = 1 } = {}) {
+export async function createFinaleCreature({
+  url = FINALE_ORGANISM_URL,
+  onProgress = null,
+} = {}) {
   const root = new THREE.Group();
   root.name = 'Finale organism';
-  root.scale.setScalar(scale);
 
-  const mats = {
-    membrane: mat({
-      color: 0xc4b8a8,
-      roughness: 0.78,
-      metalness: 0.02,
-      emissive: 0x2a2218,
-      emissiveIntensity: 0.06,
-    }),
-    flesh: mat({
-      color: 0xa89888,
-      roughness: 0.88,
-      metalness: 0,
-      emissive: 0x1a1210,
-      emissiveIntensity: 0.04,
-    }),
-    scar: mat({
-      color: 0x8a7a6c,
-      roughness: 0.95,
-      metalness: 0.05,
-    }),
-    wet: mat({
-      color: 0xb5a79a,
-      roughness: 0.42,
-      metalness: 0.08,
-      emissive: 0x1e1814,
-      emissiveIntensity: 0.08,
-    }),
-    orifice: mat({
-      color: 0x1a1214,
-      roughness: 0.92,
-      metalness: 0.02,
-    }),
-    vein: mat({
-      color: 0x6a5048,
-      roughness: 0.7,
-      metalness: 0.05,
-      emissive: 0x2a1010,
-      emissiveIntensity: 0.12,
-    }),
-  };
-
-  const geos = [];
-  const disposables = [...Object.values(mats)];
-  const breathParts = [];
-  const swayParts = [];
-
-  const addGeo = (geo) => {
-    geos.push(geo);
-    return geo;
-  };
-
-  const addMesh = (geo, material, parent, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) => {
-    const mesh = new THREE.Mesh(geo, material);
-    mesh.position.set(x, y, z);
-    mesh.scale.set(sx, sy, sz);
-    mesh.rotation.set(rx, ry, rz);
-    parent.add(mesh);
-    return mesh;
-  };
-
-  // —— Primary dome (shelter / mound) ——
-  const body = new THREE.Group();
-  body.name = 'organism-body';
-  root.add(body);
-
-  const domeGeo = addGeo(new THREE.SphereGeometry(1, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.55));
-  const dome = addMesh(domeGeo, mats.membrane, body, 0, 0, 0, 11.5, 8.2, 10.5);
-  dome.position.y = 0.15;
-  breathParts.push({ obj: body, ampX: 0.012, ampY: 0.028, ampZ: 0.014, phase: 0 });
-
-  // Secondary lobes — softer overlapping mass
-  const lobeGeo = addGeo(new THREE.SphereGeometry(1, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.6));
-  const lobeA = addMesh(lobeGeo, mats.flesh, body, -6.2, 0.4, 2.5, 4.8, 3.6, 4.2);
-  const lobeB = addMesh(lobeGeo, mats.flesh, body, 5.8, 0.2, -1.8, 5.2, 3.2, 4.6);
-  const lobeC = addMesh(lobeGeo, mats.scar, body, 1.2, 0.1, 6.5, 4.0, 2.8, 3.5);
-  breathParts.push({ obj: lobeA, ampX: 0.02, ampY: 0.035, ampZ: 0.02, phase: 1.1 });
-  breathParts.push({ obj: lobeB, ampX: 0.018, ampY: 0.03, ampZ: 0.018, phase: 2.4 });
-  breathParts.push({ obj: lobeC, ampX: 0.015, ampY: 0.04, ampZ: 0.015, phase: 0.7 });
-
-  // Scar ridges / folds along the dome
-  const ridgeGeo = addGeo(new THREE.BoxGeometry(1, 1, 1));
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 1.6 - 0.4;
-    const rx = Math.sin(a) * 7.5;
-    const rz = Math.cos(a) * 6.8;
-    const ridge = addMesh(
-      ridgeGeo, mats.scar, body,
-      rx, 3.2 + (i % 3) * 0.35, rz,
-      0.35 + (i % 2) * 0.2, 2.2 + (i % 3) * 0.4, 0.55,
-      0.2, a, 0.15,
+  const { GLTFLoader } = await import(
+    'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js'
+  );
+  const loader = new GLTFLoader();
+  const gltf = await new Promise((resolve, reject) => {
+    loader.load(
+      url,
+      resolve,
+      (ev) => {
+        if (!onProgress || !ev.total) return;
+        onProgress(`Loading organism… ${Math.round((ev.loaded / ev.total) * 100)}%`);
+      },
+      reject,
     );
-    breathParts.push({ obj: ridge, ampX: 0.01, ampY: 0.02, ampZ: 0.01, phase: i * 0.55 });
+  });
+
+  const model = gltf.scene || gltf.scenes?.[0];
+  if (!model) throw new Error(`Finale organism GLB had no scene: ${url}`);
+  model.name = 'behind_final_organism_v01';
+  // Authored in meters — do not apply large scale multipliers.
+  model.scale.setScalar(1);
+  root.add(model);
+
+  const byName = new Map();
+  model.traverse((obj) => {
+    if (obj.name) byName.set(obj.name, obj);
+    if (obj.isMesh) {
+      obj.castShadow = false;
+      obj.receiveShadow = false;
+      obj.frustumCulled = true;
+      // Vertex colors are authored into the materials — keep them.
+      const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
+      for (const mat of mats) {
+        if (!mat) continue;
+        mat.vertexColors = Boolean(mat.vertexColors) || Boolean(obj.geometry?.attributes?.color);
+        mat.needsUpdate = true;
+      }
+    }
+  });
+
+  const found = PART_NAMES.filter((n) => byName.has(n));
+  console.info(
+    `[Behind. FINALE] Organism loaded (${found.length}/${PART_NAMES.length} named parts).`,
+    found,
+  );
+
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  // Entrance faces −Z; opening plane ≈ bbox.min.z in model space.
+  const entranceLocalZ = box.min.z;
+
+  /** Capture rest pose for a part. */
+  function capture(name) {
+    const obj = byName.get(name);
+    if (!obj) return null;
+    return {
+      obj,
+      pos: obj.position.clone(),
+      rot: obj.rotation.clone(),
+      scl: obj.scale.clone(),
+    };
   }
 
-  // Subtle vein cords
-  const veinGeo = addGeo(new THREE.CylinderGeometry(0.08, 0.12, 1, 6));
-  for (let i = 0; i < 5; i++) {
-    const a = i * 1.15;
-    const vein = addMesh(
-      veinGeo, mats.vein, body,
-      Math.sin(a) * 5.5, 2.5, Math.cos(a) * 5.0,
-      1, 4.5 + i * 0.3, 1,
-      0.4, a, 0.5,
-    );
-    breathParts.push({ obj: vein, ampX: 0.008, ampY: 0.015, ampZ: 0.008, phase: i * 0.9 });
-  }
+  const shell = capture('BREATH_SHELL');
+  const dorsal = capture('DORSAL_CURLED_LIMB');
+  const hanging = capture('LEFT_HANGING_LIMB');
+  const ribs = [1, 2, 3, 4, 5].map((i) => capture(`RIB_0${i}`)).filter(Boolean);
+  const exitRim = capture('EXIT_SCAR_RIM');
+  const exitL = capture('EXIT_FOLD_L');
+  const exitR = capture('EXIT_FOLD_R');
+  const roots = [1, 2, 3, 4].map((i) => capture(`ROOT_BUTTRESS_${i}`)).filter(Boolean);
 
-  // —— Draped appendages / tubes ——
-  const drape = new THREE.Group();
-  drape.name = 'organism-drapes';
-  root.add(drape);
-
-  const tubeGeo = addGeo(new THREE.CylinderGeometry(0.45, 0.65, 1, 10));
-  const tipGeo = addGeo(new THREE.SphereGeometry(0.55, 10, 8));
-  const drapeSpecs = [
-    { x: -8.5, y: 5.5, z: 3.2, len: 7.5, lean: 0.55, yaw: 0.4 },
-    { x: -7.0, y: 6.2, z: -2.5, len: 8.2, lean: 0.7, yaw: -0.3 },
-    { x: 8.0, y: 5.8, z: 1.5, len: 7.8, lean: 0.6, yaw: -0.5 },
-    { x: 6.5, y: 4.8, z: -4.0, len: 6.5, lean: 0.45, yaw: 0.8 },
-    { x: -2.0, y: 7.0, z: 7.5, len: 5.5, lean: 0.85, yaw: 0.1 },
-    { x: 3.5, y: 6.5, z: 8.0, len: 6.0, lean: 0.75, yaw: -0.2 },
-  ];
-  for (let i = 0; i < drapeSpecs.length; i++) {
-    const s = drapeSpecs[i];
-    const arm = new THREE.Group();
-    arm.position.set(s.x, s.y, s.z);
-    arm.rotation.set(s.lean, s.yaw, (i % 2) * 0.15);
-    drape.add(arm);
-    addMesh(tubeGeo, i % 2 ? mats.wet : mats.flesh, arm, 0, -s.len * 0.5, 0, 1, s.len, 1);
-    addMesh(tipGeo, mats.wet, arm, 0, -s.len, 0, 1.1, 1.3, 1.1);
-    swayParts.push({
-      obj: arm,
-      baseRot: { x: arm.rotation.x, y: arm.rotation.y, z: arm.rotation.z },
-      amp: 0.04 + (i % 3) * 0.015,
-      speed: 0.35 + (i % 4) * 0.08,
-      phase: i * 1.3,
-    });
-  }
-
-  // —— Biological exit opening (not a mouth — a threshold grown into the mass) ——
-  const opening = new THREE.Group();
-  opening.name = 'organism-exit';
-  // Faces −Z so corridor aligns into the opening from −Z.
-  opening.position.set(0, 0, -9.2);
-  root.add(opening);
-
-  const ringGeo = addGeo(new THREE.TorusGeometry(1.55, 0.38, 10, 22));
-  addMesh(ringGeo, mats.flesh, opening, 0, 1.55, 0.2, 1.15, 1.0, 0.85, Math.PI * 0.5, 0, 0);
-  addMesh(ringGeo, mats.scar, opening, 0, 1.55, 0.05, 1.35, 1.15, 0.7, Math.PI * 0.5, 0, 0);
-
-  const lipGeo = addGeo(new THREE.TorusGeometry(1.35, 0.22, 8, 18));
-  const lip = addMesh(lipGeo, mats.wet, opening, 0, 1.55, 0.35, 1.0, 1.0, 0.9, Math.PI * 0.5, 0, 0);
-  breathParts.push({ obj: lip, ampX: 0.03, ampY: 0.03, ampZ: 0.02, phase: 0.3 });
-
-  // Dark cavity recess
-  const cavityGeo = addGeo(new THREE.CylinderGeometry(1.25, 1.45, 2.8, 16));
-  addMesh(cavityGeo, mats.orifice, opening, 0, 1.55, 1.4, 1, 1, 1, Math.PI * 0.5, 0, 0);
-
-  // Soft folds around the opening
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    const fold = addMesh(
-      ridgeGeo, mats.membrane, opening,
-      Math.cos(a) * 1.7, 1.55 + Math.sin(a * 2) * 0.15, 0.15,
-      0.55, 0.9, 0.35,
-      0.3, a, 0.4,
-    );
-    breathParts.push({ obj: fold, ampX: 0.02, ampY: 0.025, ampZ: 0.02, phase: i * 0.8 });
-  }
-
-  // Ground skirt — mass meeting terrain
-  const skirtGeo = addGeo(new THREE.CylinderGeometry(12.5, 14.5, 1.2, 24, 1, true));
-  addMesh(skirtGeo, mats.scar, body, 0, 0.3, 0.5, 1, 1, 0.92);
-
-  const baseScale = new Map();
-  for (const part of breathParts) {
-    baseScale.set(part.obj, part.obj.scale.clone());
-  }
+  const knobs = {
+    breathIntensity: 1,
+    breathSpeed: 1,
+    /** When true, keep exit parts nearly still (doorway transition). */
+    stabilizeExit: true,
+  };
 
   let t = 0;
+  let twitchT = 0;
+  let nextTwitch = 4 + Math.random() * 6;
+
   function update(dt, reduced = false) {
     if (reduced) return;
     t += dt;
-    const breath = Math.sin(t * 0.55);
-    const breath2 = Math.sin(t * 0.37 + 1.2);
+    twitchT += dt;
 
-    for (const part of breathParts) {
-      const base = baseScale.get(part.obj);
-      if (!base) continue;
-      const w = breath * Math.cos(part.phase) + breath2 * 0.35 * Math.sin(part.phase * 0.7);
-      part.obj.scale.set(
-        base.x * (1 + part.ampX * w),
-        base.y * (1 + part.ampY * w),
-        base.z * (1 + part.ampZ * w),
+    const speed = 0.085 * knobs.breathSpeed; // long cycle
+    const breath = breathWave(t, speed);
+    const intensity = knobs.breathIntensity;
+    const secondary = breathWave(t * 0.73 + 0.2, speed * 0.9);
+
+    // Main shell — anisotropic, not uniform balloon scale.
+    if (shell) {
+      const ix = 1 + 0.012 * breath * intensity;
+      const iy = 1 + 0.028 * breath * intensity;
+      const iz = 1 + 0.016 * breath * intensity;
+      shell.obj.scale.set(shell.scl.x * ix, shell.scl.y * iy, shell.scl.z * iz);
+    }
+
+    // Ribs — phase-offset flex.
+    for (let i = 0; i < ribs.length; i++) {
+      const r = ribs[i];
+      const phase = i * 0.55;
+      const w = breathWave(t + phase, speed);
+      const lean = (w - 0.5) * 0.035 * intensity;
+      r.obj.rotation.z = r.rot.z + lean;
+      r.obj.rotation.x = r.rot.x + lean * 0.4 * ((i % 2) * 2 - 1);
+      r.obj.position.y = r.pos.y + w * 0.04 * intensity;
+    }
+
+    // Large limbs — almost imperceptible pressure response.
+    if (dorsal) {
+      const w = secondary;
+      dorsal.obj.rotation.x = dorsal.rot.x + (w - 0.5) * 0.025 * intensity;
+      dorsal.obj.rotation.y = dorsal.rot.y + Math.sin(t * 0.11) * 0.012 * intensity;
+      dorsal.obj.position.y = dorsal.pos.y + w * 0.06 * intensity;
+    }
+    if (hanging) {
+      const w = breathWave(t + 1.4, speed * 0.85);
+      hanging.obj.rotation.z = hanging.rot.z + Math.sin(t * 0.19 + 0.5) * 0.03 * intensity;
+      hanging.obj.rotation.x = hanging.rot.x + (w - 0.5) * 0.02 * intensity;
+      hanging.obj.position.y = hanging.pos.y - w * 0.05 * intensity;
+    }
+
+    // Root buttresses — slow ground press.
+    for (let i = 0; i < roots.length; i++) {
+      const r = roots[i];
+      const w = breathWave(t + i * 0.7, speed * 0.7);
+      r.obj.scale.y = r.scl.y * (1 + (w - 0.5) * 0.02 * intensity);
+      r.obj.position.y = r.pos.y + (w - 0.5) * 0.03 * intensity;
+    }
+
+    // Exit tissue — stable during doorway, soft flex after reveal.
+    const exitAmp = knobs.stabilizeExit ? 0.15 : 1;
+    if (exitRim) {
+      const w = breathWave(t + 0.3, speed);
+      exitRim.obj.scale.set(
+        exitRim.scl.x * (1 + 0.008 * w * intensity * exitAmp),
+        exitRim.scl.y * (1 + 0.01 * w * intensity * exitAmp),
+        exitRim.scl.z * (1 + 0.008 * w * intensity * exitAmp),
       );
     }
-
-    for (const part of swayParts) {
-      const s = Math.sin(t * part.speed + part.phase);
-      part.obj.rotation.x = part.baseRot.x + s * part.amp;
-      part.obj.rotation.z = part.baseRot.z + Math.cos(t * part.speed * 0.8 + part.phase) * part.amp * 0.7;
+    if (exitL) {
+      exitL.obj.rotation.y = exitL.rot.y
+        + Math.sin(t * 0.22) * 0.02 * intensity * exitAmp;
+    }
+    if (exitR) {
+      exitR.obj.rotation.y = exitR.rot.y
+        - Math.sin(t * 0.22 + 0.4) * 0.02 * intensity * exitAmp;
     }
 
-    mats.membrane.emissiveIntensity = 0.05 + breath * 0.025;
-    mats.wet.emissiveIntensity = 0.06 + breath2 * 0.03;
-    mats.vein.emissiveIntensity = 0.1 + Math.max(0, breath) * 0.08;
+    // Occasional localized twitch.
+    if (twitchT > nextTwitch) {
+      twitchT = 0;
+      nextTwitch = 5 + Math.random() * 9;
+      const target = ribs[(Math.random() * ribs.length) | 0] || hanging || dorsal;
+      if (target) {
+        const kick = 0.04 * intensity;
+        target.obj.rotation.z += (Math.random() - 0.5) * kick;
+      }
+    }
   }
 
   function dispose() {
-    for (const g of geos) g.dispose();
-    for (const m of disposables) m.dispose();
+    root.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.geometry?.dispose?.();
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const mat of mats) mat?.dispose?.();
+      }
+    });
     root.removeFromParent();
   }
 
-  /** World-space point roughly at the biological exit threshold. */
-  function getExitWorldPosition(target = new THREE.Vector3()) {
-    opening.getWorldPosition(target);
-    target.y += 1.55;
-    return target;
+  /**
+   * Place organism so its −Z entrance aligns with a world Z plane
+   * (typically just beyond the corridor exit door).
+   */
+  function placeEntranceAt(worldZ, y = 0) {
+    root.position.set(0, y, 0);
+    root.rotation.set(0, 0, 0);
+    root.updateMatrixWorld(true);
+    // Model entrance local Z → world: root.position.z + entranceLocalZ
+    root.position.z = worldZ - entranceLocalZ;
+    root.position.y = y - box.min.y; // sit on floor
   }
 
-  return { root, opening, update, dispose, getExitWorldPosition, mats };
+  function getEntranceWorldPosition(target = new THREE.Vector3()) {
+    root.updateMatrixWorld(true);
+    return target.set(root.position.x, root.position.y + 1.7, root.position.z + entranceLocalZ);
+  }
+
+  return {
+    root,
+    model,
+    knobs,
+    box,
+    size,
+    entranceLocalZ,
+    placeEntranceAt,
+    getEntranceWorldPosition,
+    update,
+    dispose,
+    setStabilizeExit(v) { knobs.stabilizeExit = Boolean(v); },
+    setBreathIntensity(v) { knobs.breathIntensity = clamp01(Number(v) || 0) * 2; },
+    setBreathSpeed(v) { knobs.breathSpeed = Math.max(0.25, Math.min(3, Number(v) || 1)); },
+  };
 }

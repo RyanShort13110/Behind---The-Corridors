@@ -1,5 +1,9 @@
 # Audio credits
 
+## `finale/behind_final_organism_v01.glb`
+Project-authored finale organism mesh (vertex colors, no external textures).
+Used only by the debug ending prototype (`?debug=1&ending=finale-prototype`).
+
 ## `breathing-scared.m4a`
 Project-owned recording used for Level 01 breathing.
 

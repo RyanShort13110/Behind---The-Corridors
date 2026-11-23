@@ -1,14 +1,10 @@
 import * as THREE from 'three';
-import { createFinaleCorridor } from './corridor.js?v=fin-1';
-import { createFinaleCreature } from './creature.js?v=fin-1';
+import { createFinaleCorridor } from './corridor.js?v=fin-2';
+import { createFinaleCreature } from './creature.js?v=fin-2';
 
 /**
- * Debug-only ending prototype.
+ * Debug-only ending prototype with the authored organism GLB.
  * Access: ?debug=1&ending=finale-prototype
- *
- * Phases:
- *  corridor  — scroll/WASD toward the exit door (Ch01-adjacent feel)
- *  reveal    — scripted door → exterior → turn → hold on the organism
  *
  * Does not touch chapter progression, inventory, composure, or tapes.
  */
@@ -39,14 +35,80 @@ function applyPose(camera, pose) {
   camera.up.set(0, 1, 0);
 }
 
+/** Soft biological ambience — oscillators only, no roar/stinger assets. */
+function createFinaleAmbience() {
+  let ctx = null;
+  let master = null;
+  let nodes = [];
+  let started = false;
+
+  async function ensure() {
+    if (ctx) return ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(ctx.destination);
+    return ctx;
+  }
+
+  async function start() {
+    const c = await ensure();
+    if (!c || started) return;
+    if (c.state === 'suspended') await c.resume().catch(() => {});
+    started = true;
+
+    const makeDrone = (freq, type, gainVal, lfoHz, lfoDepth) => {
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      const lfo = c.createOscillator();
+      const lfoGain = c.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = gainVal;
+      lfo.frequency.value = lfoHz;
+      lfoGain.gain.value = lfoDepth;
+      lfo.connect(lfoGain);
+      lfoGain.connect(gain.gain);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start();
+      lfo.start();
+      nodes.push(osc, lfo, gain, lfoGain);
+    };
+
+    // Deep respiration bed + quiet creak partials.
+    makeDrone(38, 'sine', 0.028, 0.07, 0.012);
+    makeDrone(55, 'triangle', 0.012, 0.05, 0.008);
+    makeDrone(92, 'sine', 0.006, 0.11, 0.004);
+  }
+
+  function setLevel(v) {
+    if (!master || !ctx) return;
+    const target = Math.max(0, Math.min(1, v)) * 0.55;
+    master.gain.cancelScheduledValues(ctx.currentTime);
+    master.gain.linearRampToValueAtTime(target, ctx.currentTime + 0.8);
+  }
+
+  function dispose() {
+    for (const n of nodes) {
+      try { n.stop?.(); } catch (_) { /* already stopped */ }
+      try { n.disconnect?.(); } catch (_) { /* */ }
+    }
+    nodes = [];
+    try { master?.disconnect(); } catch (_) { /* */ }
+    try { ctx?.close(); } catch (_) { /* */ }
+    ctx = null;
+    master = null;
+    started = false;
+  }
+
+  return { start, setLevel, dispose };
+}
+
 /**
  * @param {object} opts
- * @param {THREE.Scene} opts.scene
- * @param {THREE.PerspectiveCamera} opts.camera
- * @param {THREE.WebGLRenderer} opts.renderer
- * @param {object} opts.director
- * @param {() => object} opts.createSceneDirector
- * @param {boolean} [opts.reduced]
  */
 export async function startFinalePrototype({
   scene,
@@ -74,6 +136,16 @@ export async function startFinalePrototype({
   director?.dispose?.();
   const localDirector = createSceneDirector();
 
+  // —— Loading veil ——
+  const loadNote = document.createElement('p');
+  loadNote.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:80', 'display:grid', 'place-items:center',
+    'margin:0', 'background:#080e12', 'color:#9aadb4',
+    'font:14px/1.5 "IBM Plex Mono", monospace',
+  ].join(';');
+  loadNote.textContent = 'Loading organism…';
+  document.body.appendChild(loadNote);
+
   // —— World ——
   const corridor = createFinaleCorridor();
   scene.add(corridor.world);
@@ -82,50 +154,86 @@ export async function startFinalePrototype({
   exterior.name = 'Finale exterior';
   scene.add(exterior);
 
-  // Ashen ground plane (extends around the organism).
-  const groundGeo = new THREE.CircleGeometry(80, 48);
+  // Desolate uneven terrain (displaced ring + soft dunes).
+  const groundGeo = new THREE.CircleGeometry(110, 64);
+  const pos = groundGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i); // circle is in XY before rotate
+    const r = Math.hypot(x, y);
+    const h = Math.sin(x * 0.09) * 0.35 + Math.cos(y * 0.07) * 0.28
+      + Math.sin(r * 0.15) * 0.2;
+    pos.setZ(i, h);
+  }
+  groundGeo.computeVertexNormals();
   const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x2a2e2c, roughness: 0.96, metalness: 0.02,
+    color: 0x3a3c38, roughness: 0.97, metalness: 0.02, flatShading: true,
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI * 0.5;
-  ground.position.y = -0.02;
+  ground.position.y = -0.05;
   exterior.add(ground);
 
-  // Soft featureless sky dome (inside-out).
-  const skyGeo = new THREE.SphereGeometry(90, 24, 16);
+  const skyGeo = new THREE.SphereGeometry(120, 24, 16);
   const skyMat = new THREE.MeshBasicMaterial({
-    color: 0x1a2228, side: THREE.BackSide, fog: false,
+    color: 0x1c242c, side: THREE.BackSide, fog: false,
   });
   exterior.add(new THREE.Mesh(skyGeo, skyMat));
 
-  const hemi = new THREE.HemisphereLight(0x6a7a82, 0x1a1512, 0.55);
+  const hemi = new THREE.HemisphereLight(0x7a8890, 0x1a1512, 0.5);
   exterior.add(hemi);
-  const fill = new THREE.DirectionalLight(0xb8c4c0, 0.35);
-  fill.position.set(-12, 18, -20);
+  const fill = new THREE.DirectionalLight(0xb0bcb6, 0.28);
+  fill.position.set(-18, 22, -30);
   exterior.add(fill);
-  const organismKey = new THREE.PointLight(0xc4b49a, 1.6, 45, 2);
-  organismKey.position.set(0, 10, 6);
+  const organismKey = new THREE.PointLight(0xc4b49a, 1.8, 55, 2);
   exterior.add(organismKey);
+  const rimCool = new THREE.PointLight(0x6a7a82, 0.55, 40, 2);
+  exterior.add(rimCool);
 
-  const creature = createFinaleCreature({ scale: 1 });
-  // Beyond the corridor exit (−Z). Opening is on local −Z; rotate so it faces
-  // the hall (+Z) and the player walks out through it.
-  const organismZ = corridor.exitZ - 12.5;
-  creature.root.position.set(0, 0, organismZ);
-  creature.root.rotation.y = Math.PI;
+  let creature;
+  try {
+    creature = await createFinaleCreature({
+      onProgress: (msg) => { loadNote.textContent = msg; },
+    });
+  } catch (err) {
+    loadNote.textContent = `Organism failed to load: ${err.message}`;
+    throw err;
+  }
+  loadNote.remove();
+
+  // Align −Z entrance with the corridor exit plane (visual handoff only).
+  const exitDoorWorldZ = corridor.exitZ;
+  creature.placeEntranceAt(exitDoorWorldZ - 0.35, 0);
   exterior.add(creature.root);
-  organismKey.position.set(0, 10, organismZ + 4);
+  const entrance = creature.getEntranceWorldPosition();
+  organismKey.position.set(entrance.x, 9, entrance.z + 6);
+  rimCool.position.set(entrance.x + 8, 6, entrance.z - 10);
 
-  // Hide exterior mass while still inside the corridor (fog + doorway framing).
-  creature.root.visible = true;
+  // Doorway occlusion veil — hides the geometry seam during exit.
+  const maskGeo = new THREE.PlaneGeometry(4.2, 3.6);
+  const maskMat = new THREE.MeshBasicMaterial({
+    color: 0x050708, transparent: true, opacity: 1, depthWrite: false,
+  });
+  const doorMask = new THREE.Mesh(maskGeo, maskMat);
+  doorMask.position.set(0, 1.55, exitDoorWorldZ - 0.05);
+  doorMask.visible = false;
+  scene.add(doorMask);
 
   scene.background = new THREE.Color(0x0a1214);
   scene.fog = new THREE.FogExp2(0x0a1214, 0.048);
+  const fogBase = { corridor: 0.048, exterior: 0.012 };
+  let fogMul = 1;
   const ambient = new THREE.HemisphereLight(0x8ca6a0, 0x131915, 0.85);
   scene.add(ambient);
 
-  // —— HUD prompt ——
+  // Hide most of the organism while still in the corridor — doorway framing
+  // + fog should dominate; shell can faintly exist beyond the door.
+  creature.root.visible = true;
+  creature.setStabilizeExit(true);
+
+  const ambience = createFinaleAmbience();
+
+  // —— HUD ——
   const prompt = document.createElement('p');
   prompt.className = 'finale-prompt';
   prompt.setAttribute('aria-live', 'polite');
@@ -137,7 +245,6 @@ export async function startFinalePrototype({
     'letter-spacing:0.04em', 'pointer-events:none', 'opacity:0',
     'transition:opacity 0.45s ease',
   ].join(';');
-  prompt.textContent = 'SCROLL TOWARD THE EXIT';
   document.body.appendChild(prompt);
   const setPrompt = (text, show = true) => {
     prompt.textContent = text;
@@ -145,32 +252,95 @@ export async function startFinalePrototype({
   };
   setPrompt('SCROLL TOWARD THE EXIT', true);
 
-  // —— Interaction (exit door) ——
+  // Fade to black overlay
+  const fadeEl = document.createElement('div');
+  fadeEl.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:70', 'background:#000',
+    'opacity:0', 'pointer-events:none', 'transition:opacity 2.4s ease',
+  ].join(';');
+  document.body.appendChild(fadeEl);
+
+  // —— Debug panel ——
+  const dbg = document.createElement('aside');
+  dbg.setAttribute('aria-label', 'Finale prototype controls');
+  dbg.style.cssText = [
+    'position:fixed', 'right:14px', 'top:72px', 'z-index:90',
+    'width:230px', 'padding:12px 14px', 'border:1px solid #4a657077',
+    'background:#080e12ed', 'color:#c2d2d8', 'font:12px/1.45 monospace',
+    'border-radius:5px', 'pointer-events:auto',
+  ].join(';');
+  dbg.innerHTML = `
+    <div style="margin-bottom:8px;letter-spacing:0.08em">FINALE PROTO</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <button type="button" data-f="skip">SKIP TO REVEAL</button>
+      <button type="button" data-f="pause">PAUSE</button>
+      <button type="button" data-f="hold">HOLD SHOT</button>
+      <button type="button" data-f="restart">RESTART</button>
+    </div>
+    <label>Breath intensity <input data-f="breathI" type="range" min="0" max="200" value="100"></label>
+    <label>Breath speed <input data-f="breathS" type="range" min="25" max="250" value="100"></label>
+    <label>Fog <input data-f="fog" type="range" min="20" max="200" value="100"></label>
+    <label>Reveal speed <input data-f="revealS" type="range" min="40" max="220" value="100"></label>
+    <p data-f="status" style="margin:8px 0 0;opacity:0.75">corridor</p>
+  `;
+  dbg.querySelectorAll('label').forEach((el) => {
+    el.style.cssText = 'display:block;margin:6px 0;font-size:11px';
+  });
+  dbg.querySelectorAll('button').forEach((el) => {
+    el.style.cssText = 'font:11px monospace;padding:4px 7px;cursor:pointer;background:#152028;color:#c2d2d8;border:1px solid #4a657055';
+  });
+  dbg.querySelectorAll('input[type=range]').forEach((el) => {
+    el.style.cssText = 'width:100%;accent-color:#7a9aa4';
+  });
+  document.body.appendChild(dbg);
+  const statusEl = dbg.querySelector('[data-f=status]');
+
+  // —— State ——
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
-  let phase = 'corridor'; // corridor | reveal
+  let phase = 'corridor'; // corridor | reveal | hold | fade
   let progress = 0;
   let revealT = 0;
-  let doorOpen = 0; // 0–1
   let finished = false;
+  let paused = false;
+  let revealSpeed = 1;
+  let forceHold = false;
   const eyeY = 1.7;
 
   const REVEAL = {
-    doorDur: 2.4,
-    walkDur: 9.5,
-    turnDur: 11.0,
-    holdDur: 18.0,
+    doorDur: 2.6,
+    walkDur: 10.5,
+    turnDur: 12.5,
+    holdDur: 10.0,
+    fadeDur: 3.0,
   };
-  const revealTotal = REVEAL.doorDur + REVEAL.walkDur + REVEAL.turnDur + REVEAL.holdDur;
 
-  // Poses for scripted reveal (yaw 0 looks −Z; π looks +Z back at the organism).
-  const exitDoorWorldZ = corridor.exitZ;
-  const poseDoor = { x: 0, y: eyeY, z: exitDoorWorldZ + 1.8, yaw: 0, pitch: 0 };
-  const poseOutside = { x: 0.2, y: eyeY, z: exitDoorWorldZ - 8.5, yaw: 0.12, pitch: 0.03 };
+  // Entrance faces −Z; walk out continuing −Z, then turn to face +Z.
+  const poseDoor = { x: 0, y: eyeY, z: exitDoorWorldZ + 1.85, yaw: 0, pitch: 0 };
+  const poseThreshold = { x: 0, y: eyeY, z: exitDoorWorldZ - 1.2, yaw: 0.04, pitch: 0.02 };
+  const poseOutside = { x: 0.35, y: eyeY + 0.05, z: exitDoorWorldZ - 11, yaw: 0.18, pitch: 0.04 };
   const poseReveal = {
-    x: -2.4, y: eyeY + 0.35, z: exitDoorWorldZ - 18.5,
-    yaw: Math.PI * 0.94, pitch: 0.08,
+    x: -4.5, y: eyeY + 1.1, z: exitDoorWorldZ - 28,
+    yaw: Math.PI * 0.96, pitch: 0.1,
   };
+
+  function setPhase(next) {
+    phase = next;
+    if (statusEl) statusEl.textContent = next;
+  }
+
+  function beginReveal({ skipWalk = false } = {}) {
+    setPhase('reveal');
+    revealT = skipWalk ? REVEAL.doorDur + REVEAL.walkDur * 0.85 : 0;
+    setPrompt('', false);
+    document.getElementById('bottom')?.classList.remove('active');
+    scene.background = new THREE.Color(0x161e24);
+    if (scene.fog) scene.fog.color.set(0x161e24);
+    doorMask.visible = true;
+    ambience.start().then(() => ambience.setLevel(0.15));
+    creature.setStabilizeExit(true);
+    console.info('[Behind. FINALE] Reveal sequence started.');
+  }
 
   function tryOpenExit() {
     if (phase !== 'corridor') return;
@@ -178,14 +348,31 @@ export async function startFinalePrototype({
       setPrompt('COME CLOSER TO THE DOOR', true);
       return;
     }
-    phase = 'reveal';
+    beginReveal();
+  }
+
+  function restartSequence() {
+    fadeEl.style.opacity = '0';
+    finished = false;
+    forceHold = false;
+    paused = false;
+    progress = 0;
     revealT = 0;
-    setPrompt('…', false);
-    document.getElementById('bottom')?.classList.remove('active');
-    // Soften fog for exterior readability.
-    if (scene.fog) scene.fog.density = 0.018;
-    scene.background = new THREE.Color(0x141c22);
-    console.info('[Behind. FINALE] Reveal sequence started.');
+    doorMask.visible = false;
+    maskMat.opacity = 1;
+    corridor.exitDoor.rotation.y = 0;
+    creature.setStabilizeExit(true);
+    ambience.setLevel(0);
+    scene.background = new THREE.Color(0x0a1214);
+    if (scene.fog) {
+      scene.fog.color.set(0x0a1214);
+      scene.fog.density = fogBase.corridor * fogMul;
+    }
+    document.getElementById('bottom')?.classList.add('active');
+    setPhase('corridor');
+    setPrompt('SCROLL TOWARD THE EXIT', true);
+    camera.position.set(0, eyeY, corridor.cameraZForProgress(0));
+    camera.rotation.set(0, 0, 0);
   }
 
   function onPointerDown(event) {
@@ -208,7 +395,6 @@ export async function startFinalePrototype({
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('keydown', onKeyDown);
 
-  // Scroll / walk keys drive corridor progress (isolated from main scroll trigger).
   let scrollAccum = 0;
   function onWheel(event) {
     if (phase !== 'corridor') return;
@@ -223,9 +409,50 @@ export async function startFinalePrototype({
   window.addEventListener('keydown', e => onWalkKey(e, true));
   window.addEventListener('keyup', e => onWalkKey(e, false));
 
-  // Initial camera
+  dbg.querySelector('[data-f=skip]')?.addEventListener('click', () => {
+    progress = 1;
+    beginReveal({ skipWalk: true });
+  });
+  dbg.querySelector('[data-f=pause]')?.addEventListener('click', (ev) => {
+    paused = !paused;
+    ev.currentTarget.textContent = paused ? 'RESUME' : 'PAUSE';
+  });
+  dbg.querySelector('[data-f=hold]')?.addEventListener('click', () => {
+    forceHold = true;
+    setPhase('reveal');
+    revealT = REVEAL.doorDur + REVEAL.walkDur + REVEAL.turnDur + 0.5;
+    doorMask.visible = false;
+    corridor.exitDoor.rotation.y = 1.35;
+    creature.setStabilizeExit(false);
+    ambience.start().then(() => ambience.setLevel(0.7));
+    scene.background = new THREE.Color(0x161e24);
+    if (scene.fog) {
+      scene.fog.color.set(0x161e24);
+      scene.fog.density = fogBase.exterior * fogMul;
+    }
+    applyPose(camera, poseReveal);
+  });
+  dbg.querySelector('[data-f=restart]')?.addEventListener('click', restartSequence);
+  dbg.querySelector('[data-f=breathI]')?.addEventListener('input', (ev) => {
+    creature.setBreathIntensity(Number(ev.target.value) / 100);
+  });
+  dbg.querySelector('[data-f=breathS]')?.addEventListener('input', (ev) => {
+    creature.setBreathSpeed(Number(ev.target.value) / 100);
+  });
+  dbg.querySelector('[data-f=fog]')?.addEventListener('input', (ev) => {
+    fogMul = Number(ev.target.value) / 100;
+    if (scene.fog) {
+      const base = phase === 'corridor' ? fogBase.corridor : fogBase.exterior;
+      scene.fog.density = base * fogMul;
+    }
+  });
+  dbg.querySelector('[data-f=revealS]')?.addEventListener('input', (ev) => {
+    revealSpeed = Number(ev.target.value) / 100;
+  });
+
   camera.position.set(0, eyeY, corridor.cameraZForProgress(0));
   camera.rotation.set(0, 0, 0);
+  if (scene.fog) scene.fog.density = fogBase.corridor * fogMul;
 
   function updateCorridor(dt) {
     const walk = (keys.fwd ? 1 : 0) + (keys.back ? -1 : 0);
@@ -247,61 +474,81 @@ export async function startFinalePrototype({
       0,
     );
 
-    if (progress > 0.8) {
-      setPrompt('CLICK THE DOOR  ·  OR PRESS E', true);
-    } else if (progress > 0.15) {
-      setPrompt('KEEP MOVING', true);
-    }
+    if (progress > 0.8) setPrompt('CLICK THE DOOR  ·  OR PRESS E', true);
+    else if (progress > 0.15) setPrompt('KEEP MOVING', true);
 
-    // Keep organism breathing even while inside (felt as faint wrongness, not visible).
     creature.update(dt, reduced);
   }
 
   function updateReveal(dt) {
-    revealT += dt;
+    if (!paused) revealT += dt * revealSpeed;
     const t = revealT;
+    const doorEnd = REVEAL.doorDur;
+    const walkEnd = doorEnd + REVEAL.walkDur;
+    const turnEnd = walkEnd + REVEAL.turnDur;
+    const holdEnd = turnEnd + REVEAL.holdDur;
 
-    // Door swing
-    const doorU = smooth(clamp01(t / REVEAL.doorDur));
-    doorOpen = doorU;
+    const doorU = smooth(clamp01(t / doorEnd));
     corridor.exitDoor.rotation.y = doorU * 1.35;
 
+    // Occlusion mask dissolves as we clear the threshold.
+    if (t < doorEnd) {
+      maskMat.opacity = 1;
+      doorMask.visible = true;
+    } else if (t < walkEnd) {
+      const u = (t - doorEnd) / REVEAL.walkDur;
+      maskMat.opacity = 1 - smooth(clamp01(u * 1.6));
+      doorMask.visible = maskMat.opacity > 0.02;
+    } else {
+      doorMask.visible = false;
+      maskMat.opacity = 0;
+    }
+
     let pose;
-    if (t < REVEAL.doorDur) {
-      pose = { ...poseDoor, yaw: lerp(0, 0.08, doorU) };
-    } else if (t < REVEAL.doorDur + REVEAL.walkDur) {
-      const u = (t - REVEAL.doorDur) / REVEAL.walkDur;
-      pose = lerpPose(poseDoor, poseOutside, u);
-      // Fog lifts as we leave the threshold.
-      if (scene.fog) scene.fog.density = lerp(0.048, 0.014, smooth(u));
-    } else if (t < REVEAL.doorDur + REVEAL.walkDur + REVEAL.turnDur) {
-      const u = (t - REVEAL.doorDur - REVEAL.walkDur) / REVEAL.turnDur;
+    if (t < doorEnd) {
+      pose = lerpPose(poseDoor, poseThreshold, doorU);
+      ambience.setLevel(0.15 + doorU * 0.1);
+    } else if (t < walkEnd) {
+      const u = (t - doorEnd) / REVEAL.walkDur;
+      pose = lerpPose(poseThreshold, poseOutside, u);
+      if (scene.fog) scene.fog.density = lerp(fogBase.corridor, fogBase.exterior, smooth(u)) * fogMul;
+      ambience.setLevel(0.25 + u * 0.25);
+      if (u > 0.35) creature.setStabilizeExit(false);
+    } else if (t < turnEnd) {
+      const u = (t - walkEnd) / REVEAL.turnDur;
       pose = lerpPose(poseOutside, poseReveal, u);
-      if (scene.fog) scene.fog.density = lerp(0.014, 0.011, smooth(u));
-      organismKey.intensity = lerp(1.6, 2.4, smooth(u));
+      if (scene.fog) scene.fog.density = fogBase.exterior * fogMul;
+      organismKey.intensity = lerp(1.6, 2.5, smooth(u));
+      ambience.setLevel(0.5 + u * 0.35);
+      creature.setStabilizeExit(false);
     } else {
       pose = { ...poseReveal };
-      // Slow drift — still, not idle-dead.
-      const holdT = t - REVEAL.doorDur - REVEAL.walkDur - REVEAL.turnDur;
-      pose.x += Math.sin(holdT * 0.15) * 0.08;
-      pose.y += Math.sin(holdT * 0.12) * 0.03;
-      if (holdT > 2 && holdT < 8) setPrompt('…', false);
-      if (holdT > REVEAL.holdDur) {
+      const holdT = t - turnEnd;
+      pose.x += Math.sin(holdT * 0.12) * 0.1;
+      pose.y += Math.sin(holdT * 0.09) * 0.04;
+      ambience.setLevel(0.85);
+      creature.setStabilizeExit(false);
+      if (!forceHold && holdT > REVEAL.holdDur) {
+        setPhase('fade');
+        fadeEl.style.opacity = '1';
         finished = true;
-        setPrompt('FINALE PROTOTYPE  ·  END OF SEQUENCE', true);
       }
     }
 
     applyPose(camera, pose);
     creature.update(dt, reduced);
+    organismKey.intensity = 2.15 + Math.sin(t * 0.45) * 0.2;
+  }
 
-    // Subtle terrain / organism key pulse
-    organismKey.intensity = 2.1 + Math.sin(t * 0.55) * 0.25;
+  function updateFade(dt) {
+    creature.update(dt, reduced);
+    ambience.setLevel(Math.max(0, 0.85 - revealT * 0.01));
   }
 
   function update(dt) {
     if (phase === 'corridor') updateCorridor(dt);
-    else updateReveal(dt);
+    else if (phase === 'reveal' || phase === 'hold') updateReveal(dt);
+    else if (phase === 'fade') updateFade(dt);
   }
 
   function dispose() {
@@ -309,8 +556,15 @@ export async function startFinalePrototype({
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('wheel', onWheel);
     prompt.remove();
+    fadeEl.remove();
+    dbg.remove();
+    loadNote.remove();
+    doorMask.removeFromParent();
+    maskGeo.dispose();
+    maskMat.dispose();
     corridor.dispose();
     creature.dispose();
+    ambience.dispose();
     groundGeo.dispose();
     groundMat.dispose();
     skyGeo.dispose();
@@ -318,6 +572,7 @@ export async function startFinalePrototype({
     hemi.dispose?.();
     fill.dispose?.();
     organismKey.dispose?.();
+    rimCool.dispose?.();
     ambient.dispose?.();
     exterior.removeFromParent();
     scene.remove(ambient);
@@ -326,15 +581,15 @@ export async function startFinalePrototype({
   }
 
   console.info(
-    '[Behind. FINALE] Prototype ready. Scroll to the door, then click it or press E.',
+    '[Behind. FINALE] GLB prototype ready. Scroll to the door, click / E to exit. Dev panel: SKIP / HOLD / breath knobs.',
   );
 
   return {
     get phase() { return phase; },
     get finished() { return finished; },
     get revealTime() { return revealT; },
-    get revealTotal() { return revealTotal; },
     update,
     dispose,
+    restart: restartSequence,
   };
 }
