@@ -52,7 +52,10 @@ import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
  * the visitor backward into an elevator that was behind them all along.
  */
 const $ = id => document.getElementById(id);
-const DEBUG_MODE = new URLSearchParams(location.search).get('debug') === '1';
+const urlParams = new URLSearchParams(location.search);
+const DEBUG_MODE = urlParams.get('debug') === '1';
+/** Debug-only found-footage tapes. Requires ?debug=1&tape=<id>. */
+const TAPE_ID = DEBUG_MODE ? urlParams.get('tape') : null;
 if (DEBUG_MODE) document.body.classList.add('debug-performance');
 const el = {
   intro: $('intro'), begin: $('begin'), topbar: $('topbar'), bottom: $('bottom'),
@@ -112,6 +115,8 @@ let gameOverBusy = false;
 let reduced = reduceQuery.matches;
 let quality = 'auto';
 let started = false;
+/** Active debug tape session (null during normal play). */
+let tapeSession = null;
 let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let ended = false;
@@ -393,11 +398,55 @@ try {
   monitor = createPerformanceMonitor(renderer, resize, () => quality, el.perf);
   resize();
   window.addEventListener('resize', resize, { passive: true });
+  if (TAPE_ID) void bootDebugTape(TAPE_ID);
 } catch (err) {
   console.error('[Behind.] Initialization failed:', err);
   el.fallback.hidden = false;
   el.fallback.textContent = `Unable to start the 3D experience. ${err.message || 'See console for details.'}`;
   el.begin.disabled = true;
+}
+
+/**
+ * Debug-only found-footage tapes. Loads the named environment and a scripted
+ * camera pass without entering normal chapter progression or STEADY/puzzle state.
+ */
+async function bootDebugTape(id) {
+  if (!DEBUG_MODE || !renderer || !scene || !camera || !director) return;
+  if (id !== 'office-01') {
+    console.warn(`[Behind. TAPE] Unknown tape id "${id}". Use tape=office-01.`);
+    return;
+  }
+  try {
+    el.begin.disabled = true;
+    el.intro?.classList.add('is-hidden');
+    el.veil?.classList.add('is-active');
+    look?.setEnabled?.(false);
+    interaction?.clear?.();
+    const { createOffice } = await import('./levels/office.js?v=brighten-1');
+    const { startOfficeTape01 } = await import('./tapes/office-01.js?v=tape-2');
+    tapeSession = await startOfficeTape01({
+      scene,
+      camera,
+      renderer,
+      createOffice,
+      director,
+      createSceneDirector,
+      reduced,
+    });
+    director = null; // tape owns its own director; block normal chapter jumps from stomping
+    chapterId = 'tape-office-01';
+    started = true;
+    el.experience?.classList.add('is-playing', 'tape-mode');
+    el.topbar?.classList.add('active');
+    noteFogBase();
+    console.info(`[Behind. TAPE] Playing ${id}. Normal gameplay is suspended.`);
+  } catch (error) {
+    console.error('[Behind. TAPE] Boot failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `Tape "${id}" could not start: ${error.message}`;
+  } finally {
+    el.veil?.classList.remove('is-active');
+  }
 }
 
 function bindChapterInteractables() {
@@ -2042,6 +2091,15 @@ function frame(now) {
   const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
   lastTime = now;
   if (document.hidden) return;
+
+  // Found-footage tape prototype: scripted camera only, no scroll gameplay.
+  if (tapeSession) {
+    tapeSession.update(dt);
+    cigaretteFx?.update(dt);
+    renderer.render(scene, camera);
+    monitor?.update(dt, true, !document.hidden);
+    return;
+  }
 
   if (started && !transitioning && !gameOverActive && !(ended && chapterId === 'office')) {
     const meters = chapterMeters();
