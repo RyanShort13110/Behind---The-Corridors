@@ -66,6 +66,30 @@ export function createFinaleCorridor() {
   add(3.5, 0.35, 0.35, 0, 3.55, exitZ, mats.trim);
   add(3.5, 0.2, 0.35, 0, 0.05, exitZ, mats.trim);
 
+  // Exterior building face / sleeve — fills the organism orifice around the
+  // rectangular hall so the reveal doesn't show a huge flesh arch gap.
+  const facade = new THREE.Group();
+  facade.name = 'finale-exit-facade';
+  facade.position.set(0, 0, exitZ);
+  world.add(facade);
+  // End wall slabs around a ~2.4 × 2.5 door opening (center).
+  add(4.2, 1.15, 0.55, 0, 3.55, -0.2, mats.wall, facade); // lintel / above
+  add(4.2, 0.55, 0.55, 0, 0.2, -0.2, mats.wall, facade); // threshold band
+  add(0.95, 2.6, 0.55, -1.85, 1.55, -0.2, mats.wall, facade); // left jamb mass
+  add(0.95, 2.6, 0.55, 1.85, 1.55, -0.2, mats.wall, facade); // right
+  // Wider outer face so it nests inside the scar rim from outside.
+  add(7.5, 2.2, 0.7, 0, 5.0, -0.55, mats.wall, facade);
+  add(1.8, 5.2, 0.7, -3.4, 2.4, -0.55, mats.wall, facade);
+  add(1.8, 5.2, 0.7, 3.4, 2.4, -0.55, mats.wall, facade);
+  add(7.5, 0.9, 0.7, 0, 0.15, -0.55, mats.wall, facade);
+  // Sleeve tunnel protruding into the orifice (−Z).
+  add(0.22, 3.3, 5.5, -1.35, 1.65, -3.2, mats.wall, facade);
+  add(0.22, 3.3, 5.5, 1.35, 1.65, -3.2, mats.wall, facade);
+  add(2.9, 0.22, 5.5, 0, 3.25, -3.2, mats.ceiling, facade);
+  add(2.9, 0.22, 5.5, 0, 0.05, -3.2, mats.floor, facade);
+  add(0.14, 0.14, 5.5, -1.2, 3.1, -3.2, mats.trim, facade);
+  add(0.14, 0.14, 5.5, 1.2, 3.1, -3.2, mats.trim, facade);
+
   const exitDoor = new THREE.Group();
   exitDoor.name = 'finale-exit-door';
   exitDoor.position.set(1.15, 0, exitZ);

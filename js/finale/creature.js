@@ -92,12 +92,31 @@ export async function createFinaleCreature({
     found,
   );
 
+  // Soften pale exit scar/fold materials so the orifice doesn't read as a
+  // bright empty arch around the hall sleeve.
+  for (const name of ['EXIT_SCAR_RIM', 'EXIT_FOLD_L', 'EXIT_FOLD_R']) {
+    const part = byName.get(name);
+    if (!part) continue;
+    part.traverse((obj) => {
+      if (!obj.isMesh || !obj.material) return;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        if (mat.color) mat.color.multiplyScalar(0.45);
+        if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0;
+        mat.needsUpdate = true;
+      }
+    });
+  }
+
   model.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(model);
   const size = new THREE.Vector3();
   box.getSize(size);
   // Entrance faces −Z; opening plane ≈ bbox.min.z in model space.
   const entranceLocalZ = box.min.z;
+  /** Sink past authored bbox so scaled feet sit under the terrain surface. */
+  const GROUND_EMBED = 0.35;
 
   /** Capture rest pose for a part. */
   function capture(name) {
@@ -237,7 +256,8 @@ export async function createFinaleCreature({
     root.rotation.set(0, 0, 0);
     // Model entrance local Z → world: root.position.z + entranceLocalZ * s
     root.position.z = worldZ - entranceLocalZ * s;
-    root.position.y = y - box.min.y * s;
+    // Embed slightly so limbs / buttresses don't float above the ground plane.
+    root.position.y = y - box.min.y * s - GROUND_EMBED * s;
     root.position.x = 0;
     root.updateMatrixWorld(true);
   }

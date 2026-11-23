@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFinaleCorridor } from './corridor.js?v=fin-3';
-import { createFinaleCreature } from './creature.js?v=fin-3';
+import { createFinaleCorridor } from './corridor.js?v=fin-4';
+import { createFinaleCreature } from './creature.js?v=fin-4';
 
 /**
  * Debug-only ending prototype with the authored organism GLB.
@@ -171,14 +171,11 @@ export async function startFinalePrototype({
   });
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI * 0.5;
-  ground.position.y = -0.05;
+  ground.position.y = 0;
   exterior.add(ground);
 
-  const skyGeo = new THREE.SphereGeometry(120, 24, 16);
-  const skyMat = new THREE.MeshBasicMaterial({
-    color: 0x1c242c, side: THREE.BackSide, fog: false,
-  });
-  exterior.add(new THREE.Mesh(skyGeo, skyMat));
+  // No sky mesh — a BackSide sphere was reading as a pale half-dome in frame.
+  // Flat background + fog is enough for the desolate exterior.
 
   const hemi = new THREE.HemisphereLight(0x7a8890, 0x1a1512, 0.5);
   exterior.add(hemi);
@@ -206,7 +203,8 @@ export async function startFinalePrototype({
   // the GLB entrance tunnel was reading as curved "ribs" down the corridor.
   const exitDoorWorldZ = corridor.exitZ;
   const ORGANISM_EXTERIOR_SCALE = 3.15;
-  creature.placeEntranceAt(exitDoorWorldZ - 0.5, 0, ORGANISM_EXTERIOR_SCALE);
+  // Pull orifice slightly past the facade sleeve so the building face fills the scar.
+  creature.placeEntranceAt(exitDoorWorldZ - 2.8, 0, ORGANISM_EXTERIOR_SCALE);
   exterior.add(creature.root);
   creature.root.visible = false;
   creature.setStabilizeExit(true);
@@ -345,7 +343,7 @@ export async function startFinalePrototype({
 
   function revealOrganism() {
     creature.root.visible = true;
-    creature.placeEntranceAt(exitDoorWorldZ - 0.5, 0, ORGANISM_EXTERIOR_SCALE);
+    creature.placeEntranceAt(exitDoorWorldZ - 2.8, 0, ORGANISM_EXTERIOR_SCALE);
     syncOrganismLights();
     exitVoid.visible = false;
   }
@@ -600,8 +598,6 @@ export async function startFinalePrototype({
     ambience.dispose();
     groundGeo.dispose();
     groundMat.dispose();
-    skyGeo.dispose();
-    skyMat.dispose();
     hemi.dispose?.();
     fill.dispose?.();
     organismKey.dispose?.();
