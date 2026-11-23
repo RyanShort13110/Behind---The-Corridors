@@ -66,29 +66,38 @@ export function createFinaleCorridor() {
   add(3.5, 0.35, 0.35, 0, 3.55, exitZ, mats.trim);
   add(3.5, 0.2, 0.35, 0, 0.05, exitZ, mats.trim);
 
-  // Exterior building face / sleeve — fills the organism orifice around the
-  // rectangular hall so the reveal doesn't show a huge flesh arch gap.
+  // Exterior building face / sleeve — must fill the scaled organism orifice
+  // (~12m+ opening). Small door hole only; the rest reads as building mass.
   const facade = new THREE.Group();
   facade.name = 'finale-exit-facade';
   facade.position.set(0, 0, exitZ);
   world.add(facade);
-  // End wall slabs around a ~2.4 × 2.5 door opening (center).
-  add(4.2, 1.15, 0.55, 0, 3.55, -0.2, mats.wall, facade); // lintel / above
-  add(4.2, 0.55, 0.55, 0, 0.2, -0.2, mats.wall, facade); // threshold band
-  add(0.95, 2.6, 0.55, -1.85, 1.55, -0.2, mats.wall, facade); // left jamb mass
-  add(0.95, 2.6, 0.55, 1.85, 1.55, -0.2, mats.wall, facade); // right
-  // Wider outer face so it nests inside the scar rim from outside.
-  add(7.5, 2.2, 0.7, 0, 5.0, -0.55, mats.wall, facade);
-  add(1.8, 5.2, 0.7, -3.4, 2.4, -0.55, mats.wall, facade);
-  add(1.8, 5.2, 0.7, 3.4, 2.4, -0.55, mats.wall, facade);
-  add(7.5, 0.9, 0.7, 0, 0.15, -0.55, mats.wall, facade);
-  // Sleeve tunnel protruding into the orifice (−Z).
-  add(0.22, 3.3, 5.5, -1.35, 1.65, -3.2, mats.wall, facade);
-  add(0.22, 3.3, 5.5, 1.35, 1.65, -3.2, mats.wall, facade);
-  add(2.9, 0.22, 5.5, 0, 3.25, -3.2, mats.ceiling, facade);
-  add(2.9, 0.22, 5.5, 0, 0.05, -3.2, mats.floor, facade);
-  add(0.14, 0.14, 5.5, -1.2, 3.1, -3.2, mats.trim, facade);
-  add(0.14, 0.14, 5.5, 1.2, 3.1, -3.2, mats.trim, facade);
+  // Inner face around the actual door (~2.4w × 2.5h clear).
+  add(5.4, 1.4, 0.6, 0, 3.7, -0.15, mats.wall, facade);
+  add(5.4, 0.7, 0.6, 0, 0.25, -0.15, mats.wall, facade);
+  add(1.5, 2.8, 0.6, -2.0, 1.55, -0.15, mats.wall, facade);
+  add(1.5, 2.8, 0.6, 2.0, 1.55, -0.15, mats.wall, facade);
+  // Massive outer face nested in the scar (plugs the flesh arch from outside).
+  add(16, 6.5, 1.2, 0, 7.2, -0.9, mats.wall, facade); // upper bulk
+  add(16, 1.4, 1.2, 0, 0.5, -0.9, mats.wall, facade); // base band
+  add(5.5, 8.5, 1.2, -6.5, 4.0, -0.9, mats.wall, facade); // left wing
+  add(5.5, 8.5, 1.2, 6.5, 4.0, -0.9, mats.wall, facade); // right wing
+  // Deeper plug plate — kills any remaining sky leak through the orifice.
+  add(18, 14, 2.4, 0, 6.5, -2.4, mats.trim, facade);
+  // Only a door-sized tunnel punched through the plug (−Z into orifice).
+  // (Walls of the sleeve keep the walkable exit feeling like a hall.)
+  add(0.35, 3.4, 7.0, -1.45, 1.7, -4.0, mats.wall, facade);
+  add(0.35, 3.4, 7.0, 1.45, 1.7, -4.0, mats.wall, facade);
+  add(3.2, 0.3, 7.0, 0, 3.35, -4.0, mats.ceiling, facade);
+  add(3.2, 0.3, 7.0, 0, 0.08, -4.0, mats.floor, facade);
+  add(0.12, 0.12, 7.0, -1.3, 3.2, -4.0, mats.trim, facade);
+  add(0.12, 0.12, 7.0, 1.3, 3.2, -4.0, mats.trim, facade);
+  // Cap the back of the plug around the sleeve so the orifice has no open sky.
+  add(7.5, 5.5, 0.8, 0, 6.5, -7.2, mats.wall, facade);
+  add(18, 4.0, 0.8, 0, 11.5, -7.2, mats.wall, facade);
+  add(5.0, 10, 0.8, -9.0, 6.0, -7.2, mats.wall, facade);
+  add(5.0, 10, 0.8, 9.0, 6.0, -7.2, mats.wall, facade);
+  add(18, 2.5, 0.8, 0, 0.8, -7.2, mats.wall, facade);
 
   const exitDoor = new THREE.Group();
   exitDoor.name = 'finale-exit-door';

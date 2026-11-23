@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFinaleCorridor } from './corridor.js?v=fin-4';
-import { createFinaleCreature } from './creature.js?v=fin-4';
+import { createFinaleCorridor } from './corridor.js?v=fin-5';
+import { createFinaleCreature } from './creature.js?v=fin-5';
 
 /**
  * Debug-only ending prototype with the authored organism GLB.
@@ -203,8 +203,8 @@ export async function startFinalePrototype({
   // the GLB entrance tunnel was reading as curved "ribs" down the corridor.
   const exitDoorWorldZ = corridor.exitZ;
   const ORGANISM_EXTERIOR_SCALE = 3.15;
-  // Pull orifice slightly past the facade sleeve so the building face fills the scar.
-  creature.placeEntranceAt(exitDoorWorldZ - 2.8, 0, ORGANISM_EXTERIOR_SCALE);
+  // Seat orifice onto the deep facade plug so flesh wraps the building face.
+  creature.placeEntranceAt(exitDoorWorldZ - 4.5, 0, ORGANISM_EXTERIOR_SCALE);
   exterior.add(creature.root);
   creature.root.visible = false;
   creature.setStabilizeExit(true);
@@ -343,7 +343,7 @@ export async function startFinalePrototype({
 
   function revealOrganism() {
     creature.root.visible = true;
-    creature.placeEntranceAt(exitDoorWorldZ - 2.8, 0, ORGANISM_EXTERIOR_SCALE);
+    creature.placeEntranceAt(exitDoorWorldZ - 4.5, 0, ORGANISM_EXTERIOR_SCALE);
     syncOrganismLights();
     exitVoid.visible = false;
   }
