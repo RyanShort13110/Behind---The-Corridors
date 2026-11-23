@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCorridor } from './scene.js?v=cam-4';
+import { createCorridor } from './scene.js?v=cam-5';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';

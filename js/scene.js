@@ -214,19 +214,19 @@ export function createCorridor(scene) {
   }
   add(0.30, 0.13, 1.33, 2.60, 2.64, lockedDoorZ, mats.trim);
   add(0.018, 2.4, 1.16, 3.08, 1.36, lockedDoorZ, mats.void);
-  // Low back-corner shelf in the recess — easy to miss when the door opens onto dark void.
-  // Only reads if you look down / into the far corner after unlocking.
-  const recessShelfGeo = new THREE.BoxGeometry(0.36, 0.035, 0.42);
+  // Mid-low shelf in the recess, centered on the bay. Below eye line so a casual
+  // glance into the dark can miss it; clear if you actually look in after unlocking.
+  const recessShelfGeo = new THREE.BoxGeometry(0.38, 0.035, 0.48);
   const recessShelf = new THREE.Mesh(recessShelfGeo, mats.trim);
-  recessShelf.position.set(3.72, 0.22, lockedDoorZ - 0.38);
+  recessShelf.position.set(3.48, 0.58, lockedDoorZ);
   recessShelf.name = 'locked-bay-shelf';
   world.add(recessShelf);
 
   const camcorderProp = createVhsCCamcorder({ name: 'Corridor VHS-C camcorder' });
   const camcorder = camcorderProp.group;
-  // On its side on the low shelf — abandoned clutter, not staged at eye height.
-  camcorder.position.set(3.70, 0.255, lockedDoorZ - 0.38);
-  camcorder.rotation.set(0.15, -Math.PI * 0.35, Math.PI * 0.5);
+  // Upright on the shelf, angled slightly toward the doorway.
+  camcorder.position.set(3.46, 0.62, lockedDoorZ + 0.04);
+  camcorder.rotation.set(0.06, -Math.PI * 0.62, 0.04);
   camcorder.visible = false;
   world.add(camcorder);
 
@@ -344,8 +344,8 @@ export function createCorridor(scene) {
     {
       id: 'corridor-vhs-camcorder',
       object: camcorder,
-      // Tight: must be at the open bay looking into the dark corner.
-      radius: 3.35,
+      // Near the open bay looking in — not aisle-wide.
+      radius: 4.0,
       requiresOpenLockedDoor: true,
       occludeOutline: true,
       takeable: true,
