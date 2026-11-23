@@ -69,6 +69,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
   const ownedGeometries = [];
   const ownedMaterials = [];
   const ownedLights = [];
+  const originalColors = new WeakMap();
   let content = null;
 
   function applyPlacement() {
@@ -104,12 +105,11 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
   function applySilhouetteMaterial(material) {
     const residual = Math.max(0.04, 1 - cfg.darkness);
     if (material.color) {
-      // Crush toward near-black while keeping a hint of authored hue/detail.
-      material.color.multiplyScalar(residual);
-    }
-    if (material.map) {
-      // Dim the albedo map so it doesn't punch through the silhouette.
-      material.color.multiplyScalar(0.85);
+      // Always shade from the original color so repeated slider changes don't
+      // progressively blacken the mesh or require reloading the GLB.
+      if (!originalColors.has(material)) originalColors.set(material, material.color.clone());
+      material.color.copy(originalColors.get(material))
+        .multiplyScalar(residual * (material.map ? 0.85 : 1));
     }
     if ('roughness' in material) material.roughness = cfg.roughness ?? 0.97;
     if ('metalness' in material) material.metalness = cfg.metalness ?? 0;
@@ -144,6 +144,27 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
     back.position.set(0.05, cfg.height * 0.78, 1.35);
     root.add(back);
     ownedLights.push(back);
+  }
+
+  function applyShading() {
+    if (cfg.mode === 'gltf' && content) {
+      content.traverse(obj => {
+        if (!obj.isMesh || !obj.material) return;
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        mats.forEach(applySilhouetteMaterial);
+      });
+    } else if (cfg.mode === 'image' && content?.material?.color) {
+      content.material.color.setScalar(Math.max(0.04, 1 - cfg.darkness));
+    }
+    // The existing point light is reused; no scene or model rebuild.
+    const intensity = Math.max(0, Number(cfg.rimLightIntensity) || 0);
+    const distance = Math.max(0, Number(cfg.rimLightDistance) || 0);
+    for (const light of ownedLights) {
+      light.intensity = intensity;
+      light.distance = distance;
+      light.color.setHex(cfg.rimLightColor ?? 0x4a6570);
+      light.visible = root.visible && intensity > 0;
+    }
   }
 
   async function buildImagePlane() {
@@ -228,6 +249,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
     content = model;
     root.add(model);
     mountRimLights();
+    applyShading();
   }
 
   async function rebuild() {
@@ -246,6 +268,8 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
       root.visible = on;
       ownedLights.forEach(light => { light.visible = on; });
     },
+    /** Update shading in-place (no GLB fetch or camera/placement changes). */
+    applyShading,
     /** Re-apply position / height / shading after editing cfg fields. */
     async applyConfig() {
       await rebuild();
