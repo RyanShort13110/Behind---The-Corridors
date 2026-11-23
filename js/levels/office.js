@@ -11,7 +11,12 @@ import {
  * @param {object} [options]
  * @param {string} [options.keypadCode] 4-digit service code shown on the sticky note
  */
-export function createOffice(scene, { keypadCode = '0000' } = {}) {
+/**
+ * @param {object} [options]
+ * @param {string} [options.keypadCode]
+ * @param {{x:number,z:number}[]} [options.omitConferenceChairs] Tape-only: skip side chairs near these xz points.
+ */
+export function createOffice(scene, { keypadCode = '0000', omitConferenceChairs = [] } = {}) {
   const world = new THREE.Group();
   world.name = 'Level 02 / The Office';
   scene.add(world);
@@ -371,6 +376,8 @@ export function createOffice(scene, { keypadCode = '0000' } = {}) {
     for (const side of [-1, 1]) {
       if (side === -1 && z === EMPTY_SEAT_Z) continue;
       const x = side < 0 ? 3.17 : 5.55;
+      // Found-footage tape can omit the chair The Waiting Thing stands at.
+      if (omitConferenceChairs.some(p => Math.hypot(p.x - x, p.z - z) < 0.35)) continue;
       add(0.57, 0.13, 0.58, x, 0.53, z, materials.fabric); // seat
       add(0.13, 0.68, 0.64, x + side * 0.27, 1.01, z, materials.fabric); // back
       add(0.065, 0.40, 0.065, x, 0.26, z, materials.metal); // stem

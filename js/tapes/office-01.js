@@ -1,4 +1,4 @@
-import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=waiting-thing-2';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=tape-chair-1';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
@@ -171,7 +171,11 @@ export async function startOfficeTape01({
 
   director.dispose();
   const tapeDirector = createSceneDirector();
-  const office = createOffice(scene, { keypadCode: '0000' });
+  // Omit only the exterior-side chair at the creature's feet; walkable Office keeps it.
+  const office = createOffice(scene, {
+    keypadCode: '0000',
+    omitConferenceChairs: [{ x: 5.55, z: -38.54 }],
+  });
   tapeDirector.add('office', office);
   tapeDirector.activate('office');
 
