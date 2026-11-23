@@ -580,9 +580,9 @@ export function createOffice(scene, {
   cigarette.rotation.set(0.18, 1.05, 0.22);
   world.add(cigarette);
 
-  // Optional VHS-C cassette — tucked behind a left-desk monitor (z≈-27.5),
-  // against the outer wall. Easy to walk past; readable only if you look left
-  // into that cubicle past the screen.
+  // Optional VHS-C cassette — on the floor against the left baseboard, mid-aisle
+  // (between the side table and the fob ledge). Same “look left and down” grammar
+  // as the corridor cigarette: missable at eye height, obvious once you glance down.
   let officeTape = null;
   let officeTapeProp = null;
   const officeTapeDef = getTapeById('tape-office-01');
@@ -592,9 +592,8 @@ export function createOffice(scene, {
       tint: officeTapeDef.previewColor ?? 0x1e2226,
     });
     officeTape = officeTapeProp.group;
-    // Desk top ≈ y 0.94; sit just behind the monitor toward the outer wall.
-    officeTape.position.set(-4.18, 0.948, -27.82);
-    officeTape.rotation.set(0.05, 1.15, 0.08);
+    officeTape.position.set(-2.36, 0.02, -19.85);
+    officeTape.rotation.set(1.35, 0.55, 0.25);
     world.add(officeTape);
   }
 
@@ -632,9 +631,8 @@ export function createOffice(scene, {
     ...(officeTape && officeTapeDef ? [{
       ...vhsCCassetteInteractable(officeTapeDef, officeTape, {
         id: 'office-tape-office-01',
-        radius: 3.55,
+        radius: 4.0,
       }),
-      // Partition would otherwise x-ray the outline from the aisle.
       occludeOutline: true,
     }] : []),
     {
