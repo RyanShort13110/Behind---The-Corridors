@@ -15,8 +15,13 @@ import {
  * @param {object} [options]
  * @param {string} [options.keypadCode]
  * @param {{x:number,z:number}[]} [options.omitConferenceChairs] Tape-only: skip side chairs near these xz points.
+ * @param {boolean} [options.omitAisleClutter] Tape-only: skip aisle chair + side table (and cup/lighter on it).
  */
-export function createOffice(scene, { keypadCode = '0000', omitConferenceChairs = [] } = {}) {
+export function createOffice(scene, {
+  keypadCode = '0000',
+  omitConferenceChairs = [],
+  omitAisleClutter = false,
+} = {}) {
   const world = new THREE.Group();
   world.name = 'Level 02 / The Office';
   scene.add(world);
@@ -143,6 +148,10 @@ export function createOffice(scene, { keypadCode = '0000', omitConferenceChairs 
     }
   }
 
+  // Aisle chair + side table (with cup/lighter) are ordinary Office clutter.
+  // Found-footage tape can clear them for a clean walk down the aisle.
+  let lighter = null;
+  if (!omitAisleClutter) {
   // A single office chair left permanently in the aisle — ordinary clutter,
   // not a scene-change beat. Stays clear of the walking line and captions.
   const aisleChair = new THREE.Group();
@@ -188,7 +197,7 @@ export function createOffice(scene, { keypadCode = '0000', omitConferenceChairs 
   // Rotating -90 degrees about X lays that face upward, so the scratch, spark
   // wheel and hood can be seen by a viewer approaching down the aisle.
   // The modest Y rotation makes it look casually set down rather than staged.
-  const lighter = new THREE.Group();
+  lighter = new THREE.Group();
   lighter.name = 'Unclaimed lighter / scratched amber body';
   lighter.position.set(1.12, 1.132, -17.27);
   lighter.rotation.order = 'YXZ';
@@ -278,6 +287,7 @@ export function createOffice(scene, { keypadCode = '0000', omitConferenceChairs 
   lighterHit.position.set(0, 0.02, 0);
   lighterHit.userData.inspectHitOnly = true;
   lighter.add(lighterHit);
+  } // end omitAisleClutter guard
 
   // Sticky note with the service-door code — takeable, readable in inventory.
   // On the left desk that already has a mug (z≈-7.5); look left to take it.
@@ -562,13 +572,13 @@ export function createOffice(scene, { keypadCode = '0000', omitConferenceChairs 
   world.add(cigarette);
 
   const interactables = [
-    {
+    ...(lighter ? [{
       id: 'office-lighter',
       object: lighter,
       radius: 5.2,
       title: 'LIGHTER',
       body: 'A cheap lighter. One deep scratch down the side.',
-    },
+    }] : []),
     cigaretteInteractable('cigarette-office', cigarette),
     {
       id: 'office-sticky-note',

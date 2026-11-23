@@ -72,9 +72,27 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
   const originalColors = new WeakMap();
   let content = null;
 
+  // 0 = chin down; 1 = head raised toward the cameraperson.
+  let gaze = 0;
+  const PITCH_DOWN = 0.52;
+  const PITCH_UP = -0.04;
+
+  function smooth01(n) {
+    const u = Math.max(0, Math.min(1, n));
+    return u * u * (3 - 2 * u);
+  }
+
+  function applyOrientation() {
+    root.rotation.order = 'YXZ';
+    root.rotation.y = cfg.yaw;
+    // Raise the whole silhouette from a downcast pose toward camera eye-line.
+    root.rotation.x = PITCH_DOWN + (PITCH_UP - PITCH_DOWN) * smooth01(gaze);
+    root.rotation.z = 0;
+  }
+
   function applyPlacement() {
     root.position.set(cfg.position.x, cfg.position.y, cfg.position.z);
-    if (!cfg.billboard) root.rotation.y = cfg.yaw;
+    applyOrientation();
   }
 
   function clearLights() {
@@ -268,6 +286,22 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
       root.visible = on;
       ownedLights.forEach(light => { light.visible = on; });
     },
+    /**
+     * 0 = looking down; 1 = looking up at the cameraperson.
+     * @param {number} amount
+     */
+    setGaze(amount) {
+      gaze = Math.max(0, Math.min(1, Number(amount) || 0));
+      applyOrientation();
+    },
+    /** Move / re-yaw without reloading the GLB. */
+    setWorldPose({ x, y, z, yaw } = {}) {
+      if (x != null) cfg.position.x = x;
+      if (y != null) cfg.position.y = y;
+      if (z != null) cfg.position.z = z;
+      if (yaw != null) cfg.yaw = yaw;
+      applyPlacement();
+    },
     /** Update shading in-place (no GLB fetch or camera/placement changes). */
     applyShading,
     /** Re-apply position / height / shading after editing cfg fields. */
@@ -278,8 +312,9 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
       if (cfg.billboard && camera) {
         const dx = camera.position.x - root.position.x;
         const dz = camera.position.z - root.position.z;
-        root.rotation.y = Math.atan2(dx, dz);
+        cfg.yaw = Math.atan2(dx, dz);
       }
+      applyOrientation();
     },
     dispose() {
       clearContent();

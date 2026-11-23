@@ -1,4 +1,4 @@
-import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=silhouette-3';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=look-up-end-1';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
@@ -7,20 +7,30 @@ import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=silhouet
  *
  * Creature: The Waiting Thing (.glb via lazy GLTFLoader). See OFFICE_01_CREATURE.
  *
- * Timeline (~28s):
- *  0–7s    aisle walk toward the glass conference room
- *  7–13s   settle on the creature through the glass
- * 13–16s   scramble back up the aisle (creature vanishes while running)
- * 16–18s   tuck behind the near glass corner
- * 18–23s   peek out — empty room
- * 23–28s   linger / hold
+ * Timeline (~32s):
+ *  0–8s     casual aisle walk toward the glass conference room
+ *  8–10s    glance in — see it looming
+ * 10–11s    terror hitch (creature looks up) then break
+ * 11–16s    sprint back to the elevator exit (creature vanishes)
+ * 16–19s    tuck behind the elevator jamb
+ * 19–24s    slow peek — empty conference room
+ * 24–32s    far-end silhouette appears down the hall, then hold / cut
  */
 
-const DURATION = 28;
+const DURATION = 32;
 /** Vanish as soon as the scramble turns away from the glass. */
-const VANISH_AT = 13.35;
+const VANISH_AT = 11.2;
+/** Reappear at the far end of the aisle for the final frame. */
+const REAPPEAR_AT = 24.6;
+/** Aisle-end pose facing the elevator (model faces −Z at yaw 0 → π faces +Z). */
+const HALL_END_POS = { x: 0.12, y: 0, z: -48.55, yaw: Math.PI };
 const CREATURE_POS = OFFICE_01_CREATURE.position;
 const CREATURE_AIM_Y = OFFICE_01_CREATURE.height * 0.62;
+const HALL_END_AIM = {
+  x: HALL_END_POS.x,
+  y: OFFICE_01_CREATURE.height * 0.72,
+  z: HALL_END_POS.z,
+};
 
 function clamp01(n) {
   return Math.max(0, Math.min(1, n));
@@ -32,8 +42,8 @@ function smooth(t) {
 function lerp(a, b, t) {
   return a + (b - a) * t;
 }
-function lerpPose(a, b, t) {
-  const u = smooth(t);
+function lerpPose(a, b, t, ease = smooth) {
+  const u = ease(t);
   const pose = {
     x: lerp(a.x, b.x, u),
     y: lerp(a.y, b.y, u),
@@ -70,51 +80,61 @@ function applyPose(camera, pose, shake) {
 /**
  * Piecewise keyframed camera path.
  * Glass conference room sits at +X (wall ≈ 2.58); aisle forward is −Z.
- * Near glass corner for the peek: ~x=1.0, z=-34.6 (aisle-side of the jamb).
+ * Elevator exit jamb (peek cover): x≈±1.18, z≈2.13.
  */
 function samplePath(t) {
   const creatureAim = { x: CREATURE_POS.x, y: CREATURE_AIM_Y, z: CREATURE_POS.z };
-  const emptyRoomAim = { x: 4.6, y: 1.55, z: -39.2 };
-  const retreatAim = { x: 0.2, y: 1.4, z: -28.0 };
+  // First peek checks the empty glass room; final hold finds the hall-end figure.
+  const emptyRoomAim = { x: 4.2, y: 1.55, z: -38.8 };
+  const exitAim = { x: 0.15, y: 1.45, z: 5.5 };
 
   const aisleStart = { x: 0.05, y: 1.62, z: 2.4, look: { x: 0.1, y: 1.5, z: -8 } };
-  const aisleMid = { x: 0.12, y: 1.64, z: -18.0, look: { x: 0.2, y: 1.5, z: -28 } };
-  const approach = { x: 0.65, y: 1.58, z: -37.2, look: { x: 2.2, y: 1.7, z: -39.0 } };
-  const onCreature = { x: 1.05, y: 1.52, z: -39.4, look: { ...creatureAim } };
-  // Panic run back toward the entrance, eyes off the glass.
-  const midRun = { x: 0.55, y: 1.58, z: -36.2, look: { ...retreatAim } };
-  // Tucked just past the near glass corner — mostly covered.
-  const behindCorner = {
-    x: 0.72, y: 1.50, z: -34.55,
-    look: { x: -0.6, y: 1.35, z: -32.5 },
+  // One continuous aisle pass — linear so mid-hall doesn't ease/slow.
+  const strollPast = { x: 0.22, y: 1.60, z: -34.8, look: { x: 0.4, y: 1.48, z: -42 } };
+  // Casual look-over — registers the loom, does not plant for a long stare.
+  const glanceIn = { x: 0.48, y: 1.56, z: -38.4, look: { ...creatureAim } };
+  // Short terror hitch only; look-up reads here, then he breaks.
+  const hitch = { x: 0.62, y: 1.53, z: -39.0, look: { ...creatureAim } };
+  // Panic: eyes go to the elevator, body follows.
+  const turnRun = { x: 0.28, y: 1.56, z: -38.2, look: { ...exitAim } };
+  const midRun = { x: 0.12, y: 1.60, z: -18.0, look: { x: 0.2, y: 1.4, z: 4.0 } };
+  const behindJamb = {
+    x: 1.02, y: 1.50, z: 1.95,
+    look: { x: 2.4, y: 1.4, z: 3.2 },
   };
-  // Lean out from the jamb to re-check the room.
   const peekOut = {
-    x: 1.18, y: 1.48, z: -35.15,
+    x: 0.58, y: 1.48, z: 1.55,
     look: { ...emptyRoomAim },
   };
-  const linger = {
-    x: 1.28, y: 1.50, z: -35.45,
-    look: { x: 4.3, y: 1.35, z: -40.0 },
+  // Drift from the empty room down the aisle to the far silhouette.
+  const noticeHall = {
+    x: 0.48, y: 1.49, z: 1.42,
+    look: { x: 1.2, y: 1.55, z: -44.0 },
+  };
+  const finalHold = {
+    x: 0.42, y: 1.50, z: 1.35,
+    look: { ...HALL_END_AIM },
   };
 
-  if (t < 4) return lerpPose(aisleStart, aisleMid, t / 4);
-  if (t < 7.5) return lerpPose(aisleMid, approach, (t - 4) / 3.5);
-  if (t < 10) return lerpPose(approach, onCreature, (t - 7.5) / 2.5);
-  if (t < 13) return { ...onCreature, look: { ...creatureAim } };
-  if (t < 14.6) return lerpPose(onCreature, midRun, (t - 13) / 1.6);
-  if (t < 16.4) return lerpPose(midRun, behindCorner, (t - 14.6) / 1.8);
-  if (t < 18.2) return { ...behindCorner };
-  if (t < 21.5) return lerpPose(behindCorner, peekOut, (t - 18.2) / 3.3);
-  if (t < 24.5) return lerpPose(peekOut, linger, (t - 21.5) / 3);
-  return { ...linger, look: linger.look };
+  if (t < 8) return lerpPose(aisleStart, strollPast, t / 8, clamp01);
+  if (t < 10) return lerpPose(strollPast, glanceIn, (t - 8) / 2);
+  if (t < 10.9) return lerpPose(glanceIn, hitch, (t - 10) / 0.9);
+  if (t < 11.15) return { ...hitch, look: { ...creatureAim } };
+  if (t < 11.9) return lerpPose(hitch, turnRun, (t - 11.15) / 0.75);
+  if (t < 14.2) return lerpPose(turnRun, midRun, (t - 11.9) / 2.3);
+  if (t < 16) return lerpPose(midRun, behindJamb, (t - 14.2) / 1.8);
+  if (t < 18.5) return { ...behindJamb };
+  if (t < 23) return lerpPose(behindJamb, peekOut, (t - 18.5) / 4.5);
+  if (t < 25.2) return lerpPose(peekOut, noticeHall, (t - 23) / 2.2);
+  if (t < 29) return lerpPose(noticeHall, finalHold, (t - 25.2) / 3.8);
+  return { ...finalHold, look: finalHold.look };
 }
 
 function handheld(t, reduced) {
   if (reduced) return { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 };
-  // Heavier bob during the scramble; quieter while peeking.
-  const running = t >= 13 && t < 16.6 ? 2.4 : 1;
-  const peeking = t >= 18.2 && t < 22 ? 0.7 : 1;
+  // Heavier bob during the scramble; quieter while peeking / final hold.
+  const running = t >= 11.1 && t < 16.2 ? 2.5 : 1;
+  const peeking = t >= 18.5 && t < 26 ? 0.65 : 1;
   const amp = running * peeking;
   const breath = Math.sin(t * 1.7);
   const tremor = Math.sin(t * 11.3) * 0.35 + Math.sin(t * 17.8) * 0.2;
@@ -127,6 +147,13 @@ function handheld(t, reduced) {
     pitch: (Math.sin(t * 1.9) * 0.01 + tremor * 0.006) * amp,
     roll: (Math.sin(t * 1.35) * 0.018 + tremor * 0.01) * amp,
   };
+}
+
+/** Fast look-up during the terror hitch — done before he breaks and runs. */
+function sampleGaze(t) {
+  if (t < 9.7) return 0;
+  if (t < 11.1) return smooth((t - 9.7) / 1.4);
+  return 1;
 }
 
 function mountTapeChrome() {
@@ -197,6 +224,7 @@ export async function startOfficeTape01({
   const office = createOffice(scene, {
     keypadCode: '0000',
     omitConferenceChairs: [{ x: 5.55, z: -38.54 }],
+    omitAisleClutter: true,
   });
   tapeDirector.add('office', office);
   tapeDirector.activate('office');
@@ -257,8 +285,11 @@ export async function startOfficeTape01({
   const baseFov = camera.fov;
   let elapsed = 0;
   let vanished = false;
+  let reappeared = false;
   let finished = false;
   let holdFraming = false;
+
+  creature.setGaze(0);
 
   // Seed camera before first paint.
   camera.rotation.order = 'YXZ';
@@ -282,9 +313,15 @@ export async function startOfficeTape01({
     /** Freeze timeline and stare at the creature for framing checks. */
     window.__tapeHoldOnCreature = () => {
       holdFraming = true;
-      elapsed = 11.2;
+      elapsed = 10.7;
       finished = false;
       vanished = false;
+      reappeared = false;
+      creature.setWorldPose({
+        x: CREATURE_POS.x, y: CREATURE_POS.y, z: CREATURE_POS.z,
+        yaw: OFFICE_01_CREATURE.yaw,
+      });
+      creature.setGaze(0.85);
       creature.setVisible(true);
       const pose = samplePath(elapsed);
       applyPose(camera, pose, { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 });
@@ -299,15 +336,15 @@ export async function startOfficeTape01({
     get finished() { return finished; },
     update(dt) {
       if (holdFraming) {
-        const pose = samplePath(11.2);
-        const shake = handheld(11.2, reduced);
+        const pose = samplePath(10.7);
+        const shake = handheld(10.7, reduced);
         applyPose(camera, pose, {
           x: shake.x * 0.4, y: shake.y * 0.4, z: shake.z * 0.4,
           yaw: shake.yaw * 0.4, pitch: shake.pitch * 0.4, roll: shake.roll * 0.4,
         });
         creature.setVisible(true);
         creature.update(dt, camera);
-        if (tcEl) tcEl.textContent = formatTimecode(11.2);
+        if (tcEl) tcEl.textContent = formatTimecode(10.7);
         return;
       }
 
@@ -329,10 +366,20 @@ export async function startOfficeTape01({
         vanished = true;
       }
 
+      if (vanished && !reappeared && t >= REAPPEAR_AT) {
+        // Far end of the aisle, facing the elevator peek.
+        creature.setWorldPose(HALL_END_POS);
+        creature.setGaze(1);
+        creature.setVisible(true);
+        reappeared = true;
+      }
+
+      creature.setGaze(sampleGaze(t));
+
       const pose = samplePath(t);
       const shake = handheld(t, reduced);
-      // Extra tremor while locked on the figure; scramble uses handheld amp.
-      const focus = t >= 10 && t < 13.2 ? 1.35 : 1;
+      // Extra tremor on the terror hitch; scramble uses handheld amp.
+      const focus = t >= 9.8 && t < 11.3 ? 1.55 : 1;
       applyPose(camera, pose, {
         x: shake.x * focus,
         y: shake.y * focus,
@@ -346,7 +393,13 @@ export async function startOfficeTape01({
         window.__tapeDebug = {
           t: Number(t.toFixed(2)),
           vanished,
-          creature: { ...OFFICE_01_CREATURE.position, height: OFFICE_01_CREATURE.height },
+          reappeared,
+          creature: {
+            x: Number(creature.root.position.x.toFixed(2)),
+            y: Number(creature.root.position.y.toFixed(2)),
+            z: Number(creature.root.position.z.toFixed(2)),
+            height: OFFICE_01_CREATURE.height,
+          },
           cam: {
             x: Number(camera.position.x.toFixed(2)),
             y: Number(camera.position.y.toFixed(2)),
