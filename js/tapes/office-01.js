@@ -7,16 +7,18 @@ import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=silhouet
  *
  * Creature: The Waiting Thing (.glb via lazy GLTFLoader). See OFFICE_01_CREATURE.
  *
- * Timeline (~26s):
- *  0–7s   aisle walk toward the glass conference room
- *  7–13s  settle on the creature through the glass
- * 13–17s  look away down the aisle
- * 17s     creature vanishes while off-screen
- * 17–22s  look back at the empty room
- * 22–26s  linger / hold
+ * Timeline (~28s):
+ *  0–7s    aisle walk toward the glass conference room
+ *  7–13s   settle on the creature through the glass
+ * 13–16s   scramble back up the aisle (creature vanishes while running)
+ * 16–18s   tuck behind the near glass corner
+ * 18–23s   peek out — empty room
+ * 23–28s   linger / hold
  */
 
-const DURATION = 26;
+const DURATION = 28;
+/** Vanish as soon as the scramble turns away from the glass. */
+const VANISH_AT = 13.35;
 const CREATURE_POS = OFFICE_01_CREATURE.position;
 const CREATURE_AIM_Y = OFFICE_01_CREATURE.height * 0.62;
 
@@ -67,43 +69,63 @@ function applyPose(camera, pose, shake) {
 
 /**
  * Piecewise keyframed camera path.
- * look: world-space aim point (preferred) — yaw/pitch are fallbacks only.
- * Glass conference room sits at +X; aisle forward is -Z.
+ * Glass conference room sits at +X (wall ≈ 2.58); aisle forward is −Z.
+ * Near glass corner for the peek: ~x=1.0, z=-34.6 (aisle-side of the jamb).
  */
 function samplePath(t) {
   const creatureAim = { x: CREATURE_POS.x, y: CREATURE_AIM_Y, z: CREATURE_POS.z };
-  const aisleAim = { x: -0.4, y: 1.45, z: -48.5 };
+  const emptyRoomAim = { x: 4.6, y: 1.55, z: -39.2 };
+  const retreatAim = { x: 0.2, y: 1.4, z: -28.0 };
+
   const aisleStart = { x: 0.05, y: 1.62, z: 2.4, look: { x: 0.1, y: 1.5, z: -8 } };
   const aisleMid = { x: 0.12, y: 1.64, z: -18.0, look: { x: 0.2, y: 1.5, z: -28 } };
   const approach = { x: 0.65, y: 1.58, z: -37.2, look: { x: 2.2, y: 1.7, z: -39.0 } };
   const onCreature = { x: 1.05, y: 1.52, z: -39.4, look: { ...creatureAim } };
-  const lookAway = { x: 0.85, y: 1.56, z: -38.4, look: { ...aisleAim } };
-  const lookBack = { x: 1.15, y: 1.50, z: -39.6, look: { ...creatureAim } };
-  const linger = { x: 1.00, y: 1.54, z: -39.1, look: { x: 4.2, y: 1.4, z: -40.5 } };
+  // Panic run back toward the entrance, eyes off the glass.
+  const midRun = { x: 0.55, y: 1.58, z: -36.2, look: { ...retreatAim } };
+  // Tucked just past the near glass corner — mostly covered.
+  const behindCorner = {
+    x: 0.72, y: 1.50, z: -34.55,
+    look: { x: -0.6, y: 1.35, z: -32.5 },
+  };
+  // Lean out from the jamb to re-check the room.
+  const peekOut = {
+    x: 1.18, y: 1.48, z: -35.15,
+    look: { ...emptyRoomAim },
+  };
+  const linger = {
+    x: 1.28, y: 1.50, z: -35.45,
+    look: { x: 4.3, y: 1.35, z: -40.0 },
+  };
 
   if (t < 4) return lerpPose(aisleStart, aisleMid, t / 4);
   if (t < 7.5) return lerpPose(aisleMid, approach, (t - 4) / 3.5);
   if (t < 10) return lerpPose(approach, onCreature, (t - 7.5) / 2.5);
   if (t < 13) return { ...onCreature, look: { ...creatureAim } };
-  if (t < 16.5) return lerpPose(onCreature, lookAway, (t - 13) / 3.5);
-  if (t < 17.4) return { ...lookAway, look: { ...aisleAim } };
-  if (t < 21) return lerpPose(lookAway, lookBack, (t - 17.4) / 3.6);
-  if (t < 24) return lerpPose(lookBack, linger, (t - 21) / 3);
+  if (t < 14.6) return lerpPose(onCreature, midRun, (t - 13) / 1.6);
+  if (t < 16.4) return lerpPose(midRun, behindCorner, (t - 14.6) / 1.8);
+  if (t < 18.2) return { ...behindCorner };
+  if (t < 21.5) return lerpPose(behindCorner, peekOut, (t - 18.2) / 3.3);
+  if (t < 24.5) return lerpPose(peekOut, linger, (t - 21.5) / 3);
   return { ...linger, look: linger.look };
 }
 
 function handheld(t, reduced) {
   if (reduced) return { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 };
+  // Heavier bob during the scramble; quieter while peeking.
+  const running = t >= 13 && t < 16.6 ? 2.4 : 1;
+  const peeking = t >= 18.2 && t < 22 ? 0.7 : 1;
+  const amp = running * peeking;
   const breath = Math.sin(t * 1.7);
   const tremor = Math.sin(t * 11.3) * 0.35 + Math.sin(t * 17.8) * 0.2;
   const sway = Math.sin(t * 2.4 + 0.7);
   return {
-    x: breath * 0.018 + tremor * 0.006 + sway * 0.012,
-    y: Math.sin(t * 2.1) * 0.014 + tremor * 0.004,
-    z: Math.sin(t * 1.55 + 1.2) * 0.01,
-    yaw: breath * 0.012 + tremor * 0.008 + sway * 0.01,
-    pitch: Math.sin(t * 1.9) * 0.01 + tremor * 0.006,
-    roll: Math.sin(t * 1.35) * 0.018 + tremor * 0.01,
+    x: (breath * 0.018 + tremor * 0.006 + sway * 0.012) * amp,
+    y: (Math.sin(t * 2.1) * 0.014 + tremor * 0.004) * amp,
+    z: Math.sin(t * 1.55 + 1.2) * 0.01 * amp,
+    yaw: (breath * 0.012 + tremor * 0.008 + sway * 0.01) * amp,
+    pitch: (Math.sin(t * 1.9) * 0.01 + tremor * 0.006) * amp,
+    roll: (Math.sin(t * 1.35) * 0.018 + tremor * 0.01) * amp,
   };
 }
 
@@ -302,14 +324,14 @@ export async function startOfficeTape01({
       elapsed += dt;
       const t = Math.min(elapsed, DURATION);
 
-      if (!vanished && t >= 17.05) {
+      if (!vanished && t >= VANISH_AT) {
         creature.setVisible(false);
         vanished = true;
       }
 
       const pose = samplePath(t);
       const shake = handheld(t, reduced);
-      // Slight extra tremor while locked on the figure.
+      // Extra tremor while locked on the figure; scramble uses handheld amp.
       const focus = t >= 10 && t < 13.2 ? 1.35 : 1;
       applyPose(camera, pose, {
         x: shake.x * focus,
