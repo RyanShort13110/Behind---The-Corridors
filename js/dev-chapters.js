@@ -18,7 +18,7 @@ const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 const WARD_CHAPTERS = new Set(['hospital-reverse']);
 const STORAGE_KEY = 'behind.devPanelCollapsed';
 
-export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null) {
+export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null, camcorderApi = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
   panel.setAttribute('aria-label', 'Developer tools');
@@ -127,6 +127,15 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         <button type="button" data-comp-retry>RETRY CKPT</button>
       </div>
       <p class="dev-chapters__status" id="dev-composure-status" aria-live="polite">Composure: —</p>
+    </div>
+    <div class="dev-chapters__composure" id="dev-camcorder-row">
+      <div class="dev-chapters__title">CAMCORDER</div>
+      <div class="dev-chapters__row">
+        <button type="button" data-cam-grant> +CAM</button>
+        <button type="button" data-cam-tapes> +TAPES</button>
+        <button type="button" data-cam-open>OPEN</button>
+      </div>
+      <p class="dev-chapters__status" id="dev-camcorder-status" aria-live="polite">Cam: —</p>
     </div>
     <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
     </div>
@@ -334,6 +343,25 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   });
   composureApi?.subscribe?.(refreshComposure);
   refreshComposure();
+
+  const camStatus = panel.querySelector('#dev-camcorder-status');
+  const refreshCam = () => {
+    if (!camStatus) return;
+    camStatus.textContent = camcorderApi?.status?.() || 'Cam: —';
+  };
+  panel.querySelector('[data-cam-grant]')?.addEventListener('click', () => {
+    camcorderApi?.grantCamcorder?.();
+    refreshCam();
+  });
+  panel.querySelector('[data-cam-tapes]')?.addEventListener('click', () => {
+    camcorderApi?.grantAllTapes?.();
+    refreshCam();
+  });
+  panel.querySelector('[data-cam-open]')?.addEventListener('click', () => {
+    camcorderApi?.openCamcorder?.();
+    refreshCam();
+  });
+  refreshCam();
 
   const refreshCryVol = () => {
     if (!cryStatus) return;

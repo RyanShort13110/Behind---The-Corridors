@@ -1,6 +1,8 @@
 # Found-footage tape assets
 
-Debug-only. Requires `?debug=1&tape=<id>`. Normal gameplay never loads these modules.
+Debug-only standalone boot: `?debug=1&tape=<id>`. Normal gameplay never loads these modules via URL.
+
+In-game camcorder collectible uses `js/tapes/library.js` for cassette IDs. LCD playback should mount a contained viewer (do **not** call `bootDebugTape` — that suspends the chapter director). Standalone debug URLs stay independent.
 
 ## Office-01 — The Waiting Thing
 

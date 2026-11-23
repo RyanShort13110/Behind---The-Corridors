@@ -1,15 +1,27 @@
 import * as THREE from 'three';
-import { createCorridor } from './scene.js?v=brighten-1';
+import { createCorridor } from './scene.js?v=cam-1';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
-import { createAudioDirector } from './audio.js?v=chair-spook-3';
+import { createAudioDirector } from './audio.js?v=cam-1';
 import { createPerformanceMonitor } from './performance.js';
-import { createInteractionSystem } from './interaction.js';
+import { createInteractionSystem } from './interaction.js?v=cam-1';
 import { createLookControls } from './look.js';
 import { createInventory } from './inventory.js';
 import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
+import { drawVhsCCamcorderPreview } from './props/vhs-c-camcorder.js?v=cam-1';
+import { drawVhsCCassettePreview } from './props/vhs-c-cassette.js?v=cam-1';
+import {
+  TAPE_LIBRARY,
+  CAMCORDER_ITEM_ID,
+  listCollectedTapes,
+  isTapeItemId,
+  debugTapeUrl,
+  tapeInventoryMeta,
+  camcorderInventoryMeta,
+  getTapeById,
+} from './tapes/library.js?v=cam-1';
 import {
   createComposure, COMPOSURE_MAX, CIGARETTE_RESTORE, COMPOSURE_HITS,
   CIGARETTE_TOOLTIP, CIGARETTE_FLAVOR, cigaretteEffectLine, fillCopyWithEffect,
@@ -72,6 +84,8 @@ const el = {
   itemDetail: $('item-detail'), itemDetailClose: $('item-detail-close'),
   itemDetailCanvas: $('item-detail-canvas'), itemDetailTitle: $('item-detail-title'),
   itemDetailBody: $('item-detail-body'), itemDetailUse: $('item-detail-use'),
+  itemDetailTapes: $('item-detail-tapes'), itemDetailTapeList: $('item-detail-tape-list'),
+  itemDetailTapeEmpty: $('item-detail-tape-empty'), itemDetailTapeNote: $('item-detail-tape-note'),
   composure: $('composure'), composureFill: $('composure-fill'),
   experience: $('experience'),
   keypad: $('keypad'), keypadClose: $('keypad-close'),
@@ -425,7 +439,7 @@ async function bootDebugTape(id) {
     interaction?.clear?.();
 
     if (id === 'office-01') {
-      const { createOffice } = await import('./levels/office.js?v=omit-aisle-2');
+      const { createOffice } = await import('./levels/office.js?v=cam-1');
       const { startOfficeTape01 } = await import('./tapes/office-01.js?v=bd-warm-1');
       tapeSession = await startOfficeTape01({
         scene,
@@ -482,6 +496,21 @@ function bindChapterInteractables() {
     for (const spec of module?.interactables || []) {
       // One cigarette per chapter — hide pack if already carried.
       if (chapterCig && spec.id === chapterCig && inventory?.has(chapterCig)) {
+        if (spec.object) {
+          spec.object.visible = false;
+          spec.object.userData.taken = true;
+        }
+        continue;
+      }
+      // Camcorder / tapes stay gone once collected (checkpoints restore via inventory).
+      if (spec.itemId === CAMCORDER_ITEM_ID && inventory?.has(CAMCORDER_ITEM_ID)) {
+        if (spec.object) {
+          spec.object.visible = false;
+          spec.object.userData.taken = true;
+        }
+        continue;
+      }
+      if (spec.itemId && isTapeItemId(spec.itemId) && inventory?.has(spec.itemId)) {
         if (spec.object) {
           spec.object.visible = false;
           spec.object.userData.taken = true;
@@ -792,7 +821,10 @@ function syncChapterComposureHits() {
 
 function preserveCarryInventory() {
   const kept = (inventory?.list() || []).filter(item =>
-    String(item.id).startsWith('cigarette') || item.id === 'key-fob');
+    String(item.id).startsWith('cigarette')
+    || item.id === 'key-fob'
+    || item.id === CAMCORDER_ITEM_ID
+    || isTapeItemId(item.id));
   inventory?.clear();
   for (const item of kept) {
     inventory.add(item.id, {
@@ -801,6 +833,8 @@ function preserveCarryInventory() {
       consumable: Boolean(item.consumable),
       restoreAmount: item.restoreAmount ?? CIGARETTE_RESTORE,
       previewColor: item.previewColor,
+      kind: item.kind,
+      recordingId: item.recordingId,
     });
   }
   renderInventory();
@@ -859,6 +893,8 @@ function captureCheckpointSnapshot() {
       consumable: Boolean(item.consumable),
       restoreAmount: item.restoreAmount ?? null,
       previewColor: item.previewColor ?? null,
+      kind: item.kind ?? null,
+      recordingId: item.recordingId ?? null,
     })),
     memory: { ...memory, chaptersCompleted: [...(memory.chaptersCompleted || [])] },
     story: { ...story.state },
@@ -879,6 +915,8 @@ function applyInventorySnapshot(items = []) {
       consumable: Boolean(item.consumable),
       restoreAmount: item.restoreAmount ?? CIGARETTE_RESTORE,
       previewColor: item.previewColor,
+      kind: item.kind,
+      recordingId: item.recordingId,
     });
   }
   renderInventory();
@@ -1110,11 +1148,58 @@ function closeItemDetail() {
   el.itemDetail.classList.remove('is-open');
   el.itemDetail.setAttribute('aria-hidden', 'true');
   openDetailItemId = null;
+  clearCamcorderTapePanel();
   if (el.itemDetailUse) {
     el.itemDetailUse.hidden = true;
     el.itemDetailUse.disabled = false;
     el.itemDetailUse.dataset.itemId = '';
     el.itemDetailUse.textContent = 'USE';
+  }
+}
+
+function clearCamcorderTapePanel() {
+  if (el.itemDetailTapes) el.itemDetailTapes.hidden = true;
+  if (el.itemDetailTapeList) el.itemDetailTapeList.replaceChildren();
+  if (el.itemDetailTapeEmpty) el.itemDetailTapeEmpty.hidden = true;
+  if (el.itemDetailTapeNote) {
+    el.itemDetailTapeNote.hidden = true;
+    el.itemDetailTapeNote.textContent = '';
+  }
+}
+
+function populateCamcorderTapePanel() {
+  if (!el.itemDetailTapes || !el.itemDetailTapeList) return;
+  const collected = listCollectedTapes(inventory);
+  el.itemDetailTapes.hidden = false;
+  el.itemDetailTapeList.replaceChildren();
+  if (el.itemDetailTapeNote) {
+    el.itemDetailTapeNote.hidden = true;
+    el.itemDetailTapeNote.textContent = '';
+  }
+  if (!collected.length) {
+    if (el.itemDetailTapeEmpty) el.itemDetailTapeEmpty.hidden = false;
+    return;
+  }
+  if (el.itemDetailTapeEmpty) el.itemDetailTapeEmpty.hidden = true;
+  for (const tape of collected) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = tape.label;
+    btn.addEventListener('click', () => {
+      // Contained LCD playback (secondary viewer) is not wired yet — keep chapter intact.
+      if (el.itemDetailTapeNote) {
+        el.itemDetailTapeNote.hidden = false;
+        el.itemDetailTapeNote.textContent = DEBUG_MODE
+          ? `Playback viewer pending. Debug: ?debug=1&${tape.debugQuery}`
+          : 'No cassette transport yet.';
+      }
+      if (DEBUG_MODE) {
+        console.info('[Behind. CAM] Tape selected:', tape.recordingId, debugTapeUrl(tape));
+      }
+    });
+    li.appendChild(btn);
+    el.itemDetailTapeList.appendChild(li);
   }
 }
 
@@ -1138,11 +1223,21 @@ function openItemDetail(item) {
   } else {
     el.itemDetailBody.textContent = item.tooltip || 'An item you are carrying.';
   }
+  clearCamcorderTapePanel();
   if (item.id === 'brass-key') drawBrassKeyPreview(el.itemDetailCanvas);
   else if (item.id === 'sticky-note') {
     drawStickyNotePreview(el.itemDetailCanvas, officeStory.state.keypadCode);
   } else if (item.id === 'key-fob') {
     drawKeyFobPreview(el.itemDetailCanvas);
+  } else if (item.id === CAMCORDER_ITEM_ID) {
+    drawVhsCCamcorderPreview(el.itemDetailCanvas);
+    populateCamcorderTapePanel();
+  } else if (isTapeItemId(item.id)) {
+    const tape = getTapeById(item.id);
+    drawVhsCCassettePreview(
+      el.itemDetailCanvas,
+      tape ? `#${(tape.previewColor >>> 0).toString(16).padStart(6, '0')}` : '#1e2226',
+    );
   } else if (item.id === 'stuffed-dragon-white'
       || String(item.id).startsWith('stuffed-dragon')) {
     drawStuffedDragonPreview(el.itemDetailCanvas, item.previewColor ?? 0xf2f0ea);
@@ -1412,7 +1507,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=omit-aisle-2');
+    const { createOffice } = await import('./levels/office.js?v=cam-1');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -1689,7 +1784,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=omit-aisle-2');
+      const { createOffice } = await import('./levels/office.js?v=cam-1');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
@@ -1912,7 +2007,35 @@ if (DEBUG_MODE) {
             : isHospitalReverse()
               ? (hospitalReverseStory.state.reverseStarted ? 'RETREAT' : 'APPROACH')
               : isMemoryChapter() ? memoryStoryFor().state.phase?.toUpperCase() : '',
-    }));
+    }), {
+      grantCamcorder() {
+        if (!inventory) return;
+        inventory.add(CAMCORDER_ITEM_ID, camcorderInventoryMeta());
+        renderInventory();
+        bindChapterInteractables();
+      },
+      grantAllTapes() {
+        if (!inventory) return;
+        for (const tape of TAPE_LIBRARY) {
+          inventory.add(tape.id, tapeInventoryMeta(tape));
+        }
+        renderInventory();
+        bindChapterInteractables();
+      },
+      openCamcorder() {
+        if (!inventory?.has(CAMCORDER_ITEM_ID)) {
+          inventory?.add(CAMCORDER_ITEM_ID, camcorderInventoryMeta());
+          renderInventory();
+        }
+        const item = inventory?.get(CAMCORDER_ITEM_ID);
+        if (item) openItemDetail({ id: CAMCORDER_ITEM_ID, ...item });
+      },
+      status() {
+        const cam = inventory?.has(CAMCORDER_ITEM_ID) ? 'yes' : 'no';
+        const n = listCollectedTapes(inventory).length;
+        return `Cam: ${cam} · tapes ${n}/${TAPE_LIBRARY.length}`;
+      },
+    });
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
 }
 

@@ -597,6 +597,17 @@ export function createAudioDirector() {
       playNoiseBurst({ duration: 0.1, band: 1600, q: 1.2, level: 0.016, pan: 0.25 });
       return;
     }
+    if (id === 'vhs-c-camcorder' || id === 'corridor-vhs-camcorder') {
+      // Dense plastic shell + faint strap rustle.
+      playNoiseBurst({ duration: 0.12, band: 700, q: 0.85, level: 0.018, pan: 0.28 });
+      playTone({ freq: 240, duration: 0.1, level: 0.012, type: 'triangle', pan: 0.26 });
+      return;
+    }
+    if (String(id).startsWith('tape-') || String(id).includes('tape-office') || String(id).includes('vhs-c')) {
+      playNoiseBurst({ duration: 0.08, band: 900, q: 1.0, level: 0.014, pan: 0.2 });
+      playTone({ freq: 360, duration: 0.06, level: 0.01, type: 'square', pan: 0.18 });
+      return;
+    }
     if (String(id).startsWith('stuffed-dragon')) {
       // Soft fabric take — muted, close.
       playNoiseBurst({ duration: 0.14, band: 480, q: 0.7, level: 0.018, pan: -0.15 });

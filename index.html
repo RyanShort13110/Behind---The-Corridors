@@ -44,6 +44,12 @@
       <canvas id="item-detail-canvas" class="item-detail-canvas" width="200" height="130" aria-hidden="true"></canvas>
       <p id="item-detail-title" class="item-detail-title"></p>
       <p id="item-detail-body" class="item-detail-body"></p>
+      <div id="item-detail-tapes" class="item-detail-tapes" hidden>
+        <p class="item-detail-tapes__label">LCD · CASSETTES</p>
+        <ul id="item-detail-tape-list" class="item-detail-tapes__list"></ul>
+        <p id="item-detail-tape-empty" class="item-detail-tapes__empty">NO CASSETTE</p>
+        <p id="item-detail-tape-note" class="item-detail-tapes__note" hidden></p>
+      </div>
       <button type="button" id="item-detail-use" class="item-detail-use" hidden>USE</button>
     </aside>
     <aside id="keypad" class="keypad" aria-hidden="true" role="dialog" aria-labelledby="keypad-title">
@@ -87,6 +93,6 @@
   <div id="scroll-space" aria-hidden="true"></div>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script type="module" src="./js/main.js?v=bd-reveal-7"></script>
+  <script type="module" src="./js/main.js?v=cam-1"></script>
 </body>
 </html>

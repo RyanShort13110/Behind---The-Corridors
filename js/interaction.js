@@ -138,6 +138,7 @@ export function createInteractionSystem({
     const {
       id, object, title, body, bodyEffect = null, radius = 3.4, tooltip = null,
       onlyAfterBacktrack = false, onlyAfterSecondApproach = false,
+      requiresOpenLockedDoor = false,
       takeable = false, itemId = null, itemLabel = null,
       previewColor = null, kind = 'inspect',
       requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
@@ -150,7 +151,8 @@ export function createInteractionSystem({
     const { lines, material } = makeMeshOutlines(meshes);
     const entry = {
       id, object, title, body, bodyEffect, tooltip, radius, kind,
-      onlyAfterBacktrack, onlyAfterSecondApproach, takeable, itemId, itemLabel, previewColor,
+      onlyAfterBacktrack, onlyAfterSecondApproach, requiresOpenLockedDoor,
+      takeable, itemId, itemLabel, previewColor,
       requiresItem, requiresItemLabel, lockedBody, unlockedBody, consumesItem,
       consumable, restoreAmount, stayAvailable,
       taken: false, unlocked: false, inspected: false,
@@ -168,6 +170,8 @@ export function createInteractionSystem({
     if (entry.onlyAfterBacktrack && !story?.hasBacktracked) return false;
     // Office keypad: stay inert until the player turns around and walks forward again.
     if (entry.onlyAfterSecondApproach && !story?.secondApproachStarted) return false;
+    // Corridor locked-bay pickups: world mesh stays hidden until the door opens.
+    if (entry.requiresOpenLockedDoor && !entry.object?.visible) return false;
     // Used key-doors drop out entirely — open leaves show through walls if outlined.
     if (entry.requiresItem && entry.unlocked) return false;
     // Keypad stays until the service door unlocks.

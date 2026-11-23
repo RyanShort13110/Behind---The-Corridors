@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from './composure.js';
+import { createVhsCCamcorder } from './props/vhs-c-camcorder.js?v=cam-1';
+import {
+  CAMCORDER_ITEM_ID, CAMCORDER_LABEL, CAMCORDER_TOOLTIP,
+} from './tapes/library.js?v=cam-1';
 
 /**
  * Level 01: Corridor. Static architecture is batched into InstancedMeshes by
@@ -203,12 +207,26 @@ export function createCorridor(scene) {
   sign.name = 'exit-sign';
   world.add(sign);
 
-  // Lockable fourth-right bay: swingable door into a black recess — nothing to see.
+  // Lockable fourth-right bay: swingable door into a black recess.
+  // A plain shelf + abandoned camcorder sit inside — only after the existing key unlock.
   for (const offset of [-0.61, 0.61]) {
     add(0.30, 2.55, 0.11, 2.60, 1.39, lockedDoorZ + offset, mats.trim);
   }
   add(0.30, 0.13, 1.33, 2.60, 2.64, lockedDoorZ, mats.trim);
   add(0.018, 2.4, 1.16, 3.08, 1.36, lockedDoorZ, mats.void);
+  // Narrow shelf in the recess (separate mesh — not batched — so the camcorder can sit on it).
+  const recessShelfGeo = new THREE.BoxGeometry(0.42, 0.04, 0.55);
+  const recessShelf = new THREE.Mesh(recessShelfGeo, mats.trim);
+  recessShelf.position.set(3.42, 0.82, lockedDoorZ);
+  recessShelf.name = 'locked-bay-shelf';
+  world.add(recessShelf);
+
+  const camcorderProp = createVhsCCamcorder({ name: 'Corridor VHS-C camcorder' });
+  const camcorder = camcorderProp.group;
+  camcorder.position.set(3.40, 0.86, lockedDoorZ + 0.02);
+  camcorder.rotation.set(0.04, -Math.PI * 0.55, 0.08);
+  camcorder.visible = false;
+  world.add(camcorder);
 
   const LOCKED_DOOR_OPEN_YAW = -1.28; // swing into the dark (+X)
   let lockedDoorOpen = false;
@@ -305,7 +323,7 @@ export function createCorridor(scene) {
       title: 'DOOR HANDLE',
       body: 'Locked.',
       lockedBody: 'Locked.',
-      unlockedBody: 'Opens to nothingness.',
+      unlockedBody: 'Dark inside.',
       requiresItem: 'brass-key',
       requiresItemLabel: 'BRASS KEY',
     },
@@ -322,6 +340,18 @@ export function createCorridor(scene) {
       tooltip: 'A plain brass key. No label.',
     },
     {
+      id: 'corridor-vhs-camcorder',
+      object: camcorder,
+      radius: 5.4,
+      requiresOpenLockedDoor: true,
+      takeable: true,
+      itemId: CAMCORDER_ITEM_ID,
+      itemLabel: CAMCORDER_LABEL,
+      title: CAMCORDER_LABEL,
+      body: CAMCORDER_TOOLTIP,
+      tooltip: CAMCORDER_TOOLTIP,
+    },
+    {
       id: 'altered-door',
       object: changedDoor,
       // Tight radius so the floor key beside this bay stays clickable.
@@ -335,7 +365,7 @@ export function createCorridor(scene) {
   ];
 
   return {
-    lights, redLight, changedDoor, brassKey, lockedDoor, cigarette, mats, interactables,
+    lights, redLight, changedDoor, brassKey, lockedDoor, cigarette, camcorder, mats, interactables,
     openLockedDoor() {
       lockedDoorOpen = true;
       unlockProgress = null; // latched on next update with live progress
@@ -359,6 +389,8 @@ export function createCorridor(scene) {
       lockedDoor.rotation.y += (lockedTarget - lockedDoor.rotation.y) * doorFollow;
       // Key only after return begins, and only until taken.
       brassKey.visible = Boolean(story.hasBacktracked) && !brassKey.userData.taken;
+      // Camcorder appears in the unlocked bay; stay hidden while the door is shut.
+      camcorder.visible = lockedDoorOpen && !camcorder.userData.taken;
 
       // Shadow peek (unmarked ajar doorway):
       // Unlock key door → walk away to arm → past ajar door, walk toward elevator
@@ -429,6 +461,8 @@ export function createCorridor(scene) {
       lockedDoor.rotation.y = 0;
       brassKey.userData.taken = false;
       brassKey.visible = false;
+      camcorder.userData.taken = false;
+      camcorder.visible = false;
       cigarette.visible = true;
       cigarette.userData.taken = false;
       peekAmount = 0;
@@ -461,6 +495,8 @@ export function createCorridor(scene) {
       keyMat.dispose();
       keyHitMat.dispose();
       disposeCigaretteProp(cigarette);
+      camcorderProp.dispose();
+      recessShelfGeo.dispose();
       peekMats.forEach(mat => mat.dispose());
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);

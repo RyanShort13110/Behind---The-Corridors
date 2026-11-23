@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
+import {
+  createVhsCCassette, vhsCCassetteInteractable,
+} from '../props/vhs-c-cassette.js?v=cam-1';
+import { getTapeById } from '../tapes/library.js?v=cam-1';
 /**
  * Level 02: The Office. A modest, contiguous floor with a single central
  * traversal line, photographed through a fixed-forward first-person camera.
@@ -576,6 +580,21 @@ export function createOffice(scene, {
   cigarette.rotation.set(0.18, 1.05, 0.22);
   world.add(cigarette);
 
+  // Optional VHS-C cassette on a left desk — independent of the camcorder / keypad.
+  let officeTape = null;
+  let officeTapeProp = null;
+  const officeTapeDef = getTapeById('tape-office-01');
+  if (!omitAisleClutter && officeTapeDef) {
+    officeTapeProp = createVhsCCassette({
+      name: 'Office VHS-C cassette',
+      tint: officeTapeDef.previewColor ?? 0x1e2226,
+    });
+    officeTape = officeTapeProp.group;
+    officeTape.position.set(-3.15, 0.895, -12.55);
+    officeTape.rotation.set(0.02, 0.55, 0.04);
+    world.add(officeTape);
+  }
+
   const interactables = [
     ...(lighter ? [{
       id: 'office-lighter',
@@ -607,6 +626,12 @@ export function createOffice(scene, {
       itemId: 'key-fob',
       itemLabel: 'KEY FOB',
     }] : []),
+    ...(officeTape && officeTapeDef ? [
+      vhsCCassetteInteractable(officeTapeDef, officeTape, {
+        id: 'office-tape-office-01',
+        radius: 4.8,
+      }),
+    ] : []),
     {
       id: 'office-keypad',
       object: keypad,
@@ -623,6 +648,7 @@ export function createOffice(scene, {
     stickyNote,
     keyFob,
     keypad,
+    officeTape,
     interactables,
     /** True once when the empty-seat scrape should play (after update arms it). */
     consumeEmptySeatScrape() {
@@ -675,6 +701,10 @@ export function createOffice(scene, {
         keyFob.visible = true;
         if (keyFob.userData) keyFob.userData.taken = false;
       }
+      if (officeTape) {
+        officeTape.visible = true;
+        if (officeTape.userData) officeTape.userData.taken = false;
+      }
       cigarette.visible = true;
       cigarette.userData.taken = false;
       emptySeatT = -1;
@@ -686,6 +716,7 @@ export function createOffice(scene, {
     dispose() {
       batchesToDispose.forEach(mesh => mesh.dispose());
       disposeCigaretteProp(cigarette);
+      officeTapeProp?.dispose();
       cube.dispose();
       passageSign.geometry.dispose();
       passageTexture.dispose();
