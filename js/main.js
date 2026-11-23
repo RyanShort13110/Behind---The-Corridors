@@ -17,11 +17,10 @@ import {
   CAMCORDER_ITEM_ID,
   listCollectedTapes,
   isTapeItemId,
-  debugTapeUrl,
   tapeInventoryMeta,
   camcorderInventoryMeta,
   getTapeById,
-} from './tapes/library.js?v=cam-1';
+} from './tapes/library.js?v=cam-2';
 import {
   createComposure, COMPOSURE_MAX, CIGARETTE_RESTORE, COMPOSURE_HITS,
   CIGARETTE_TOOLTIP, CIGARETTE_FLAVOR, cigaretteEffectLine, fillCopyWithEffect,
