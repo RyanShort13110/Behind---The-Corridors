@@ -450,7 +450,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
 
     if (id === 'office-01') {
       const { createOffice } = await import('./levels/office.js?v=cam-6');
-      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-7');
+      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-8');
       tapeSession = await startOfficeTape01({
         scene,
         camera,
