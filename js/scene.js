@@ -207,28 +207,77 @@ export function createCorridor(scene) {
   sign.name = 'exit-sign';
   world.add(sign);
 
-  // Lockable fourth-right bay: swingable door into a black recess.
-  // A plain shelf + abandoned camcorder sit inside — only after the existing key unlock.
+  // Lockable fourth-right bay: swingable door into a maintenance closet.
+  // After unlock, corridor-route curves the rail through here (+X), then rejoins.
+  const bayZ = lockedDoorZ;
   for (const offset of [-0.61, 0.61]) {
-    add(0.30, 2.55, 0.11, 2.60, 1.39, lockedDoorZ + offset, mats.trim);
+    add(0.30, 2.55, 0.11, 2.60, 1.39, bayZ + offset, mats.trim);
   }
-  add(0.30, 0.13, 1.33, 2.60, 2.64, lockedDoorZ, mats.trim);
-  add(0.018, 2.4, 1.16, 3.08, 1.36, lockedDoorZ, mats.void);
-  // Mid-low shelf in the recess, centered on the bay. Below eye line so a casual
-  // glance into the dark can miss it; clear if you actually look in after unlocking.
-  const recessShelfGeo = new THREE.BoxGeometry(0.38, 0.035, 0.48);
-  const recessShelf = new THREE.Mesh(recessShelfGeo, mats.trim);
-  recessShelf.position.set(3.48, 0.58, lockedDoorZ);
-  recessShelf.name = 'locked-bay-shelf';
-  world.add(recessShelf);
+  add(0.30, 0.13, 1.33, 2.60, 2.64, bayZ, mats.trim);
+
+  // Closet shell — door mouth ~2.5, back wall ~5.9, wider than the hall opening.
+  add(3.4, 0.16, 3.2, 4.2, -0.08, bayZ, mats.floor);
+  add(3.4, 0.2, 3.2, 4.2, 3.55, bayZ, mats.ceiling);
+  add(0.18, 3.6, 3.2, 5.88, 1.72, bayZ, mats.wall); // back
+  add(3.4, 3.6, 0.18, 4.2, 1.72, bayZ + 1.55, mats.wall); // +Z wall
+  add(3.4, 3.6, 0.18, 4.2, 1.72, bayZ - 1.55, mats.wall); // -Z wall
+  // Fill wall above/beside the door leaf so the hall doesn't leak into the room.
+  add(0.18, 1.15, 3.2, 2.70, 3.28, bayZ, mats.wall);
+  add(0.18, 2.45, 0.95, 2.70, 1.35, bayZ + 1.08, mats.wall);
+  add(0.18, 2.45, 0.95, 2.70, 1.35, bayZ - 1.08, mats.wall);
+
+  // Dim tube housing on the closet ceiling.
+  add(1.35, 0.06, 0.22, 4.1, 3.38, bayZ + 0.15, mats.metal);
+  add(1.2, 0.04, 0.14, 4.1, 3.32, bayZ + 0.15, mats.tube);
+
+  // Junk — crates, shelves, pipes, mop gear (batched with corridor mats).
+  add(0.72, 0.55, 0.55, 5.35, 0.28, bayZ + 0.85, mats.trim); // crate
+  add(0.55, 0.42, 0.48, 5.2, 0.22, bayZ + 0.25, mats.door); // crate
+  add(0.48, 0.62, 0.4, 5.4, 0.32, bayZ - 0.55, mats.trim);
+  add(0.9, 1.65, 0.35, 5.55, 0.85, bayZ - 1.05, mats.metal); // tall cabinet
+  add(0.82, 0.04, 0.32, 5.55, 0.55, bayZ - 1.05, mats.trim);
+  add(0.82, 0.04, 0.32, 5.55, 1.05, bayZ - 1.05, mats.trim);
+  add(0.82, 0.04, 0.32, 5.55, 1.55, bayZ - 1.05, mats.trim);
+  // Mid shelf unit along +Z wall.
+  add(0.95, 1.35, 0.38, 4.15, 0.7, bayZ + 1.15, mats.trim);
+  add(0.9, 0.035, 0.34, 4.15, 0.55, bayZ + 1.15, mats.metal);
+  add(0.9, 0.035, 0.34, 4.15, 1.05, bayZ + 1.15, mats.metal);
+  add(0.9, 0.035, 0.34, 4.15, 1.55, bayZ + 1.15, mats.metal);
+  // Shelf in the open doorway sightline (door leaf parks on +Z and hides that wall).
+  add(0.7, 1.2, 0.32, 4.55, 0.65, bayZ + 0.2, mats.trim);
+  add(0.65, 0.035, 0.28, 4.55, 0.5, bayZ + 0.2, mats.metal);
+  add(0.65, 0.035, 0.28, 4.55, 1.0, bayZ + 0.2, mats.metal);
+  add(0.65, 0.035, 0.28, 4.55, 1.5, bayZ + 0.2, mats.metal);
+  // Pipes / conduit on back wall.
+  add(0.09, 0.09, 2.4, 5.72, 2.4, bayZ, mats.metal);
+  add(0.07, 0.07, 1.8, 5.72, 2.15, bayZ + 0.2, mats.metal);
+  add(0.12, 0.55, 0.12, 5.72, 2.0, bayZ - 0.9, mats.metal);
+  // Mop bucket + handle near the door corner.
+  add(0.32, 0.28, 0.32, 3.15, 0.15, bayZ - 0.95, mats.metal);
+  add(0.04, 1.15, 0.04, 3.2, 0.75, bayZ - 0.95, mats.trim);
+  // Cable spool / odds on the floor.
+  add(0.38, 0.22, 0.38, 3.55, 0.12, bayZ + 0.7, mats.door);
+  add(0.5, 0.18, 0.35, 4.6, 0.1, bayZ - 0.2, mats.trim);
+  add(0.28, 0.45, 0.28, 4.85, 0.24, bayZ + 0.55, mats.metal);
+  // Wall panel clutter.
+  add(0.06, 0.85, 0.55, 5.78, 1.5, bayZ + 0.7, mats.trim);
+  add(0.55, 0.08, 0.08, 3.4, 2.65, bayZ + 1.4, mats.metal);
 
   const camcorderProp = createVhsCCamcorder({ name: 'Corridor VHS-C camcorder' });
   const camcorder = camcorderProp.group;
-  // Upright on the shelf, angled slightly toward the doorway.
-  camcorder.position.set(3.46, 0.62, lockedDoorZ + 0.04);
-  camcorder.rotation.set(0.06, -Math.PI * 0.62, 0.04);
+  // Open-sightline shelf: door leaf swings over the +Z wall, so keep the cam
+  // in the clear doorway wedge — right tip tucked behind the leaf edge.
+  camcorder.position.set(4.4, 1.04, bayZ + 0.05);
+  camcorder.rotation.set(0.08, -Math.PI * 0.55, 0.04);
+  camcorder.scale.setScalar(1.35);
   camcorder.visible = false;
   world.add(camcorder);
+
+  // Closet spill on the open-sightline shelf / camcorder.
+  const baySpill = new THREE.PointLight(0xcce5d7, 2.4, 4.2, 2);
+  baySpill.position.set(4.35, 2.0, bayZ + 0.15);
+  baySpill.visible = false;
+  world.add(baySpill);
 
   const LOCKED_DOOR_OPEN_YAW = -1.28; // swing into the dark (+X)
   let lockedDoorOpen = false;
@@ -325,7 +374,7 @@ export function createCorridor(scene) {
       title: 'DOOR HANDLE',
       body: 'Locked.',
       lockedBody: 'Locked.',
-      unlockedBody: 'Dark inside.',
+      unlockedBody: 'A maintenance closet.',
       requiresItem: 'brass-key',
       requiresItemLabel: 'BRASS KEY',
     },
@@ -344,10 +393,11 @@ export function createCorridor(scene) {
     {
       id: 'corridor-vhs-camcorder',
       object: camcorder,
-      // Near the open bay looking in — not aisle-wide.
-      radius: 4.0,
+      // Reachable from the bay look-in on the hall rail.
+      radius: 5.5,
       requiresOpenLockedDoor: true,
-      occludeOutline: true,
+      // Door leaf still occludes the mesh; keep the take outline readable.
+      occludeOutline: false,
       takeable: true,
       itemId: CAMCORDER_ITEM_ID,
       itemLabel: CAMCORDER_LABEL,
@@ -393,8 +443,10 @@ export function createCorridor(scene) {
       lockedDoor.rotation.y += (lockedTarget - lockedDoor.rotation.y) * doorFollow;
       // Key only after return begins, and only until taken.
       brassKey.visible = Boolean(story.hasBacktracked) && !brassKey.userData.taken;
-      // Camcorder appears in the unlocked bay; stay hidden while the door is shut.
+      // Camcorder + bay spill appear in the unlocked bay; stay dark while shut.
       camcorder.visible = lockedDoorOpen && !camcorder.userData.taken;
+      baySpill.visible = lockedDoorOpen;
+      baySpill.intensity = lockedDoorOpen ? 2.4 : 0;
 
       // Shadow peek (unmarked ajar doorway):
       // Unlock key door → walk away to arm → past ajar door, walk toward elevator
@@ -467,6 +519,8 @@ export function createCorridor(scene) {
       brassKey.visible = false;
       camcorder.userData.taken = false;
       camcorder.visible = false;
+      baySpill.visible = false;
+      baySpill.intensity = 0;
       cigarette.visible = true;
       cigarette.userData.taken = false;
       peekAmount = 0;
@@ -500,7 +554,7 @@ export function createCorridor(scene) {
       keyHitMat.dispose();
       disposeCigaretteProp(cigarette);
       camcorderProp.dispose();
-      recessShelfGeo.dispose();
+      baySpill.dispose?.();
       peekMats.forEach(mat => mat.dispose());
       Object.values(mats).forEach(mat => mat.dispose());
       scene.remove(ambient);

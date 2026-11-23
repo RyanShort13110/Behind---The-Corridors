@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCorridor } from './scene.js?v=cam-5';
+import { createCorridor } from './scene.js?v=cam-17';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
@@ -32,6 +32,7 @@ import { createCigaretteFx } from './cigarette-fx.js?v=cig-breath-1';
 import { createCheckpointStore } from './checkpoint.js';
 import { createOfficeStory, officeNarrative, OFFICE_METERS, OFFICE_START_Z, OFFICE_EXIT_PROGRESS } from './levels/office-story.js?v=chair-spook-3';
 import { officeCameraPose } from './levels/office-route.js';
+import { corridorCameraPose } from './levels/corridor-route.js?v=bay-2';
 import {
   createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z,
   RECORDS_DOOR_HOLD,
@@ -2566,7 +2567,15 @@ function frame(now) {
       reduced ? 0 : Math.sin(p * 5) * 0.012,
       sway && !reduced ? Math.sin(now * 0.0014) * 0.003 * sway : 0
     );
-    if (chapterId === 'office') {
+    if (chapterId === 'corridor') {
+      const route = corridorCameraPose(
+        p,
+        Boolean(director.get('corridor')?.isLockedDoorOpen?.()),
+      );
+      camera.position.x += route.x;
+      camera.position.z = route.z;
+      camera.rotation.y += route.yaw;
+    } else if (chapterId === 'office') {
       const route = officeCameraPose(
         p,
         officeStory.state.secondApproachStarted,
