@@ -214,16 +214,17 @@ export function createCorridor(scene) {
   }
   add(0.30, 0.13, 1.33, 2.60, 2.64, lockedDoorZ, mats.trim);
   add(0.018, 2.4, 1.16, 3.08, 1.36, lockedDoorZ, mats.void);
-  // Narrow shelf in the recess (separate mesh — not batched — so the camcorder can sit on it).
+  // Narrow shelf deeper in the recess — only readable when looking in through the open bay.
   const recessShelfGeo = new THREE.BoxGeometry(0.42, 0.04, 0.55);
   const recessShelf = new THREE.Mesh(recessShelfGeo, mats.trim);
-  recessShelf.position.set(3.42, 0.82, lockedDoorZ);
+  recessShelf.position.set(3.58, 0.82, lockedDoorZ);
   recessShelf.name = 'locked-bay-shelf';
   world.add(recessShelf);
 
   const camcorderProp = createVhsCCamcorder({ name: 'Corridor VHS-C camcorder' });
   const camcorder = camcorderProp.group;
-  camcorder.position.set(3.40, 0.86, lockedDoorZ + 0.02);
+  // Past the void plane (x≈3.08) so corridor wall / frame occlude it from the aisle.
+  camcorder.position.set(3.56, 0.86, lockedDoorZ + 0.02);
   camcorder.rotation.set(0.04, -Math.PI * 0.55, 0.08);
   camcorder.visible = false;
   world.add(camcorder);
@@ -342,8 +343,9 @@ export function createCorridor(scene) {
     {
       id: 'corridor-vhs-camcorder',
       object: camcorder,
-      radius: 5.4,
+      radius: 4.6,
       requiresOpenLockedDoor: true,
+      occludeOutline: true,
       takeable: true,
       itemId: CAMCORDER_ITEM_ID,
       itemLabel: CAMCORDER_LABEL,

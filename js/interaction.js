@@ -22,12 +22,13 @@ function collectMeshes(root) {
   return meshes.length ? meshes : [];
 }
 
-function makeMeshOutlines(meshes) {
+function makeMeshOutlines(meshes, { occludeOutline = false } = {}) {
   const mat = new THREE.LineBasicMaterial({
     color: EDGE_COLOR,
     transparent: true,
     opacity: 0,
-    depthTest: false,
+    // Recessed pickups must depth-test or their edges draw through corridor walls.
+    depthTest: occludeOutline,
     depthWrite: false,
     fog: false,
   });
@@ -37,7 +38,7 @@ function makeMeshOutlines(meshes) {
     const edges = new THREE.EdgesGeometry(mesh.geometry, 20);
     const line = new THREE.LineSegments(edges, mat);
     line.scale.setScalar(EDGE_EXPAND);
-    line.renderOrder = 10;
+    line.renderOrder = occludeOutline ? 2 : 10;
     line.visible = false;
     line.frustumCulled = false;
     mesh.add(line);
@@ -139,6 +140,7 @@ export function createInteractionSystem({
       id, object, title, body, bodyEffect = null, radius = 3.4, tooltip = null,
       onlyAfterBacktrack = false, onlyAfterSecondApproach = false,
       requiresOpenLockedDoor = false,
+      occludeOutline = false,
       takeable = false, itemId = null, itemLabel = null,
       previewColor = null, kind = 'inspect',
       requiresItem = null, requiresItemLabel = null, lockedBody = null, unlockedBody = null,
@@ -148,10 +150,12 @@ export function createInteractionSystem({
     } = spec;
     void sceneRoot;
     const meshes = pickMeshes || collectMeshes(object);
-    const { lines, material } = makeMeshOutlines(meshes);
+    const occlude = Boolean(occludeOutline || requiresOpenLockedDoor);
+    const { lines, material } = makeMeshOutlines(meshes, { occludeOutline: occlude });
     const entry = {
       id, object, title, body, bodyEffect, tooltip, radius, kind,
       onlyAfterBacktrack, onlyAfterSecondApproach, requiresOpenLockedDoor,
+      occludeOutline: occlude,
       takeable, itemId, itemLabel, previewColor,
       requiresItem, requiresItemLabel, lockedBody, unlockedBody, consumesItem,
       consumable, restoreAmount, stayAvailable,

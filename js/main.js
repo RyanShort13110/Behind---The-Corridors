@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { createCorridor } from './scene.js?v=cam-1';
+import { createCorridor } from './scene.js?v=cam-3';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
 import { createAudioDirector } from './audio.js?v=cam-1';
 import { createPerformanceMonitor } from './performance.js';
-import { createInteractionSystem } from './interaction.js?v=cam-1';
+import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
 import { createInventory } from './inventory.js';
 import { createKeypad } from './keypad.js';
@@ -447,7 +447,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
 
     if (id === 'office-01') {
       const { createOffice } = await import('./levels/office.js?v=cam-2');
-      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=bd-warm-1');
+      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-3');
       tapeSession = await startOfficeTape01({
         scene,
         camera,

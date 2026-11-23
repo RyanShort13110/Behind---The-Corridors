@@ -7,21 +7,25 @@ import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=bd-warm-
  *
  * Creature: The Waiting Thing (.glb via lazy GLTFLoader). See OFFICE_01_CREATURE.
  *
- * Timeline (~32s):
+ * Timeline (~30s):
  *  0–8s     casual aisle walk with left/right looks; lights dim mid-aisle
  *  8–10s    glance in — see it looming
  * 10–11s    terror hitch (creature looks up) then break
  * 11–16s    sprint back to the elevator exit (creature vanishes)
  * 16–19s    tuck behind the elevator jamb
  * 19–24s    slow peek — empty conference room
- * 24–32s    far-end silhouette appears down the hall, then hold / cut
+ * 24–27.5s  look down the hall — silhouette at the far end
+ * 27.5–30s  short zoom on the figure, then cut
  */
 
-const DURATION = 32;
+const DURATION = 29.85;
 /** Vanish as soon as the scramble turns away from the glass. */
 const VANISH_AT = 11.2;
 /** Reappear at the far end of the aisle for the final frame. */
 const REAPPEAR_AT = 24.6;
+/** Zoom punch on the hall-end figure before cut. */
+const ZOOM_START = 27.35;
+const ZOOM_END = 29.7;
 /** Brighter than gameplay baseline until mid-aisle, then ease down. */
 const LIGHT_BRIGHT = 1.38;
 const LIGHT_DIM = 0.48;
@@ -129,7 +133,8 @@ function samplePath(t) {
   if (t < 18.5) return { ...behindJamb };
   if (t < 23) return lerpPose(behindJamb, peekOut, (t - 18.5) / 4.5);
   if (t < 25.2) return lerpPose(peekOut, noticeHall, (t - 23) / 2.2);
-  if (t < 29) return lerpPose(noticeHall, finalHold, (t - 25.2) / 3.8);
+  // Settle on the hall-end figure, then hold through the zoom / cut.
+  if (t < 27.35) return lerpPose(noticeHall, finalHold, (t - 25.2) / 2.15);
   return { ...finalHold, look: finalHold.look };
 }
 
@@ -495,7 +500,13 @@ export async function startOfficeTape01({
 
       if (!reduced) {
         const fovWobble = Math.sin(t * 0.7) * 0.35 + Math.sin(t * 3.1) * 0.15;
-        camera.fov = baseFov - 2 + fovWobble;
+        let fov = baseFov - 2 + fovWobble;
+        // After the corner look: push in on the far silhouette, then cut.
+        if (t >= ZOOM_START) {
+          const z = smooth((t - ZOOM_START) / Math.max(0.01, ZOOM_END - ZOOM_START));
+          fov = lerp(baseFov - 2, baseFov - 11, z) + fovWobble * (1 - z) * 0.35;
+        }
+        camera.fov = fov;
         camera.updateProjectionMatrix();
       }
 
