@@ -15,3 +15,5 @@ Debug-only. Requires `?debug=1&tape=<id>`. Normal gameplay never loads these mod
 - Reuses `createMemoryBlack` / `js/levels/memory-home.js` (black variant). No extra GLB.
 - Scripted path + synth knocks: `js/tapes/black-dragon-01.js`, `js/tapes/black-dragon-audio.js`
 - Live knobs: `window.__tapeBlackDragon` / on-screen inspector
+- Shares the Office tape VHS overlay stack (grain, chroma, tracking, flicker)
+- Places The Waiting Thing outside the living-room window (`WINDOW_CREATURE` in `black-dragon-01.js`)

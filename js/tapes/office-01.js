@@ -1,4 +1,4 @@
-import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=head-gaze-1';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=bd-warm-1';
 
 /**
  * Debug-only found-footage prototype: Office tape 01.
@@ -8,7 +8,7 @@ import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=head-gaz
  * Creature: The Waiting Thing (.glb via lazy GLTFLoader). See OFFICE_01_CREATURE.
  *
  * Timeline (~32s):
- *  0–8s     casual aisle walk toward the glass conference room
+ *  0–8s     casual aisle walk with left/right looks; lights dim mid-aisle
  *  8–10s    glance in — see it looming
  * 10–11s    terror hitch (creature looks up) then break
  * 11–16s    sprint back to the elevator exit (creature vanishes)
@@ -22,6 +22,11 @@ const DURATION = 32;
 const VANISH_AT = 11.2;
 /** Reappear at the far end of the aisle for the final frame. */
 const REAPPEAR_AT = 24.6;
+/** Brighter than gameplay baseline until mid-aisle, then ease down. */
+const LIGHT_BRIGHT = 1.38;
+const LIGHT_DIM = 0.48;
+const LIGHT_DIM_START = 3.6;
+const LIGHT_DIM_END = 5.4;
 /** Aisle-end pose facing the elevator (model faces −Z at yaw 0 → π faces +Z). */
 const HALL_END_POS = { x: 0.12, y: 0, z: -48.55, yaw: Math.PI };
 const CREATURE_POS = OFFICE_01_CREATURE.position;
@@ -88,9 +93,6 @@ function samplePath(t) {
   const emptyRoomAim = { x: 4.2, y: 1.55, z: -38.8 };
   const exitAim = { x: 0.15, y: 1.45, z: 5.5 };
 
-  const aisleStart = { x: 0.05, y: 1.62, z: 2.4, look: { x: 0.1, y: 1.5, z: -8 } };
-  // One continuous aisle pass — linear so mid-hall doesn't ease/slow.
-  const strollPast = { x: 0.22, y: 1.60, z: -34.8, look: { x: 0.4, y: 1.48, z: -42 } };
   // Casual look-over — registers the loom, does not plant for a long stare.
   const glanceIn = { x: 0.48, y: 1.56, z: -38.4, look: { ...creatureAim } };
   // Short terror hitch only; look-up reads here, then he breaks.
@@ -115,7 +117,9 @@ function samplePath(t) {
     look: { ...HALL_END_AIM },
   };
 
-  if (t < 8) return lerpPose(aisleStart, strollPast, t / 8, clamp01);
+  // First aisle pass: constant forward speed, eyes wander left/right.
+  if (t < 8) return sampleAisleWalk(t);
+  const strollPast = sampleAisleWalk(8);
   if (t < 10) return lerpPose(strollPast, glanceIn, (t - 8) / 2);
   if (t < 10.9) return lerpPose(glanceIn, hitch, (t - 10) / 0.9);
   if (t < 11.15) return { ...hitch, look: { ...creatureAim } };
@@ -148,6 +152,56 @@ function handheld(t, reduced) {
   };
 }
 
+/**
+ * Outbound aisle stroll: body moves linearly −Z; look drifts to desks L/R.
+ * t is absolute tape time in [0, 8].
+ */
+function sampleAisleWalk(t) {
+  const u = clamp01(t / 8);
+  const x = lerp(0.05, 0.22, u);
+  const y = lerp(1.62, 1.60, u);
+  const z = lerp(2.4, -34.8, u);
+  // Look points ahead of the camera so the turn reads as glancing, not spinning.
+  const ahead = z - 7.5;
+  const lookFwd = { x: 0.15, y: 1.48, z: ahead };
+  const lookLeft = { x: -2.6, y: 1.35, z: z - 2.2 };
+  const lookRight = { x: 2.7, y: 1.4, z: z - 1.8 };
+  const lookAheadGlass = { x: 0.55, y: 1.5, z: -42 };
+
+  const lerpLook = (a, b, s) => {
+    const u = smooth(s);
+    return {
+      x: lerp(a.x, b.x, u),
+      y: lerp(a.y, b.y, u),
+      z: lerp(a.z, b.z, u),
+    };
+  };
+
+  let look;
+  if (t < 1.6) look = lerpLook(lookFwd, lookLeft, t / 1.6);
+  else if (t < 3.3) look = lerpLook(lookLeft, lookFwd, (t - 1.6) / 1.7);
+  else if (t < 5.0) look = lerpLook(lookFwd, lookRight, (t - 3.3) / 1.7);
+  else if (t < 6.5) look = lerpLook(lookRight, lookFwd, (t - 5.0) / 1.5);
+  else look = lerpLook(lookFwd, lookAheadGlass, (t - 6.5) / 1.5);
+
+  return { x, y, z, look };
+}
+
+/** LIGHT_BRIGHT until mid-aisle, then eases down to LIGHT_DIM. */
+function sampleLightMul(t) {
+  if (t < LIGHT_DIM_START) return LIGHT_BRIGHT;
+  if (t < LIGHT_DIM_END) {
+    return lerp(LIGHT_BRIGHT, LIGHT_DIM, smooth((t - LIGHT_DIM_START) / (LIGHT_DIM_END - LIGHT_DIM_START)));
+  }
+  return LIGHT_DIM;
+}
+
+function applyOfficeLightMul(lights, mul) {
+  for (const entry of lights) {
+    entry.light.intensity = entry.base * mul;
+  }
+}
+
 /** Slow look-up — starts during the glance, finishes as he breaks and runs. */
 function sampleGaze(t) {
   if (t < 9.0) return 0;
@@ -173,7 +227,10 @@ function mountTapeChrome() {
       <span class="tape-overlay__label">TAPE / OFFICE-01</span>
       <span class="tape-overlay__timecode" data-tape-tc>00:00:00:00</span>
     </div>
-    <div class="tape-overlay__footer">DEBUG PROTOTYPE · FOUND FOOTAGE</div>
+    <div class="tape-overlay__footer">
+      <span>DEBUG PROTOTYPE · FOUND FOOTAGE</span>
+      <button type="button" class="tape-overlay__sound" data-tape-sound aria-pressed="false">SOUND: OFF</button>
+    </div>
   `;
   document.getElementById('experience')?.appendChild(overlay);
   return overlay;
@@ -197,6 +254,7 @@ function formatTimecode(seconds) {
  * @param {() => object} opts.createOffice
  * @param {object} opts.director
  * @param {() => object} opts.createSceneDirector
+ * @param {{ toggle: () => Promise<boolean> }} [opts.audio] Game audio director (SOUND toggle).
  * @param {boolean} [opts.reduced]
  */
 export async function startOfficeTape01({
@@ -206,6 +264,7 @@ export async function startOfficeTape01({
   createOffice,
   director,
   createSceneDirector,
+  audio = null,
   reduced = false,
 }) {
   const experience = document.getElementById('experience');
@@ -233,12 +292,32 @@ export async function startOfficeTape01({
   });
   tapeDirector.add('office', office);
   tapeDirector.activate('office');
+  // Snapshot after create — office update resets ambient each frame, so dim is re-applied after.
+  const officeLights = [];
+  scene.traverse(obj => {
+    if (!obj.isLight) return;
+    officeLights.push({ light: obj, base: obj.intensity });
+  });
+  applyOfficeLightMul(officeLights, LIGHT_BRIGHT);
 
   const creature = await createTapeCreature(OFFICE_01_CREATURE);
   scene.add(creature.root);
 
   const chrome = mountTapeChrome();
   const tcEl = chrome.querySelector('[data-tape-tc]');
+  const soundBtn = chrome.querySelector('[data-tape-sound]');
+  soundBtn?.addEventListener('click', async () => {
+    let on = false;
+    if (audio?.toggle) on = await audio.toggle();
+    else on = soundBtn.getAttribute('aria-pressed') !== 'true';
+    soundBtn.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
+    soundBtn.setAttribute('aria-pressed', String(on));
+    const gameSound = document.getElementById('sound');
+    if (gameSound) {
+      gameSound.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
+      gameSound.setAttribute('aria-pressed', String(on));
+    }
+  });
 
   // Tape-only lighting inspector; normal gameplay and chapter dev controls
   // remain untouched. Sliders adjust existing GLB materials/light in place.
@@ -428,6 +507,8 @@ export async function startOfficeTape01({
         emptySeatTriggered: false,
         emptySeatSteadyReady: false,
       }, dt, reduced);
+      // Office update resets ambient — re-apply the aisle dim after it.
+      applyOfficeLightMul(officeLights, sampleLightMul(t));
 
       if (tcEl) tcEl.textContent = formatTimecode(t);
       if (elapsed >= DURATION) finished = true;

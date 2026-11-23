@@ -258,7 +258,18 @@ body.debug-performance .perf-hud{display:block}
 .tape-overlay__hud{position:absolute;top:78px;left:4vw;right:4vw;display:flex;justify-content:space-between;align-items:center;gap:12px;font:11px/1 'Courier New',monospace;letter-spacing:.16em;color:#d8e4df;text-shadow:0 1px 8px #000}
 .tape-overlay__rec{color:#e05a52;animation:tape-rec 1.2s steps(1) infinite}
 .tape-overlay__timecode{color:#b7c9c2}
-.tape-overlay__footer{position:absolute;bottom:28px;left:4vw;font:10px/1 'Courier New',monospace;letter-spacing:.2em;color:#8a9a96}
+.tape-overlay__footer{
+  position:absolute;bottom:28px;left:4vw;right:4vw;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  font:10px/1 'Courier New',monospace;letter-spacing:.2em;color:#8a9a96;
+}
+.tape-overlay__sound{
+  pointer-events:auto;cursor:pointer;
+  border:1px solid #5a7270;background:rgba(6,12,14,.72);
+  color:#c5d6d1;padding:7px 10px;letter-spacing:.16em;
+  font:10px/1 'Courier New',monospace;
+}
+.tape-overlay__sound:hover,.tape-overlay__sound:focus-visible{border-color:#c5d8d2;color:#fff}
 @keyframes tape-grain{0%{transform:translate(0,0)}25%{transform:translate(-1.5%,.8%)}50%{transform:translate(1.2%,-1%)}75%{transform:translate(-.6%,1.4%)}100%{transform:translate(1%,-.5%)}}
 @keyframes tape-noise{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(-1.8%,1.2%,0)}100%{transform:translate3d(1.4%,-1%,0)}}
 @keyframes tape-rec{0%,49%{opacity:1}50%,100%{opacity:0}}
@@ -266,22 +277,6 @@ body.debug-performance .perf-hud{display:block}
 @keyframes tape-chroma{0%,100%{opacity:.65;transform:translate3d(0,0,0)}33%{opacity:.95;transform:translate3d(1px,0,0)}66%{opacity:.75;transform:translate3d(-1px,.5px,0)}}
 @keyframes tape-scan-drift{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(0,3px,0)}}
 @keyframes tape-flicker{0%,100%{opacity:.15}8%{opacity:.55}9%{opacity:.1}40%{opacity:.2}41%{opacity:.7}42%{opacity:.12}70%{opacity:.18}71%{opacity:.45}72%{opacity:.1}}
-/* Black Dragon tape: quiet found-footage — no heavy VHS stacks (Firefox cost). */
-#experience.tape-mode[data-tape="black-dragon-01"] .grain{
-  opacity:.22;
-  background-size:140px;
-  mix-blend-mode:soft-light;
-  animation:tape-grain .35s steps(2) infinite;
-}
-#experience.tape-mode[data-tape="black-dragon-01"] .vignette{
-  opacity:.75;
-  background:radial-gradient(ellipse at center,transparent 34%,rgba(0,0,0,.7) 100%);
-}
-.tape-overlay--quiet .tape-overlay__scanlines{opacity:.28;mix-blend-mode:multiply}
-.tape-overlay--quiet .tape-overlay__vignette{
-  background:radial-gradient(ellipse at center,transparent 42%,rgba(4,6,10,.58) 100%);
-  box-shadow:inset 0 0 70px rgba(0,0,0,.5);
-}
 @media(prefers-reduced-motion:reduce){
   #experience.tape-mode .grain,
   .tape-overlay__rec,

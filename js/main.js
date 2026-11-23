@@ -426,7 +426,7 @@ async function bootDebugTape(id) {
 
     if (id === 'office-01') {
       const { createOffice } = await import('./levels/office.js?v=omit-aisle-2');
-      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=vhs-2');
+      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=bd-warm-1');
       tapeSession = await startOfficeTape01({
         scene,
         camera,
@@ -434,12 +434,13 @@ async function bootDebugTape(id) {
         createOffice,
         director,
         createSceneDirector,
+        audio,
         reduced,
       });
       chapterId = 'tape-office-01';
     } else {
       const { createMemoryBlack } = await import('./levels/memory-black.js?v=bd-tape-1');
-      const { startBlackDragonTape01 } = await import('./tapes/black-dragon-01.js?v=bd-1');
+      const { startBlackDragonTape01 } = await import('./tapes/black-dragon-01.js?v=bd-reveal-7');
       tapeSession = await startBlackDragonTape01({
         scene,
         camera,

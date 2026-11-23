@@ -1,4 +1,5 @@
-import { createBlackDragonTapeAudio } from './black-dragon-audio.js?v=bd-1';
+import { createBlackDragonTapeAudio } from './black-dragon-audio.js?v=bd-reveal-7';
+import { createTapeCreature, OFFICE_01_CREATURE } from './creature.js?v=bd-warm-1';
 
 /**
  * Debug-only found-footage prototype: Black Dragon apartment tape 01.
@@ -7,9 +8,11 @@ import { createBlackDragonTapeAudio } from './black-dragon-audio.js?v=bd-1';
  *
  * Timeline (~38s):
  *  0–22s   frantic search / escape through the dark apartment
- * 22–27s   first rapid polite knock → freeze → slow turn to door
- * 27–32s   face door → second knock → startle
+ * 22–27s   first rapid polite knocks → snap to door → frozen fear
+ * 27–32s   second knock burst → shake → turn and run
  * 32–38s   sprint deeper into the apartment → hard cut
+ *
+ * The Waiting Thing stands outside the living-room window (silhouette only).
  */
 
 /** Tunable tape knobs (also exposed live via __tapeBlackDragon). */
@@ -17,10 +20,14 @@ export const BLACK_DRAGON_01 = {
   duration: 38,
   knockA: 22.0,
   knockB: 27.55,
+  /** First door burst — fewer, a touch slower. */
+  knockACount: 5,
+  knockAInterval: 0.155,
+  /** Second door burst — same rapid pattern as before. */
   knockCount: 7,
   /** ~4–5× faster than a polite ~0.28s knock spacing. */
-  knockInterval: 0.062,
-  knockLevel: 0.24,
+  knockInterval: 0.092,
+  knockLevel: 0.36,
   /** Multiply memory-home lights (lower = darker). */
   darkness: 0.38,
   fogDensity: 0.028,
@@ -28,6 +35,22 @@ export const BLACK_DRAGON_01 = {
 };
 
 const DOOR = { x: 0, y: 1.15, z: -11.28 };
+
+/** Outside the left window (glass ≈ x=-3.1, z=-3.6); faces into the room (+X). */
+const WINDOW_CREATURE = {
+  ...OFFICE_01_CREATURE,
+  // Outside the pane — far enough that a back rim can't sit on the header.
+  position: { x: -5.15, y: 0, z: -3.58 },
+  height: 2.95,
+  yaw: Math.PI * 0.5,
+  // Office-style cool outline rim, but local −Z is "behind" for this yaw
+  // (local +Z was landing on the window trim and lighting the room).
+  rimLightLocal: { x: 0.05, y: 2.3, z: -1.5 },
+  rimLightIntensity: 0.72,
+  rimLightColor: 0x4a6570,
+  rimLightDistance: 2.6,
+  darkness: 0.92,
+};
 
 function clamp01(n) {
   return Math.max(0, Math.min(1, n));
@@ -89,19 +112,18 @@ function samplePath(t, cfg) {
   const p3 = { x: -0.1, y, z: -5.6, look: { x: 0.1, y: 1.4, z: -10.5 } };
   const p4 = { x: 0.2, y, z: -7.4, look: { x: 0.05, y: 1.3, z: -11.0 } };
   const p5 = { x: 0.35, y, z: -6.1, look: { x: 1.8, y: 1.2, z: -3.0 } };
-  // Double back through living room, check TV wall / shelves.
-  const p6 = { x: -0.9, y, z: -4.8, look: { x: -2.7, y: 1.2, z: -1.9 } };
+  // Double back — second clear look at the window (creature appears here).
+  const p6 = { x: -0.9, y, z: -4.8, look: { x: -2.9, y: 1.4, z: -3.55 } };
   const p7 = { x: -0.2, y, z: -2.8, look: { x: 2.4, y: 1.35, z: -2.5 } };
   const p8 = { x: 0.55, y, z: -5.0, look: { x: 0.2, y: 1.35, z: -9.5 } };
-  // Moving hall-ward when the first knock freezes them.
-  const freeze = { x: 0.12, y, z: -7.05, look: { x: 1.1, y: 1.25, z: -5.2 } };
-  const turned = { x: 0.08, y, z: -7.15, look: { ...doorAim } };
-  const stare = { x: 0.05, y: y - 0.02, z: -7.35, look: { ...doorAim } };
-  // Startle: stumble back into the room.
-  const startle = { x: 0.25, y: y + 0.04, z: -6.55, look: { x: 0.15, y: 1.5, z: -11.0 } };
-  // Sprint deeper into the living room (away from door / toward +Z couch side).
-  const fleeA = { x: 0.6, y, z: -4.2, look: { x: 1.5, y: 1.3, z: -1.5 } };
-  const fleeB = { x: 1.1, y: y + 0.05, z: -2.1, look: { x: 2.0, y: 1.2, z: 0.2 } };
+  // Moving hall-ward — first knock snaps eyes to the door and locks them there.
+  const approach = { x: 0.12, y, z: -7.0, look: { x: 0.35, y: 1.3, z: -9.2 } };
+  const freezeDoor = { x: 0.08, y: y - 0.01, z: -7.15, look: { ...doorAim } };
+  // Second knock: violent shake in place, then whip away and run.
+  const startle = { x: 0.2, y: y + 0.05, z: -6.7, look: { x: 0.1, y: 1.45, z: -11.05 } };
+  const turnFlee = { x: 0.45, y, z: -5.6, look: { x: 1.4, y: 1.25, z: -2.2 } };
+  const fleeA = { x: 0.75, y, z: -3.8, look: { x: 1.7, y: 1.25, z: -0.8 } };
+  const fleeB = { x: 1.15, y: y + 0.06, z: -1.9, look: { x: 2.1, y: 1.15, z: 0.4 } };
 
   if (t < 3.2) return lerpPose(p0, p1, t / 3.2, clamp01);
   if (t < 6.0) return lerpPose(p1, p2, (t - 3.2) / 2.8, clamp01);
@@ -111,67 +133,97 @@ function samplePath(t, cfg) {
   if (t < 16.2) return lerpPose(p5, p6, (t - 13.5) / 2.7, clamp01);
   if (t < 18.8) return lerpPose(p6, p7, (t - 16.2) / 2.6, clamp01);
   if (t < 21.4) return lerpPose(p7, p8, (t - 18.8) / 2.6, clamp01);
-  if (t < cfg.knockA) return lerpPose(p8, freeze, (t - 21.4) / Math.max(0.01, cfg.knockA - 21.4), clamp01);
+  if (t < cfg.knockA) return lerpPose(p8, approach, (t - 21.4) / Math.max(0.01, cfg.knockA - 21.4), clamp01);
 
-  // Freeze on first knock, then slow turn to the door.
-  if (t < cfg.knockA + 1.15) return { ...freeze };
-  if (t < cfg.knockA + 3.4) {
-    return lerpPose(freeze, turned, (t - (cfg.knockA + 1.15)) / 2.25);
+  // Knock A: quick look at the door, then frozen fear until the second burst.
+  if (t < cfg.knockA + 0.45) {
+    return lerpPose(approach, freezeDoor, (t - cfg.knockA) / 0.45);
   }
-  if (t < cfg.knockB) return lerpPose(turned, stare, (t - (cfg.knockA + 3.4)) / Math.max(0.01, cfg.knockB - (cfg.knockA + 3.4)));
+  if (t < cfg.knockB) return { ...freezeDoor, look: { ...doorAim } };
 
-  // Brief hold on door, then startle after second knock lands.
-  if (t < cfg.knockB + 0.55) return { ...stare };
-  if (t < cfg.knockB + 1.35) return lerpPose(stare, startle, (t - (cfg.knockB + 0.55)) / 0.8);
-  if (t < 33.2) return lerpPose(startle, fleeA, (t - (cfg.knockB + 1.35)) / Math.max(0.01, 33.2 - (cfg.knockB + 1.35)), clamp01);
-  if (t < cfg.duration) return lerpPose(fleeA, fleeB, (t - 33.2) / Math.max(0.01, cfg.duration - 33.2), clamp01);
+  // Knock B: hold on the door through the knocks, then shake and break.
+  if (t < cfg.knockB + 0.5) return { ...freezeDoor, look: { ...doorAim } };
+  if (t < cfg.knockB + 1.15) return lerpPose(freezeDoor, startle, (t - (cfg.knockB + 0.5)) / 0.65);
+  if (t < cfg.knockB + 1.85) return lerpPose(startle, turnFlee, (t - (cfg.knockB + 1.15)) / 0.7);
+  if (t < 33.4) return lerpPose(turnFlee, fleeA, (t - (cfg.knockB + 1.85)) / Math.max(0.01, 33.4 - (cfg.knockB + 1.85)), clamp01);
+  if (t < cfg.duration) return lerpPose(fleeA, fleeB, (t - 33.4) / Math.max(0.01, cfg.duration - 33.4), clamp01);
   return { ...fleeB };
 }
 
 function pathMode(t, cfg) {
   if (t < cfg.knockA) return 'search';
-  if (t < cfg.knockA + 1.15) return 'freeze';
-  if (t < cfg.knockB) return 'listen';
-  if (t < cfg.knockB + 0.55) return 'stare';
-  if (t < cfg.knockB + 1.35) return 'startle';
+  if (t < cfg.knockA + 0.45) return 'snap';
+  if (t < cfg.knockB) return 'freeze';
+  if (t < cfg.knockB + 0.5) return 'stare';
+  if (t < cfg.knockB + 1.15) return 'startle';
   return 'flee';
+}
+
+/** True when the handheld look is aimed at the left living-room window. */
+function isLookingAtWindow(pose) {
+  const L = pose?.look;
+  if (!L) return false;
+  return L.x < -2.0 && L.z < -2.6 && L.z > -4.8;
 }
 
 function handheld(t, mode, reduced) {
   if (reduced) return { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 };
+  const frozen = mode === 'freeze' || mode === 'stare';
   const amp =
     mode === 'search' ? 1.15
-      : mode === 'freeze' ? 0.18
-        : mode === 'listen' ? 0.28
-          : mode === 'stare' ? 0.22
-            : mode === 'startle' ? 2.4
-              : 2.2;
+      : mode === 'snap' ? 0.7
+        : frozen ? 1.65
+          : mode === 'startle' ? 3.1
+            : 2.35;
   const breath = Math.sin(t * 1.55);
   const tremor = Math.sin(t * 13.1) * 0.32 + Math.sin(t * 19.4) * 0.18;
   const sway = Math.sin(t * 2.15 + 0.4);
+  const dread = Math.sin(t * 0.7) * 0.4 + Math.sin(t * 3.1) * 0.2;
+  // Frozen on the door: scared human holding still — lean + shaky stare must read.
+  // Look deltas are world-space on the aim point, so they need more throw than walk sway.
+  if (frozen) {
+    const hitch = Math.sin(t * 0.95) * 0.55 + Math.sin(t * 4.6) * 0.2;
+    return {
+      x: (sway * 0.038 + breath * 0.022 + hitch * 0.018 + tremor * 0.008) * amp,
+      y: (breath * 0.028 + Math.sin(t * 2.35) * 0.016 + tremor * 0.006) * amp,
+      z: (Math.sin(t * 1.7 + 0.9) * 0.014 + hitch * 0.01) * amp,
+      yaw: (sway * 0.085 + hitch * 0.07 + tremor * 0.028 + dread * 0.04) * amp,
+      pitch: (breath * 0.055 + hitch * 0.045 + tremor * 0.022 + Math.sin(t * 1.85) * 0.03) * amp,
+      roll: (sway * 0.045 + tremor * 0.02 + Math.sin(t * 1.25) * 0.03) * amp,
+    };
+  }
   return {
-    x: (breath * 0.014 + tremor * 0.005 + sway * 0.01) * amp,
-    y: (Math.sin(t * 2.35) * 0.012 + tremor * 0.004) * amp,
+    x: (breath * 0.014 + tremor * 0.005 + sway * 0.01 + dread * 0.006) * amp,
+    y: (Math.sin(t * 2.35) * 0.012 + tremor * 0.004 + dread * 0.004) * amp,
     z: Math.sin(t * 1.7 + 0.9) * 0.008 * amp,
-    yaw: (breath * 0.01 + tremor * 0.007 + sway * 0.008) * amp,
-    pitch: (Math.sin(t * 1.85) * 0.008 + tremor * 0.005) * amp,
+    yaw: (breath * 0.01 + tremor * 0.007 + sway * 0.008 + dread * 0.01) * amp,
+    pitch: (Math.sin(t * 1.85) * 0.008 + tremor * 0.005 + dread * 0.006) * amp,
     roll: (Math.sin(t * 1.25) * 0.014 + tremor * 0.008) * amp,
   };
 }
 
 function mountTapeChrome() {
   const overlay = document.createElement('div');
-  overlay.className = 'tape-overlay tape-overlay--quiet';
+  overlay.className = 'tape-overlay';
   overlay.setAttribute('aria-hidden', 'true');
   overlay.innerHTML = `
+    <div class="tape-overlay__wear"></div>
+    <div class="tape-overlay__noise"></div>
+    <div class="tape-overlay__chroma"></div>
     <div class="tape-overlay__scanlines"></div>
+    <div class="tape-overlay__scanlines tape-overlay__scanlines--fine"></div>
+    <div class="tape-overlay__tracking"></div>
+    <div class="tape-overlay__flicker"></div>
     <div class="tape-overlay__vignette"></div>
     <div class="tape-overlay__hud">
       <span class="tape-overlay__rec">● REC</span>
       <span class="tape-overlay__label">TAPE / BLACK-DRAGON-01</span>
       <span class="tape-overlay__timecode" data-tape-tc>00:00:00:00</span>
     </div>
-    <div class="tape-overlay__footer">DEBUG PROTOTYPE · FOUND FOOTAGE</div>
+    <div class="tape-overlay__footer">
+      <span>DEBUG PROTOTYPE · FOUND FOOTAGE</span>
+      <button type="button" class="tape-overlay__sound" data-tape-sound aria-pressed="false">SOUND: OFF</button>
+    </div>
   `;
   document.getElementById('experience')?.appendChild(overlay);
   return overlay;
@@ -267,16 +319,33 @@ export async function startBlackDragonTape01({
   });
   tapeDirector.activate('memory-black');
 
+  // Waiting Thing outside the window — GLB loads here at boot (not on reveal).
+  // Hidden until armed just before the second glance; GPU warmed so show isn't a hitch.
+  const creature = await createTapeCreature(WINDOW_CREATURE);
+  creature.setGaze(0.35);
+  scene.add(creature.root);
+  creature.setVisible(false);
+  let windowLooking = false;
+  let windowVisits = 0;
+  let creatureRevealed = false;
+  /** Seconds: arm silhouette while looking away (p5), before the p6 window pan. */
+  const CREATURE_ARM_AT = 12.5;
+
   const audio = createBlackDragonTapeAudio({
     knockLevel: cfg.knockLevel,
     knockInterval: cfg.knockInterval,
     knockCount: cfg.knockCount,
   });
-  void audio.unlock();
-  audio.startBreath();
-
   const chrome = mountTapeChrome();
   const tcEl = chrome.querySelector('[data-tape-tc]');
+  const soundBtn = chrome.querySelector('[data-tape-sound]');
+  soundBtn?.addEventListener('click', async () => {
+    const on = await audio.setEnabled(!audio.enabled);
+    if (soundBtn) {
+      soundBtn.textContent = `SOUND: ${on ? 'ON' : 'OFF'}`;
+      soundBtn.setAttribute('aria-pressed', String(on));
+    }
+  });
 
   // Debug inspector — playback / darkness / knock only.
   const inspector = document.createElement('aside');
@@ -363,6 +432,9 @@ export async function startBlackDragonTape01({
   applyPose(camera, lastPose, { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 });
   camera.fov = reduced ? baseFov : baseFov - 1.5;
   camera.updateProjectionMatrix();
+  // First-draw hitch lives here at boot (under tape chrome), not mid-pan at the window.
+  creature.warmGpu(renderer, scene, camera);
+  creature.setVisible(false);
   renderer.render(scene, camera);
 
   console.info('[Behind. TAPE] black-dragon-01 ready · memory-home black variant');
@@ -372,17 +444,25 @@ export async function startBlackDragonTape01({
     window.__tapeBlackDragon = {
       cfg,
       audio,
+      creature,
+      windowCreature: { ...WINDOW_CREATURE.position, height: WINDOW_CREATURE.height, yaw: WINDOW_CREATURE.yaw },
       seek(t) {
         elapsed = Math.max(0, Number(t) || 0);
         finished = false;
         knockAPlayed = elapsed >= cfg.knockA;
         knockBPlayed = elapsed >= cfg.knockB;
-        gaspPlayed = elapsed >= cfg.knockB + 0.55;
+        gaspPlayed = elapsed >= cfg.knockB + 0.5;
+        // Approximate window-visit state after a seek (2nd glance begins ~14.5s).
+        windowLooking = isLookingAtWindow(samplePath(elapsed, cfg));
+        windowVisits = elapsed >= 14.5 ? 2 : (elapsed >= 2.5 ? 1 : 0);
+        creatureRevealed = windowVisits >= 2;
+        creature.setVisible(creatureRevealed || elapsed >= CREATURE_ARM_AT);
       },
       pause: () => { paused = true; },
       resume: () => { paused = false; void audio.unlock(); },
     };
     window.__tapeCamera = camera;
+    window.__tapeCreature = creature;
   }
 
   return {
@@ -424,11 +504,11 @@ export async function startBlackDragonTape01({
       }
       lastPose = pose;
 
-      if (mode === 'freeze' || mode === 'listen' || mode === 'stare') {
-        audio.setBreath(0.25);
+      if (mode === 'freeze' || mode === 'stare' || mode === 'snap') {
+        audio.setBreath(0.22);
       } else if (mode === 'startle') {
         if (!gaspPlayed) {
-          audio.setBreath(0.9, true);
+          audio.setBreath(0.95, true);
           gaspPlayed = true;
         }
       } else if (mode === 'flee') {
@@ -437,19 +517,45 @@ export async function startBlackDragonTape01({
         audio.setBreath(0.55 + Math.sin(t * 1.3) * 0.12);
       }
 
+      applyPose(camera, pose, shake);
+
+      // Arm while the look is still away from the window so the pan never pays first-draw.
+      if (!creatureRevealed && t >= CREATURE_ARM_AT) {
+        creature.setVisible(true);
+      }
+
+      const onWindow = isLookingAtWindow(pose);
+      if (onWindow && !windowLooking) {
+        windowVisits += 1;
+        if (!creatureRevealed && windowVisits >= 2) {
+          creature.setVisible(true);
+          creatureRevealed = true;
+        }
+      }
+      windowLooking = onWindow;
+      creature.update(dt, camera);
+
+      // Keep the listener at the camera, facing the look target so door knocks spatialize.
+      const forward = {
+        x: (pose.look?.x ?? pose.x) - camera.position.x,
+        y: (pose.look?.y ?? pose.y) - camera.position.y,
+        z: (pose.look?.z ?? pose.z) - camera.position.z,
+      };
+      const fl = Math.hypot(forward.x, forward.y, forward.z) || 1;
+      forward.x /= fl; forward.y /= fl; forward.z /= fl;
+      audio.setListener(camera.position, forward);
+
       if (!knockAPlayed && t >= cfg.knockA) {
-        audio.setListener(camera.position);
-        audio.playKnockSequence(DOOR, camera.position);
+        audio.playKnockSequence(DOOR, camera.position, 0, {
+          count: cfg.knockACount,
+          interval: cfg.knockAInterval,
+        });
         knockAPlayed = true;
       }
       if (!knockBPlayed && t >= cfg.knockB) {
-        audio.setListener(camera.position);
         audio.playKnockSequence(DOOR, camera.position);
         knockBPlayed = true;
       }
-
-      applyPose(camera, pose, shake);
-      audio.setListener(camera.position);
 
       if (!reduced) {
         const fovWobble = Math.sin(t * 0.65) * 0.25;
@@ -477,12 +583,15 @@ export async function startBlackDragonTape01({
       if (elapsed >= cfg.duration) finished = true;
     },
     dispose() {
+      creature.root.removeFromParent();
+      creature.dispose();
       audio.dispose();
       chrome.remove();
       inspector.remove();
       if (typeof window !== 'undefined') {
         delete window.__tapeBlackDragon;
         delete window.__tapeCamera;
+        delete window.__tapeCreature;
         delete window.__tapeDebug;
       }
       experience?.classList.remove('tape-mode');

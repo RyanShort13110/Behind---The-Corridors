@@ -25,8 +25,12 @@ import * as THREE from 'three';
  * @property {number} [rimLightIntensity]  Cool rim that reads shoulders / head / arms.
  * @property {number} [rimLightColor]  Hex cool tone.
  * @property {number} [rimLightDistance]
+ * @property {{x:number,y:number,z:number}} [rimLightLocal]  Root-local rim position override.
  * @property {boolean} [billboard]  If true, yaw tracks the camera each frame.
  */
+
+/** Rim lights only affect meshes that also enable this layer (never room trim). */
+export const CREATURE_RIM_LAYER = 1;
 
 export const OFFICE_01_CREATURE = {
   mode: 'gltf',
@@ -227,6 +231,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
    * Cool rim lights live in root-local space.
    * With yaw −π/2 the model faces aisle (−X); local +Z is behind (outer wall).
    * Only a high back rim — no side light (that washed the forward hand/arm).
+   * Layer-isolated so the rim never paints room/window trim.
    */
   function mountRimLights() {
     clearLights();
@@ -235,13 +240,25 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
 
     const color = cfg.rimLightColor ?? 0x4a6570;
     const distance = cfg.rimLightDistance ?? 3.4;
+    const loc = cfg.rimLightLocal;
 
     // Strictly behind the torso/head; decay keeps spill off the camera face.
     const back = new THREE.PointLight(color, intensity, distance, 2.4);
     back.name = 'Tape / Waiting Thing rim (back)';
-    back.position.set(0.05, cfg.height * 0.78, 1.35);
+    back.position.set(
+      loc?.x ?? 0.05,
+      loc?.y ?? cfg.height * 0.78,
+      loc?.z ?? 1.35,
+    );
+    back.layers.set(CREATURE_RIM_LAYER);
     root.add(back);
     ownedLights.push(back);
+  }
+
+  function markCreatureMeshes(obj) {
+    if (!obj?.isMesh) return;
+    // Keep layer 0 (camera / room lights) and add the isolated rim layer.
+    obj.layers.enable(CREATURE_RIM_LAYER);
   }
 
   function applyShading() {
@@ -294,6 +311,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
     mesh.name = 'Tape / creature image plane';
     // Feet on the floor: plane is centered, so lift by half height.
     mesh.position.y = height * 0.5;
+    markCreatureMeshes(mesh);
     content = mesh;
     root.add(mesh);
   }
@@ -337,6 +355,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
         obj.castShadow = false;
         obj.receiveShadow = false;
         obj.frustumCulled = true;
+        markCreatureMeshes(obj);
         if (obj.material) {
           const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
           mats.forEach(applySilhouetteMaterial);
@@ -368,6 +387,34 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
       ownedLights.forEach(light => { light.visible = on; });
     },
     /**
+     * Compile shaders + upload mesh buffers so the first real reveal doesn't hitch.
+     * Draws once with rim lights off; caller should hide afterward if needed.
+     */
+    warmGpu(renderer, scene, camera) {
+      if (!renderer || !scene || !camera) return;
+      const wasVisible = root.visible;
+      const meshCull = [];
+      root.visible = true;
+      ownedLights.forEach(light => { light.visible = false; });
+      root.traverse(obj => {
+        if (!obj.isMesh) return;
+        meshCull.push([obj, obj.frustumCulled]);
+        // Force a draw even if the warm camera isn't looking at the window.
+        obj.frustumCulled = false;
+      });
+      try {
+        renderer.compile?.(scene, camera);
+      } catch (_) {
+        /* compile is best-effort across three revisions */
+      }
+      renderer.render(scene, camera);
+      for (const [obj, culled] of meshCull) obj.frustumCulled = culled;
+      root.visible = wasVisible;
+      ownedLights.forEach(light => {
+        light.visible = wasVisible && (cfg.rimLightIntensity ?? 0) > 0;
+      });
+    },
+    /**
      * 0 = looking down; 1 = looking up at the cameraperson.
      * @param {number} amount
      */
@@ -390,6 +437,7 @@ export async function createTapeCreature(config = OFFICE_01_CREATURE) {
       await rebuild();
     },
     update(_dt, camera) {
+      if (!root.visible) return;
       if (cfg.billboard && camera) {
         const dx = camera.position.x - root.position.x;
         const dz = camera.position.z - root.position.z;
