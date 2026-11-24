@@ -57,6 +57,15 @@ import {
   HOSPITAL_REVERSE_START_Z,
 } from './levels/hospital-reverse-story.js';
 import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
+import {
+  createStairwellsStory,
+  stairwellsNarrative,
+} from './levels/stairwells-story.js';
+import {
+  stairwellsCameraPose,
+  STAIRWELLS_METERS,
+  STAIRWELLS_START,
+} from './levels/stairwells-route.js?v=stairs-pitch-1';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -121,6 +130,7 @@ const unseenStory = createUnseenStory();
 const memoryWhiteStory = createMemoryWhiteStory();
 const memoryBlackStory = createMemoryBlackStory();
 const hospitalReverseStory = createHospitalReverseStory();
+const stairwellsStory = createStairwellsStory();
 const audio = createAudioDirector();
 const composure = createComposure();
 const composureHits = new Set();
@@ -153,6 +163,7 @@ let transitioning = false;
 
 const isMemoryChapter = (id = chapterId) => id === 'memory-white' || id === 'memory-black';
 const isHospitalReverse = (id = chapterId) => id === 'hospital-reverse';
+const isStairwells = (id = chapterId) => id === 'stairwells';
 const memoryStoryFor = (id = chapterId) =>
   (id === 'memory-black' ? memoryBlackStory : memoryWhiteStory);
 const memoryDragonId = (id = chapterId) =>
@@ -274,6 +285,7 @@ function chapterMeters() {
       : MEMORY_STAGING_METERS;
   }
   if (isHospitalReverse()) return HOSPITAL_REVERSE_METERS;
+  if (isStairwells()) return STAIRWELLS_METERS;
   return UNSEEN_METERS;
 }
 
@@ -1978,6 +1990,11 @@ const DEV_CHAPTER_CONFIG = {
   'memory-white': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / WHITE DRAGON (DEV)' },
   'memory-black': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / BLACK DRAGON (DEV)' },
   'hospital-reverse': { start: 0, z: HOSPITAL_REVERSE_START_Z, location: 'DEV / THE WARD' },
+  'stairwells': {
+    start: 0,
+    z: STAIRWELLS_START.z,
+    location: 'DEV / THE STAIRWELLS <span class="separator">/</span> FLOOR 08',
+  },
 };
 
 async function debugJumpToChapter(target, checkpoint = 'start') {
@@ -2034,6 +2051,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const wardMod = createHospitalReverse(scene);
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
+    } else if (target === 'stairwells') {
+      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-3');
+      stairwellsStory.reset();
+      next.add('stairwells', createStairwells(scene));
     } else {
       const { createUnseen } = await import('./levels/unseen.js?v=steady-expand-1');
       next.add('unseen', createUnseen(scene));
@@ -2044,6 +2065,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     next = null; // Ownership was transferred to the active director.
     chapterId = target;
     look?.setMaxYaw();
+    if (target !== 'stairwells' && camera.far !== 65) {
+      camera.far = 65;
+      camera.updateProjectionMatrix();
+    }
 
     // Fresh chapter means no artificially unlocked doors, footsteps, or clues.
     // Office already rolled its keypad code before createOffice above.
@@ -2056,6 +2081,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     if (target !== 'memory-white') memoryWhiteStory.reset();
     if (target !== 'memory-black') memoryBlackStory.reset();
     if (target !== 'hospital-reverse') hospitalReverseStory.reset();
+    if (target !== 'stairwells') stairwellsStory.reset();
     memory.chaptersCompleted.length = 0;
     memory.lighterEncountered = false;
     memory.keyFobEncountered = false;
@@ -2093,6 +2119,18 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       look?.setMaxYaw(1.05); // enough yaw for the side OPEN button from the rail
       camera.position.set(0, 1.7, HOSPITAL_REVERSE_START_Z - progress * HOSPITAL_REVERSE_METERS);
       camera.rotation.set(0, 0, 0);
+    }
+    if (target === 'stairwells') {
+      progress = displayed = 0;
+      look?.setMaxYaw(1.15);
+      camera.far = 90;
+      camera.updateProjectionMatrix();
+      const pose = stairwellsCameraPose(0);
+      camera.rotation.order = 'YXZ';
+      camera.position.set(pose.x, pose.y, pose.z);
+      camera.rotation.set(pose.pitch, pose.yaw, 0);
+    } else if (camera.rotation.order !== 'XYZ') {
+      camera.rotation.order = 'XYZ';
     }
     if (target === 'records') {
       const seek = recordsStory.seekCheckpoint(checkpoint);
@@ -2149,7 +2187,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
           : target === 'threshold' ? thresholdStory.state
             : isMemoryChapter(target) ? memoryStoryFor(target).state
               : target === 'hospital-reverse' ? hospitalReverseStory.state
-                : unseenStory.state, 0, true);
+                : target === 'stairwells' ? stairwellsStory.state
+                  : unseenStory.state, 0, true);
     updateNarrative(progress);
     renderer.render(scene, camera);
     console.info(`[Behind. DEV] Jumped to ${target}. Chapter state reset; normal controls retained.`);
@@ -2180,7 +2219,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=dev-drag-1').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -2376,19 +2415,22 @@ function updateNarrative(p, dt = 0) {
   const inThreshold = chapterId === 'threshold';
   const inMemory = isMemoryChapter();
   const inWard = isHospitalReverse();
+  const inStairs = isStairwells();
   const state = inCorridor ? story.state
     : inOffice ? officeStory.state : inRecords ? recordsStory.state
       : inNight ? nightStory.state
         : inThreshold ? thresholdStory.state
           : inMemory ? memoryStoryFor().state
-            : inWard ? hospitalReverseStory.state : unseenStory.state;
+            : inWard ? hospitalReverseStory.state
+              : inStairs ? stairwellsStory.state : unseenStory.state;
   const narrative = inCorridor ? narrativeFor(p, state)
     : inOffice ? officeNarrative(p, state)
       : inRecords ? recordsNarrative(p, state)
         : inNight ? nightNarrative(p, state)
           : inThreshold ? thresholdNarrative(p, state)
             : inMemory ? memoryHomeNarrative(p, state)
-              : inWard ? hospitalReverseNarrative(p, state) : unseenNarrative(p, state);
+              : inWard ? hospitalReverseNarrative(p, state)
+                : inStairs ? stairwellsNarrative(p, state) : unseenNarrative(p, state);
   const displayedLine = (inCorridor || inOffice || inRecords || inNight)
     ? showBriefDialogue(chapterId, narrative.line, dt)
     : narrative.line;
@@ -2517,7 +2559,8 @@ function frame(now) {
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
               : isMemoryChapter() ? MEMORY_STAGING_START_Z
-                : isHospitalReverse() ? HOSPITAL_REVERSE_START_Z : UNSEEN_START_Z;
+                : isHospitalReverse() ? HOSPITAL_REVERSE_START_Z
+                  : isStairwells() ? STAIRWELLS_START.z : UNSEEN_START_Z;
     const step = MAX_WALK_SPEED * dt / meters;
     displayed = clamp(displayed + THREE.MathUtils.clamp(eased, -step, step));
     const bounds = progressBounds();
@@ -2560,6 +2603,11 @@ function frame(now) {
         if (mem.consumeDoorSound?.()) audio.playMemoryDoorLeave();
       }
       if (!wasExitReady && mem.state.exitReady) bindChapterInteractables();
+    } else if (isStairwells()) {
+      stairwellsStory.observe(previousDisplayed, p);
+      const floorLabel = String(stairwellsStory.state.currentFloor).padStart(2, '0');
+      const loc = `DEV / THE STAIRWELLS <span class="separator">/</span> FLOOR ${floorLabel}`;
+      if (el.location.innerHTML !== loc) el.location.innerHTML = loc;
     } else if (isHospitalReverse()) {
       const wasSideReady = hospitalReverseStory.state.sideDoorReady;
       const wasSqueak = hospitalReverseStory.state.squeakArmed;
@@ -2647,6 +2695,9 @@ function frame(now) {
       + (sway ? Math.sin(now * 0.0017) * 0.008 * sway : 0);
     camera.position.y = 1.7 + (reduced ? 0 : Math.sin(p * 65) * 0.012)
       + (sway ? Math.sin(now * 0.0023) * 0.006 * sway : 0);
+    // Stairwells need YXZ so pitch stays "look down" after 180° landing turns.
+    // Other chapters keep the Three.js default XYZ.
+    camera.rotation.order = isStairwells() ? 'YXZ' : 'XYZ';
     camera.rotation.set(
       reduced ? 0 : Math.sin(p * 6) * 0.009
         + (sway ? Math.sin(now * 0.0019) * 0.004 * sway : 0),
@@ -2688,6 +2739,16 @@ function frame(now) {
       camera.position.z = route.z;
       camera.rotation.y += route.yaw;
       camera.rotation.x += route.pitch;
+    } else if (isStairwells()) {
+      const route = stairwellsCameraPose(p);
+      const bob = reduced ? 0 : Math.sin(p * 65) * 0.01;
+      const swayX = reduced ? 0 : Math.sin(p * 26) * 0.018;
+      camera.position.set(route.x + swayX, route.y + bob, route.z);
+      camera.rotation.set(
+        route.pitch + (reduced ? 0 : Math.sin(p * 6) * 0.008),
+        route.yaw + (reduced ? 0 : Math.sin(p * 5) * 0.01),
+        sway && !reduced ? Math.sin(now * 0.0014) * 0.003 * sway : 0,
+      );
     } else if (isMemoryChapter() && memoryStoryFor().state.phase === 'memory') {
       const route = memoryHomeCameraPose(p, 'memory');
       camera.position.set(route.x, 1.55, route.z);
@@ -2802,6 +2863,8 @@ function frame(now) {
     } else if (isHospitalReverse()) {
       director.update(p, hospitalReverseStory.state, dt, reduced);
       audio.updateHospitalReverse(p, hospitalReverseStory.state);
+    } else if (isStairwells()) {
+      director.update(p, stairwellsStory.state, dt, reduced);
     } else {
       director.update(p, unseenStory.state, dt, reduced);
       audio.updateUnseen(p, unseenStory.state, camera);

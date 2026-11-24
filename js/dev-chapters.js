@@ -12,6 +12,7 @@ const OPTIONS = [
   ['memory-white', 'DEV — White Memory', 'memory-white'],
   ['memory-black', 'DEV — Black Memory', 'memory-black'],
   ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
+  ['stairwells', 'DEV — The Stairwells', 'stairwells'],
 ];
 
 const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
@@ -149,6 +150,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   `;
   document.body.appendChild(panel);
   const toggle = panel.querySelector('#dev-panel-toggle');
+  const head = panel.querySelector('.dev-chapters__head');
   const setCollapsed = (collapsed) => {
     panel.classList.toggle('is-collapsed', collapsed);
     toggle.textContent = collapsed ? 'SHOW' : 'HIDE';
@@ -158,6 +160,49 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   toggle.addEventListener('click', () => {
     setCollapsed(!panel.classList.contains('is-collapsed'));
   });
+
+  // Drag from the header (not controls). Keeps the panel on-screen.
+  {
+    let drag = null;
+    const onMove = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const w = panel.offsetWidth;
+      const h = panel.offsetHeight;
+      const left = Math.max(0, Math.min(window.innerWidth - w, drag.originLeft + (event.clientX - drag.startX)));
+      const top = Math.max(0, Math.min(window.innerHeight - h, drag.originTop + (event.clientY - drag.startY)));
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+      panel.style.right = 'auto';
+    };
+    const onUp = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      drag = null;
+      panel.classList.remove('is-dragging');
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    head.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      if (event.target.closest('button, select, input, a, label')) return;
+      const rect = panel.getBoundingClientRect();
+      panel.style.left = `${rect.left}px`;
+      panel.style.top = `${rect.top}px`;
+      panel.style.right = 'auto';
+      drag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originLeft: rect.left,
+        originTop: rect.top,
+      };
+      panel.classList.add('is-dragging');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+      event.preventDefault();
+    });
+  }
   window.addEventListener('keydown', (event) => {
     if (!(event.ctrlKey && event.shiftKey && (event.code === 'KeyD' || event.key === 'D' || event.key === 'd'))) {
       return;
