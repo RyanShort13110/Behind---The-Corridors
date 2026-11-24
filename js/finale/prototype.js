@@ -483,13 +483,23 @@ export async function startFinalePrototype({
   camera.rotation.set(0, 0, 0);
   if (scene.fog) scene.fog.density = fogBase.corridor * fogMul;
 
+  // Match main game physical cap (~5.5 m/s) across this short hall.
+  const HALL_METERS = 22;
+  const MAX_WALK_SPEED = 5.5;
+  const progressPerSecond = MAX_WALK_SPEED / HALL_METERS;
+
   function updateCorridor(dt) {
     const walk = (keys.fwd ? 1 : 0) + (keys.back ? -1 : 0);
-    if (walk !== 0) progress += walk * 0.22 * dt;
+    let desired = progress;
+    if (walk !== 0) desired += walk * progressPerSecond * dt;
     if (Math.abs(scrollAccum) > 0) {
-      progress += scrollAccum * 0.00035;
+      // Same sense as main (scroll up advances); convert wheel to a target, then rate-limit.
+      desired += scrollAccum * 0.00018;
       scrollAccum = 0;
     }
+    desired = clamp01(desired);
+    const maxStep = progressPerSecond * dt;
+    progress += THREE.MathUtils.clamp(desired - progress, -maxStep, maxStep);
     progress = clamp01(progress);
     const z = corridor.cameraZForProgress(progress);
     camera.position.set(

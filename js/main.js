@@ -563,7 +563,7 @@ async function startEndingPrototype(id) {
     steady?.cancel?.(true);
     keypad?.close?.();
 
-    const { startFinalePrototype } = await import('./finale/prototype.js?v=fin-6');
+    const { startFinalePrototype } = await import('./finale/prototype.js?v=fin-7');
     endingSession = await startFinalePrototype({
       scene,
       camera,
