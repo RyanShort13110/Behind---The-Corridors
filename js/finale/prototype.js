@@ -262,7 +262,7 @@ export async function startFinalePrototype({
     prompt.textContent = text;
     prompt.style.opacity = show ? '1' : '0';
   };
-  setPrompt('SCROLL TOWARD THE EXIT', true);
+  setPrompt('SCROLL UP TOWARD THE EXIT', true);
 
   // Fade to black overlay
   const fadeEl = document.createElement('div');
@@ -397,7 +397,7 @@ export async function startFinalePrototype({
     }
     document.getElementById('bottom')?.classList.add('active');
     setPhase('corridor');
-    setPrompt('SCROLL TOWARD THE EXIT', true);
+    setPrompt('SCROLL UP TOWARD THE EXIT', true);
     camera.position.set(0, eyeY, corridor.cameraZForProgress(0));
     camera.rotation.set(0, 0, 0);
   }
@@ -425,7 +425,8 @@ export async function startFinalePrototype({
   let scrollAccum = 0;
   function onWheel(event) {
     if (phase !== 'corridor') return;
-    scrollAccum += event.deltaY;
+    // Match main game: scroll up (negative deltaY) advances; scroll down retreats.
+    scrollAccum += -event.deltaY;
   }
   const keys = { fwd: false, back: false };
   function onWalkKey(event, down) {
