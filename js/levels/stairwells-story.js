@@ -1,5 +1,5 @@
 /**
- * DEV prototype — The Stairwells.
+ * Chapter 05 — The Stairwells.
  * Four stacked floors, then an impossible straight flight into a vast dark,
  * a sudden snap onto the last landing, final flight, and exit.
  */
@@ -126,7 +126,44 @@ export function createStairwellsStory() {
     }
   }
 
-  return { state, reset, observe };
+  /**
+   * Debug / restore seek — maps named beats onto rail progress using STAIRWELLS_MARKS.
+   * @param {string} checkpoint
+   * @param {{ voidStart?: number, voidDeep?: number, snapAt?: number, exitStart?: number }} marks
+   */
+  function seekCheckpoint(checkpoint, marks = {}) {
+    const m = marks;
+    let progress = 0;
+    switch (String(checkpoint || 'start')) {
+      case 'pre-void':
+        progress = Math.max(0, (m.voidStart ?? 0.28) - 0.015);
+        break;
+      case 'void':
+        progress = m.voidDeep ?? ((m.voidStart ?? 0.3) + (m.snapAt ?? 0.85)) * 0.5;
+        break;
+      case 'snap':
+        progress = Math.min(0.999, (m.snapAt ?? 0.85) + 0.01);
+        break;
+      case 'exit':
+        progress = m.exitStart ?? 0.94;
+        break;
+      case 'start':
+      default:
+        progress = 0;
+        break;
+    }
+    observe(0, progress, {
+      voidStart: m.voidStart ?? 0.28,
+      voidDeep: m.voidDeep ?? 0.55,
+      snapAt: m.snapAt ?? 0.85,
+      finalStart: m.finalStart ?? 0.9,
+      exitStart: m.exitStart ?? 0.94,
+      exitEnd: m.exitEnd ?? 0.99,
+    });
+    return { progress };
+  }
+
+  return { state, reset, observe, seekCheckpoint };
 }
 
 export function stairwellsNarrative(progress, state) {
@@ -148,7 +185,7 @@ export function stairwellsNarrative(progress, state) {
   }
 
   return {
-    chapter: 'DEV — THE STAIRWELLS',
+    chapter: '05 — THE STAIRWELLS',
     line,
     instruction: state.phase === 'exit' && !state.exited
       ? 'SCROLL UP TO LEAVE · A / D OR SWIPE TO LOOK'

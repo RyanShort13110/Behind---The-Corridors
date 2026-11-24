@@ -1,5 +1,5 @@
 /**
- * Chapter 05 — The Threshold / The Red Hall.
+ * Chapter 06 — The Threshold / The Red Hall.
  * Changes are spatial, not a sequence of compulsory backtracks. The door
  * physically opens as the camera approaches; the nightmare is beyond it.
  * Reverse scroll shows the milder corridor behind the camera again.
@@ -84,13 +84,13 @@ const firstPass = [
 
 export function thresholdNarrative(progress, state) {
   if (state.completed) {
-    return { chapter: '05 — THE THRESHOLD', line: '', instruction: ' ' };
+    return { chapter: '06 — THE THRESHOLD', line: '', instruction: ' ' };
   }
   if (state.hasBacktracked && state.direction === 'backward') {
-    return { chapter: '05 — THE THRESHOLD', line: '', instruction: 'SCROLL UP TO CONTINUE ↑' };
+    return { chapter: '06 — THE THRESHOLD', line: '', instruction: 'SCROLL UP TO CONTINUE ↑' };
   }
   return {
-    chapter: '05 — THE THRESHOLD',
+    chapter: '06 — THE THRESHOLD',
     line: firstPass.find(beat => progress < beat.to)?.line ?? '',
     instruction: 'SCROLL UP TO CONTINUE ↑',
   };

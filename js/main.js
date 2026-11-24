@@ -60,14 +60,14 @@ import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
 import {
   createStairwellsStory,
   stairwellsNarrative,
-} from './levels/stairwells-story.js?v=stairs-void-25';
+} from './levels/stairwells-story.js?v=stairs-ch05-1';
 import {
   stairwellsCameraPose,
   STAIRWELLS_METERS,
   STAIRWELLS_START,
   STAIRWELLS_MARKS,
   STAIRWELLS_WALK_SPEED,
-} from './levels/stairwells-route.js?v=stairs-void-25';
+} from './levels/stairwells-route.js?v=stairs-ch05-1';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -673,10 +673,22 @@ async function endCamcorderPlayback() {
       const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
       director.add('night', createNightShift(scene));
       el.location.textContent = 'SOUTH WING / NIGHT STAFF';
+    } else if (target === 'stairwells') {
+      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-ch05-1');
+      director.add('stairwells', createStairwells(scene));
+      el.location.innerHTML = 'THE STAIRWELLS <span class="separator">/</span> FLOOR 04';
+      look?.setMaxYaw(1.45);
+      camera.far = 720;
+      camera.updateProjectionMatrix();
+      camera.rotation.order = 'YXZ';
     } else if (target === 'threshold') {
       const { createThreshold } = await import('./levels/threshold.js?v=organic-pair-2');
       director.add('threshold', createThreshold(scene));
       el.location.textContent = 'SOUTH WING / THE THRESHOLD';
+      look?.setMaxYaw();
+      camera.far = 65;
+      camera.updateProjectionMatrix();
+      camera.rotation.order = 'XYZ';
     } else if (target === 'unseen') {
       const { createUnseen } = await import('./levels/unseen.js?v=steady-expand-1');
       director.add('unseen', createUnseen(scene));
@@ -1138,6 +1150,7 @@ function captureCheckpointSnapshot() {
     hospital: { ...hospitalReverseStory.state },
     threshold: { ...thresholdStory.state },
     unseen: { ...unseenStory.state },
+    stairwells: { ...stairwellsStory.state },
   };
 }
 
@@ -1158,7 +1171,7 @@ function applyInventorySnapshot(items = []) {
 }
 
 function saveChapterStartCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'threshold', 'unseen'].includes(chapterId)) return;
   for (const key of [...savedCheckpointKeys]) {
     if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
   }
@@ -1168,7 +1181,7 @@ function saveChapterStartCheckpoint() {
 const savedCheckpointKeys = new Set();
 
 function saveSafeCheckpoint(reason = '') {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'threshold', 'unseen'].includes(chapterId)) return;
   if (gameOverActive || transitioning || steady?.isActive) return;
   if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
   checkpoints.saveLatest(captureCheckpointSnapshot());
@@ -1179,7 +1192,7 @@ function saveSafeCheckpoint(reason = '') {
 }
 
 function maybeAutoCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'threshold', 'unseen'].includes(chapterId)) return;
   if (chapterId === 'corridor' && story.state.reachedDeadEnd
       && !composureHits.has('corridor-cascade')) {
     saveSafeCheckpoint('corridor-dead-end');
@@ -1198,6 +1211,15 @@ function maybeAutoCheckpoint() {
   } else if (chapterId === 'hospital-reverse' && hospitalReverseStory.state.endDoorTried
       && !hospitalReverseStory.state.clankTriggered) {
     saveSafeCheckpoint('ward-pre-reverse');
+  } else if (chapterId === 'stairwells'
+      && progress >= (STAIRWELLS_MARKS.voidStart ?? 0.28) - 0.04
+      && progress < (STAIRWELLS_MARKS.voidStart ?? 0.28)
+      && !stairwellsStory.state.enteredVoid) {
+    saveSafeCheckpoint('stairwells-pre-void');
+  } else if (chapterId === 'stairwells'
+      && stairwellsStory.state.snapped
+      && !stairwellsStory.state.exitReady) {
+    saveSafeCheckpoint('stairwells-after-snap');
   } else if (chapterId === 'threshold' && thresholdStory.state.reachedOrganic
       && !thresholdStory.state.ruptureArmed
       && !composureHits.has('threshold-rupture')) {
@@ -1240,9 +1262,22 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       director?.reset();
       cancelWardClankPeak();
       audio.cancelWardDelayedSfx?.();
+    } else if (target === 'stairwells') {
+      Object.assign(stairwellsStory.state, snapshot.stairwells || {});
+      director?.reset();
+      look?.setMaxYaw(1.45);
+      camera.far = 720;
+      camera.updateProjectionMatrix();
+      camera.rotation.order = 'YXZ';
     } else if (target === 'threshold') {
       Object.assign(thresholdStory.state, snapshot.threshold || {});
       director?.reset();
+      look?.setMaxYaw();
+      if (camera.far !== 65) {
+        camera.far = 65;
+        camera.updateProjectionMatrix();
+      }
+      camera.rotation.order = 'XYZ';
     } else if (target === 'unseen') {
       Object.assign(unseenStory.state, snapshot.unseen || {});
       director?.reset();
@@ -1654,10 +1689,16 @@ function setEndCard(which) {
     el.endingEyebrow.textContent = 'LEVEL 04 COMPLETE · THE NIGHT SHIFT';
     el.endingTitle.innerHTML = 'ALMOST<br>LIKE HOME.';
     el.endingCopy.textContent = 'The last door is open. There is somewhere else to go.';
+    el.continue.textContent = 'CONTINUE INTO THE STAIRWELLS ↑';
+    el.continue.hidden = false;
+  } else if (which === 'stairwells') {
+    el.endingEyebrow.textContent = 'LEVEL 05 COMPLETE · THE STAIRWELLS';
+    el.endingTitle.innerHTML = 'YOU KEPT<br>GOING DOWN.';
+    el.endingCopy.textContent = 'The stair door opens onto another corridor.';
     el.continue.textContent = 'CONTINUE INTO THE THRESHOLD ↑';
     el.continue.hidden = false;
   } else if (which === 'threshold') {
-    el.endingEyebrow.textContent = 'LEVEL 05 COMPLETE · THE THRESHOLD';
+    el.endingEyebrow.textContent = 'LEVEL 06 COMPLETE · THE THRESHOLD';
     el.endingTitle.innerHTML = 'IT WON\'T<br>STAY BURIED.';
     el.endingCopy.textContent = 'The walls fall quiet. A maintenance passage waits ahead.';
     el.continue.textContent = 'CONTINUE INTO THE UNSEEN ↑';
@@ -1668,7 +1709,7 @@ function setEndCard(which) {
     el.endingCopy.textContent = 'Reverse retreat under sound pressure. Prototype complete — not part of the main path.';
     el.continue.hidden = true;
   } else {
-    el.endingEyebrow.textContent = 'LEVEL 06 COMPLETE · THE UNSEEN';
+    el.endingEyebrow.textContent = 'LEVEL 07 COMPLETE · THE UNSEEN';
     el.endingTitle.innerHTML = 'IT\'S STILL<br>THERE.';
     el.endingCopy.textContent = 'The access passage is silent. For now.';
     el.continue.hidden = true;
@@ -1677,7 +1718,14 @@ function setEndCard(which) {
 
 function showEndCard(which) {
   ended = true;
-  const id = which === 'corridor' ? '01' : which === 'office' ? '02' : which === 'records' ? '03' : which === 'night' ? '04' : which === 'threshold' ? '05' : which === 'hospital-reverse' ? 'ward' : '06';
+  const id = which === 'corridor' ? '01'
+    : which === 'office' ? '02'
+      : which === 'records' ? '03'
+        : which === 'night' ? '04'
+          : which === 'stairwells' ? '05'
+            : which === 'threshold' ? '06'
+              : which === 'hospital-reverse' ? 'ward'
+                : '07';
   if (!memory.chaptersCompleted.includes(id)) memory.chaptersCompleted.push(id);
   setEndCard(which);
   el.ending.classList.add('is-visible');
@@ -1716,8 +1764,14 @@ function reset() {
   officeStory.reset();
   recordsStory.reset();
   nightStory.reset();
+  stairwellsStory.reset();
   thresholdStory.reset();
   unseenStory.reset();
+  if (camera.far !== 65) {
+    camera.far = 65;
+    camera.updateProjectionMatrix();
+  }
+  if (camera.rotation.order !== 'XYZ') camera.rotation.order = 'XYZ';
   memory.chaptersCompleted.length = 0;
   memory.lighterEncountered = false;
   memory.keyFobEncountered = false;
@@ -1889,11 +1943,64 @@ async function enterNightShift() {
 }
 
 /**
- * Night Shift -> Threshold. The occluding veil conceals chapter resource swaps;
- * the freestanding door belongs to Level 05, not the previous scene.
+ * Night Shift -> The Stairwells (Chapter 05).
+ * Preserves the completed stair prototype: rail, void beat, snap, and exit.
+ */
+async function enterStairwells() {
+  if (!ended || chapterId !== 'night' || transitioning) return;
+  transitioning = true;
+  el.veil.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
+  let module = null;
+  try {
+    const { createStairwells } = await import('./levels/stairwells.js?v=stairs-ch05-1');
+    module = createStairwells(scene);
+    preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
+    director.dispose();
+    director = createSceneDirector();
+    director.add('stairwells', module);
+    director.activate('stairwells');
+    chapterId = 'stairwells';
+    stairwellsStory.reset();
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
+    audio.enterStairwells?.();
+    hideEndCard();
+    el.location.innerHTML = 'THE STAIRWELLS <span class="separator">/</span> FLOOR 04';
+    progress = displayed = 0;
+    look?.setMaxYaw(1.45);
+    camera.far = 720;
+    camera.updateProjectionMatrix();
+    camera.rotation.order = 'YXZ';
+    const pose = stairwellsCameraPose(0);
+    camera.position.set(pose.x, pose.y, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+    window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
+    scrollTrigger?.update();
+    lastTime = performance.now();
+    saveChapterStartCheckpoint();
+    renderer.render(scene, camera);
+    console.info('[Behind.] Level 05 entered · stairwells · 2.7 m/s descent');
+  } catch (error) {
+    if (chapterId === 'night') module?.dispose?.();
+    console.error('[Behind.] Stairwells transition failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `The Stairwells could not be loaded: ${error.message}`;
+  } finally {
+    transitioning = false;
+    el.veil.classList.remove('is-active');
+  }
+}
+
+/**
+ * Stairwells -> Threshold (Chapter 06). The occluding veil conceals chapter
+ * resource swaps; restore default camera far/order before the red hall.
  */
 async function enterThreshold() {
-  if (!ended || chapterId !== 'night' || transitioning) return;
+  if (!ended || chapterId !== 'stairwells' || transitioning) return;
   transitioning = true;
   el.veil.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
@@ -1909,6 +2016,7 @@ async function enterThreshold() {
     director.add('threshold', module);
     director.activate('threshold');
     chapterId = 'threshold';
+    stairwellsStory.reset();
     thresholdStory.reset();
     bindChapterInteractables();
     noteFogBase();
@@ -1917,15 +2025,20 @@ async function enterThreshold() {
     hideEndCard();
     el.location.textContent = 'SOUTH WING / THE THRESHOLD';
     progress = displayed = 0;
+    look?.setMaxYaw();
+    camera.far = 65;
+    camera.updateProjectionMatrix();
+    camera.rotation.order = 'XYZ';
     camera.position.set(0, 1.7, THRESHOLD_START_Z);
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-      lastTime = performance.now();
+    lastTime = performance.now();
+    saveChapterStartCheckpoint();
     renderer.render(scene, camera);
-    console.info('[Behind.] Level 05 entered · 5.5 m/s max · procedural corruption');
+    console.info('[Behind.] Level 06 entered · 5.5 m/s max · procedural corruption');
   } catch (error) {
-    if (chapterId === 'night') module?.dispose?.();
+    if (chapterId === 'stairwells') module?.dispose?.();
     console.error('[Behind.] Threshold transition failed:', error);
     el.fallback.hidden = false;
     el.fallback.textContent = `The Threshold could not be loaded: ${error.message}`;
@@ -1970,7 +2083,7 @@ async function enterUnseen() {
     scrollTrigger?.update();
       lastTime = performance.now();
     renderer.render(scene, camera);
-    console.info('[Behind.] Level 06 entered · listen ahead / reverse to side exit');
+    console.info('[Behind.] Level 07 entered · listen ahead / reverse to side exit');
   } catch (error) {
     if (chapterId === 'threshold') module?.dispose?.();
     console.error('[Behind.] The Unseen transition failed:', error);
@@ -2003,7 +2116,7 @@ const DEV_CHAPTER_CONFIG = {
   'stairwells': {
     start: 0,
     z: STAIRWELLS_START.z,
-    location: 'DEV / THE STAIRWELLS <span class="separator">/</span> FLOOR 04',
+    location: 'THE STAIRWELLS <span class="separator">/</span> FLOOR 04',
   },
 };
 
@@ -2062,7 +2175,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-void-25');
+      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-ch05-1');
       stairwellsStory.reset();
       next.add('stairwells', createStairwells(scene));
     } else {
@@ -2132,12 +2245,13 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       camera.rotation.set(0, 0, 0);
     }
     if (target === 'stairwells') {
-      progress = displayed = 0;
+      const seek = stairwellsStory.seekCheckpoint(checkpoint, STAIRWELLS_MARKS);
+      progress = displayed = seek.progress ?? 0;
       look?.setMaxYaw(1.45); // look left far enough to catch the void skyline
       // Far enough to catch the optional distant void skyline (−X).
       camera.far = 720;
       camera.updateProjectionMatrix();
-      const pose = stairwellsCameraPose(0);
+      const pose = stairwellsCameraPose(progress);
       camera.rotation.order = 'YXZ';
       camera.position.set(pose.x, pose.y, pose.z);
       camera.rotation.set(pose.pitch, pose.yaw, 0);
@@ -2224,14 +2338,15 @@ function continueChapter() {
   if (chapterId === 'corridor') return enterOffice();
   if (chapterId === 'office') return enterRecords();
   if (chapterId === 'records') return enterNightShift();
-  if (chapterId === 'night') return enterThreshold();
+  if (chapterId === 'night') return enterStairwells();
+  if (chapterId === 'stairwells') return enterThreshold();
   if (chapterId === 'threshold') return enterUnseen();
 }
 
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
-// ?debug=1&level=05 also loads Level 05 directly for bookmarked testing.
+// ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=tape-clean-1').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=stairs-ch05-1').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -2521,7 +2636,8 @@ function updateNarrative(p, dt = 0) {
     if (state.completed && !ended) showEndCard('hospital-reverse');
     else if (!state.completed && ended) hideEndCard();
   } else if (inStairs) {
-    // DEV prototype — no production end card yet.
+    if (state.completed && !ended) showEndCard('stairwells');
+    else if (!state.completed && ended) hideEndCard();
   } else {
     if (state.completed && p <= UNSEEN_EXIT_PROGRESS && !ended) showEndCard('unseen');
     else if (p > 0.037 && ended) hideEndCard();
@@ -2623,7 +2739,7 @@ function frame(now) {
     } else if (isStairwells()) {
       stairwellsStory.observe(previousDisplayed, p, STAIRWELLS_MARKS);
       const s = stairwellsStory.state;
-      let loc = 'DEV / THE STAIRWELLS';
+      let loc = 'THE STAIRWELLS';
       if (s.phase === 'void') loc += ' <span class="separator">/</span> ???';
       else if (s.phase === 'exit') loc += ' <span class="separator">/</span> EXIT';
       else {

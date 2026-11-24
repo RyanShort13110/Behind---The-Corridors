@@ -7,13 +7,14 @@ const OPTIONS = [
   ['office', '02 — The Office', '02'],
   ['records', '03 — The Records', '03'],
   ['night', '04 — The Night Shift', '04'],
-  ['threshold', '05 — The Threshold', '05'],
-  ['unseen', '06 — The Unseen', '06'],
+  ['stairwells', '05 — The Stairwells', '05'],
+  ['threshold', '06 — The Threshold', '06'],
+  ['unseen', '07 — The Unseen', '07'],
   ['memory-white', 'DEV — White Memory', 'memory-white'],
   ['memory-black', 'DEV — Black Memory', 'memory-black'],
   ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
-  ['stairwells', 'DEV — The Stairwells', 'stairwells'],
 ];
+const STAIRWELLS_CHAPTERS = new Set(['stairwells']);
 
 const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 const WARD_CHAPTERS = new Set(['hospital-reverse']);
@@ -86,6 +87,16 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         <option value="locked">DOOR / LOCKED · NO FOB</option>
         <option value="fob">DOOR / LOCKED · WITH FOB</option>
         <option value="unlocked">DOOR / UNLOCKED</option>
+      </select>
+    </div>
+    <div class="dev-chapters__checkpoint" id="dev-stairs-checkpoint-row" hidden>
+      <label for="dev-stairs-checkpoint-choice">STAIRWELLS CHECKPOINT</label>
+      <select id="dev-stairs-checkpoint-choice">
+        <option value="start">START / TOP LANDING</option>
+        <option value="pre-void">PRE-VOID / BEFORE THE DROP</option>
+        <option value="void">VOID / INSIDE THE ROOM</option>
+        <option value="snap">SNAP / AFTER THE RETURN</option>
+        <option value="exit">EXIT / FLOOR 01 DOOR</option>
       </select>
     </div>
     <div class="dev-chapters__checkpoint" id="dev-ward-checkpoint-row" hidden>
@@ -230,6 +241,8 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   const memoryCheckpointPicker = panel.querySelector('#dev-memory-checkpoint-choice');
   const recordsCheckpointRow = panel.querySelector('#dev-records-checkpoint-row');
   const recordsCheckpointPicker = panel.querySelector('#dev-records-checkpoint-choice');
+  const stairsCheckpointRow = panel.querySelector('#dev-stairs-checkpoint-row');
+  const stairsCheckpointPicker = panel.querySelector('#dev-stairs-checkpoint-choice');
   const wardCheckpointRow = panel.querySelector('#dev-ward-checkpoint-row');
   const wardCheckpointPicker = panel.querySelector('#dev-ward-checkpoint-choice');
   const wardCryRow = panel.querySelector('#dev-ward-cry-row');
@@ -238,6 +251,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     checkpointRow.hidden = picker.value !== 'unseen';
     memoryCheckpointRow.hidden = !MEMORY_CHAPTERS.has(picker.value);
     recordsCheckpointRow.hidden = picker.value !== 'records';
+    stairsCheckpointRow.hidden = !STAIRWELLS_CHAPTERS.has(picker.value);
     wardCheckpointRow.hidden = !WARD_CHAPTERS.has(picker.value);
     if (wardCryRow) wardCryRow.hidden = !WARD_CHAPTERS.has(picker.value);
   };
@@ -318,6 +332,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     checkpointPicker.disabled = true;
     memoryCheckpointPicker.disabled = true;
     recordsCheckpointPicker.disabled = true;
+    stairsCheckpointPicker.disabled = true;
     wardCheckpointPicker.disabled = true;
     go.disabled = true;
     status.textContent = 'Loading chapter…';
@@ -328,9 +343,11 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
           ? memoryCheckpointPicker.value
           : picker.value === 'records'
             ? recordsCheckpointPicker.value
-            : WARD_CHAPTERS.has(picker.value)
-              ? wardCheckpointPicker.value
-              : 'start';
+            : STAIRWELLS_CHAPTERS.has(picker.value)
+              ? stairsCheckpointPicker.value
+              : WARD_CHAPTERS.has(picker.value)
+                ? wardCheckpointPicker.value
+                : 'start';
       const ok = await jump(picker.value, checkpoint);
       if (ok) {
         shown = ''; // Force status refresh even when restarting current chapter.
@@ -338,7 +355,8 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         const choice = OPTIONS.find(([id]) => id === picker.value);
         url.searchParams.set('level', choice?.[2] ?? '01');
         if ((picker.value === 'unseen' || MEMORY_CHAPTERS.has(picker.value)
-            || picker.value === 'records' || WARD_CHAPTERS.has(picker.value))
+            || picker.value === 'records' || STAIRWELLS_CHAPTERS.has(picker.value)
+            || WARD_CHAPTERS.has(picker.value))
             && checkpoint !== 'start' && checkpoint !== 'before') {
           url.searchParams.set('checkpoint', checkpoint);
         } else {
@@ -358,6 +376,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
       checkpointPicker.disabled = false;
       memoryCheckpointPicker.disabled = false;
       recordsCheckpointPicker.disabled = false;
+      stairsCheckpointPicker.disabled = false;
       wardCheckpointPicker.disabled = false;
       go.disabled = false;
     }
@@ -454,6 +473,9 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   }
   if (Array.from(recordsCheckpointPicker.options).some(option => option.value === checkpoint)) {
     recordsCheckpointPicker.value = checkpoint;
+  }
+  if (Array.from(stairsCheckpointPicker.options).some(option => option.value === checkpoint)) {
+    stairsCheckpointPicker.value = checkpoint;
   }
   if (Array.from(wardCheckpointPicker.options).some(option => option.value === checkpoint)) {
     wardCheckpointPicker.value = checkpoint;

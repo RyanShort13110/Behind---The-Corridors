@@ -1,5 +1,5 @@
 /**
- * Behind. / Level 06 — The Unseen (006.4)
+ * Behind. / Level 07 — The Unseen (006.4)
  * All scares are persistent, one-way state changes. Retreat doesn't rewind
  * the environment, and pausing the scroll doesn't erase a triggered beat.
  */
@@ -195,7 +195,7 @@ export function createUnseenStory() {
 }
 
 export function unseenNarrative(progress, state) {
-  const chapter = '06 — THE UNSEEN';
+  const chapter = '07 — THE UNSEEN';
   if (state.completed) return { chapter, line: '', instruction: ' ' };
   if (!state.reachedBarrier) {
     return { chapter, line: progress > 0.68 ? 'The passage is blocked.' : '',
