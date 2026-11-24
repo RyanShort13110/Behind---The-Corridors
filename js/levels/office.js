@@ -29,8 +29,8 @@ export function createOffice(scene, {
   const world = new THREE.Group();
   world.name = 'Level 02 / The Office';
   scene.add(world);
-  scene.background = new THREE.Color(0x0b1214);
-  scene.fog = new THREE.FogExp2(0x0b1214, 0.033);
+  scene.background = new THREE.Color(0x0d1518);
+  scene.fog = new THREE.FogExp2(0x0d1518, 0.029);
 
   const materials = {
     floor: new THREE.MeshStandardMaterial({ color: 0x303938, metalness: 0.08, roughness: 0.94 }),
@@ -437,7 +437,7 @@ export function createOffice(scene, {
   for (const z of [-42.1, -38.4]) {
     add(0.90, 0.05, 1.30, roomX, 3.66, z, materials.diffuse);
   }
-  const meetingLightBase = 1.15;
+  const meetingLightBase = 1.28;
   const meetingLight = new THREE.PointLight(0xa1b8b2, meetingLightBase, 7.0, 2);
   meetingLight.position.set(roomX, 3.18, roomZ);
   world.add(meetingLight);
@@ -519,7 +519,7 @@ export function createOffice(scene, {
   // Wall sconce plate + emissive strip above the plaque.
   add(0.05, 0.04, 0.46, 2.13, 3.16, signZ, materials.metal);
   add(0.03, 0.02, 0.36, 2.10, 3.13, signZ, materials.diffuse);
-  const passageLight = new THREE.PointLight(0xd0e4da, 1.05, 2.8, 2);
+  const passageLight = new THREE.PointLight(0xd0e4da, 1.18, 2.8, 2);
   passageLight.position.set(1.82, 3.14, signZ);
   world.add(passageLight);
 
@@ -551,14 +551,14 @@ export function createOffice(scene, {
   // Light sources are few and fixed. Shadows are disabled deliberately.
   for (const z of [0, -10, -20, -30, -40, -48]) {
     add(1.6, 0.055, 0.48, 0, 3.70, z, materials.diffuse);
-    const lamp = new THREE.PointLight(0xbfd6d3, z === -30 ? 2.9 : 2.45, 10, 2);
+    const lamp = new THREE.PointLight(0xbfd6d3, z === -30 ? 3.2 : 2.75, 10, 2);
     lamp.position.set(0, 3.28, z);
     world.add(lamp);
   }
-  const exitLight = new THREE.PointLight(0xb2aa89, 1.2, 4.0, 2);
+  const exitLight = new THREE.PointLight(0xb2aa89, 1.35, 4.0, 2);
   exitLight.position.set(0, 3.24, -49.2);
   world.add(exitLight);
-  const ambientBase = 1.05;
+  const ambientBase = 1.18;
   const ambient = new THREE.HemisphereLight(0x8aaba6, 0x1a2222, ambientBase);
   scene.add(ambient);
 

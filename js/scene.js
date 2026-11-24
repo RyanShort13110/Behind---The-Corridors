@@ -274,7 +274,7 @@ export function createCorridor(scene) {
   world.add(camcorder);
 
   // Closet spill on the open-sightline shelf / camcorder.
-  const baySpill = new THREE.PointLight(0xcce5d7, 2.4, 4.2, 2);
+  const baySpill = new THREE.PointLight(0xcce5d7, 2.7, 4.2, 2);
   baySpill.position.set(4.35, 2.0, bayZ + 0.15);
   baySpill.visible = false;
   world.add(baySpill);
@@ -351,20 +351,23 @@ export function createCorridor(scene) {
     batchesToDispose.push(batch);
   }
 
+  const CORRIDOR_LAMP_HI = 5.0;
+  const CORRIDOR_LAMP_LO = 3.2;
+  const CORRIDOR_AMBIENT = 1.28;
   const redLight = new THREE.PointLight(0xff402b, 4.5, 5, 2);
   redLight.position.set(0, 3.18, -37);
   world.add(redLight);
   const lights = [];
   for (let i = 0; i < 8; i++) {
-    const light = new THREE.PointLight(0xcce5d7, i % 3 === 0 ? 4.5 : 2.85, 8, 2);
+    const light = new THREE.PointLight(0xcce5d7, i % 3 === 0 ? CORRIDOR_LAMP_HI : CORRIDOR_LAMP_LO, 8, 2);
     light.position.set(0, 3.5, -3.7 - i * 5.3);
     world.add(light);
     lights.push(light);
   }
-  const ambient = new THREE.HemisphereLight(0x8ca6a0, 0x131915, 1.15);
+  const ambient = new THREE.HemisphereLight(0x8ca6a0, 0x131915, CORRIDOR_AMBIENT);
   scene.add(ambient);
-  scene.background = new THREE.Color(0x0a1214);
-  scene.fog = new THREE.FogExp2(0x0a1214, 0.055);
+  scene.background = new THREE.Color(0x0c1518);
+  scene.fog = new THREE.FogExp2(0x0c1518, 0.048);
 
   const interactables = [
     {
@@ -431,10 +434,10 @@ export function createCorridor(scene) {
       lights.forEach((light, i) => {
         const flicker = fault && i >= 4
           ? (Math.sin(progress * 930 + i * 22) > -0.15 ? 0.06 : 1) : 1;
-        light.intensity = (i % 3 === 0 ? 4.5 : 2.85) * flicker;
+        light.intensity = (i % 3 === 0 ? CORRIDOR_LAMP_HI : CORRIDOR_LAMP_LO) * flicker;
       });
-      mats.tube.emissiveIntensity = fault ? (Math.sin(progress * 870) > 0 ? 0.15 : 0.8) : 0.8;
-      redLight.intensity = progress > 0.7 ? 4.5 : 1.1;
+      mats.tube.emissiveIntensity = fault ? (Math.sin(progress * 870) > 0 ? 0.15 : 0.85) : 0.85;
+      redLight.intensity = progress > 0.7 ? 4.5 : 1.2;
       const target = story.hasBacktracked ? 1.12 : 0;
       const follow = reduced ? 1 : 1 - Math.exp(-dt * 4);
       changedDoor.rotation.y += (target - changedDoor.rotation.y) * follow;
@@ -446,7 +449,7 @@ export function createCorridor(scene) {
       // Camcorder + bay spill appear in the unlocked bay; stay dark while shut.
       camcorder.visible = lockedDoorOpen && !camcorder.userData.taken;
       baySpill.visible = lockedDoorOpen;
-      baySpill.intensity = lockedDoorOpen ? 2.4 : 0;
+      baySpill.intensity = lockedDoorOpen ? 2.7 : 0;
 
       // Shadow peek (unmarked ajar doorway):
       // Unlock key door → walk away to arm → past ajar door, walk toward elevator
