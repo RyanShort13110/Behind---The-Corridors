@@ -57,7 +57,7 @@ body.debug-performance .perf-hud{display:block}
 .dev-chapters__composure button,.dev-chapters__cry button{flex:1;min-width:48px}
 
 /* Level 01 inspect panel — sparse, cold, no collectible UI energy. */
-.inspect{position:absolute;z-index:6;left:50%;bottom:14vh;width:min(420px,86vw);transform:translate(-50%,12px);padding:22px 24px 18px;background:rgba(4,9,11,.88);border:1px solid rgba(150,170,166,.28);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
+.inspect{position:absolute;z-index:14;left:50%;bottom:14vh;width:min(420px,86vw);transform:translate(-50%,12px);padding:22px 24px 18px;background:rgba(4,9,11,.88);border:1px solid rgba(150,170,166,.28);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
 .inspect.is-open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
 .inspect-title{margin:0 0 12px;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.28em;color:#c98982;text-transform:uppercase}
 .inspect-body{margin:0;font:300 clamp(16px,2.4vw,22px)/1.35 Arial,Helvetica,sans-serif;letter-spacing:-.02em;color:#dce8e6;text-shadow:0 2px 18px #000}
@@ -94,7 +94,7 @@ body.debug-performance .perf-hud{display:block}
 .inventory__item:hover,.inventory__item:focus-visible{border-color:#d2c39a;color:#f0e6c8}
 .inventory__label{min-width:0}
 .inventory__qty{flex:0 0 auto;letter-spacing:.08em;color:#9eb0aa;font-size:9px}
-.item-detail{position:absolute;z-index:7;right:4vw;bottom:130px;width:min(240px,78vw);padding:18px 18px 16px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.32);box-shadow:0 16px 48px rgba(0,0,0,.55);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px);transition:opacity .25s,transform .25s,visibility .25s}
+.item-detail{position:absolute;z-index:15;right:4vw;bottom:130px;width:min(240px,78vw);padding:18px 18px 16px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.32);box-shadow:0 16px 48px rgba(0,0,0,.55);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px);transition:opacity .25s,transform .25s,visibility .25s}
 .item-detail.is-open{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0)}
 .item-detail-canvas{display:block;width:100%;height:auto;margin:4px 0 12px;background:radial-gradient(ellipse at center,rgba(40,36,28,.55),rgba(4,9,11,.2));border:1px solid rgba(150,170,166,.18)}
 .item-detail-title{margin:0 0 8px;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.24em;color:#d4b56a}
@@ -170,7 +170,7 @@ body.debug-performance .perf-hud{display:block}
 @media(prefers-reduced-motion:reduce){.inventory,.item-detail,.composure,.vignette,.steady,.game-over{transition:none}}
 
 /* Office service keypad — utilitarian, no glowing cyber chrome. */
-.keypad{position:absolute;z-index:8;left:50%;bottom:12vh;width:min(280px,84vw);transform:translate(-50%,10px);padding:22px 20px 16px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.3);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
+.keypad{position:absolute;z-index:14;left:50%;bottom:12vh;width:min(280px,84vw);transform:translate(-50%,10px);padding:22px 20px 16px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.3);box-shadow:0 18px 60px rgba(0,0,0,.55);color:#d7e4e0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,transform .28s,visibility .28s}
 .keypad.is-open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
 .keypad-title{margin:0 0 14px;font:700 11px/1.4 'Courier New',monospace;letter-spacing:.28em;color:#c98982;text-transform:uppercase}
 .keypad-display{margin:0 0 16px;padding:12px 10px;text-align:center;font:700 22px/1 'Courier New',monospace;letter-spacing:.42em;color:#dce8e6;background:rgba(0,0,0,.45);border:1px solid rgba(150,170,166,.22)}

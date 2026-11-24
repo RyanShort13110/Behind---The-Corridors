@@ -96,6 +96,11 @@ export function createAudioDirector() {
   // Lazy initialization avoids audio work in chapters where it is not used.
   let nightAirSource = null, nightAirGain = null, nightAirFilter = null;
   let nightDroneSource = null, nightDroneGain = null;
+  // Stairwells void: ultra-low presence + slow air, lazy-init.
+  let stairsVoidReady = false;
+  let stairsSub = null, stairsSubGain = null;
+  let stairsAir = null, stairsAirGain = null, stairsAirFilter = null;
+  let stairsRumble = null, stairsRumbleGain = null;
   let unseenNoiseGain = null, unseenToneGain = null, unseenPanner = null;
   let unseenNoise = null, unseenTone = null, unseenFilter = null;
   let unseenCueBus = null, unseenFinalBus = null;
@@ -1709,6 +1714,9 @@ export function createAudioDirector() {
     sfxBusyUntil = 0;
     setGain(nightAirGain, 0, 0.025);
     setGain(nightDroneGain, 0, 0.025);
+    setGain(stairsSubGain, 0, 0.05);
+    setGain(stairsAirGain, 0, 0.05);
+    setGain(stairsRumbleGain, 0, 0.05);
     setGain(unseenNoiseGain, 0, 0.05);
     setGain(unseenToneGain, 0, 0.05);
     setGain(unseenRoarBus, 0, 0.03);
@@ -1926,6 +1934,108 @@ export function createAudioDirector() {
     stopWardCreak(0.01);
     wardCreakPlayed = false;
     ensureWardCreakSample();
+    setGain(stairsSubGain, 0, 0.1);
+    setGain(stairsAirGain, 0, 0.1);
+    setGain(stairsRumbleGain, 0, 0.1);
+  }
+
+  function ensureStairwellsVoidSound() {
+    if (!ctx || stairsVoidReady) return;
+    stairsVoidReady = true;
+
+    stairsSub = ctx.createOscillator();
+    stairsSub.type = 'sine';
+    stairsSub.frequency.value = 28;
+    const subFilter = ctx.createBiquadFilter();
+    subFilter.type = 'lowpass';
+    subFilter.frequency.value = 70;
+    stairsSubGain = ctx.createGain();
+    stairsSubGain.gain.value = 0;
+    stairsSub.connect(subFilter).connect(stairsSubGain).connect(ctx.destination);
+
+    stairsRumble = ctx.createOscillator();
+    stairsRumble.type = 'triangle';
+    stairsRumble.frequency.value = 41;
+    const rumbleFilter = ctx.createBiquadFilter();
+    rumbleFilter.type = 'lowpass';
+    rumbleFilter.frequency.value = 95;
+    stairsRumbleGain = ctx.createGain();
+    stairsRumbleGain.gain.value = 0;
+    stairsRumble.connect(rumbleFilter).connect(stairsRumbleGain).connect(ctx.destination);
+
+    const count = Math.ceil(ctx.sampleRate * 3.2);
+    const buffer = ctx.createBuffer(1, count, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < count; i += 1) {
+      last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
+      data[i] = last;
+    }
+    stairsAir = ctx.createBufferSource();
+    stairsAir.buffer = buffer;
+    stairsAir.loop = true;
+    stairsAirFilter = ctx.createBiquadFilter();
+    stairsAirFilter.type = 'lowpass';
+    stairsAirFilter.frequency.value = 180;
+    stairsAirFilter.Q.value = 0.4;
+    stairsAirGain = ctx.createGain();
+    stairsAirGain.gain.value = 0;
+    stairsAir.connect(stairsAirFilter).connect(stairsAirGain).connect(ctx.destination);
+
+    stairsSub.start();
+    stairsRumble.start();
+    stairsAir.start();
+  }
+
+  function enterStairwells() {
+    stopBreathing();
+    stopMemoryRain(0.2);
+    officeMusicActive = false;
+    recordsMusicActive = false;
+    silenceHorrorScore(0.35);
+    setGain(phoneHigh, 0);
+    setGain(phoneLow, 0);
+    setGain(buzzGain, 0.0002, 0.4);
+    setGain(motorGain, 0);
+    setGain(humGain, 0.0028, 0.5);
+    setGain(musicGain, 0.03, 1.0);
+    setGain(stairsSubGain, 0, 0.05);
+    setGain(stairsAirGain, 0, 0.05);
+    setGain(stairsRumbleGain, 0, 0.05);
+  }
+
+  function updateStairwells(progress, state) {
+    if (!enabled || !ctx) return;
+    if (levelBedMuted) {
+      setGain(stairsSubGain, 0, 0.08);
+      setGain(stairsAirGain, 0, 0.08);
+      setGain(stairsRumbleGain, 0, 0.08);
+      return;
+    }
+    const inVoid = state?.phase === 'void';
+    const amount = inVoid ? Math.max(0, Math.min(1, state.voidAmount || 0)) : 0;
+    if (amount > 0.02) ensureStairwellsVoidSound();
+
+    // Shaft bed stays thin; void takes over.
+    setGain(humGain, inVoid ? 0.0004 : 0.0028, 0.45);
+    setGain(musicGain, inVoid ? 0.01 : 0.03, 0.6);
+
+    const deep = Math.max(0, (amount - 0.2) / 0.8);
+    setGain(stairsSubGain, deep * 0.085, 0.5);
+    setGain(stairsRumbleGain, deep * 0.028 * (0.85 + 0.15 * Math.sin((ctx.currentTime || 0) * 0.17)), 0.4);
+    setGain(stairsAirGain, amount * 0.022, 0.45);
+    if (stairsSub && amount > 0) {
+      stairsSub.frequency.setTargetAtTime(26 + deep * 6, ctx.currentTime, 0.8);
+    }
+    if (stairsRumble && amount > 0) {
+      stairsRumble.frequency.setTargetAtTime(38 + deep * 10, ctx.currentTime, 0.9);
+    }
+    // Hard cut on snap / leave.
+    if (!inVoid && amount < 0.01) {
+      setGain(stairsSubGain, 0, 0.08);
+      setGain(stairsRumbleGain, 0, 0.08);
+      setGain(stairsAirGain, 0, 0.12);
+    }
   }
 
   function ensureWardCryBus() {
@@ -2496,10 +2606,10 @@ export function createAudioDirector() {
   return {
     toggle, update, updateOffice, updateRecords, updateNight, updateThreshold, updateUnseen,
     updateMemoryWhite, updateMemoryBlack, updateMemoryHome,
-    updateHospitalReverse,
+    updateHospitalReverse, updateStairwells,
     enterOffice, enterRecords, enterNight, enterThreshold, enterUnseen,
     enterMemoryStaging, enterMemoryWhite, enterMemoryBlack, exitMemoryWhite, exitMemoryBlack,
-    enterHospitalReverse,
+    enterHospitalReverse, enterStairwells,
     playMemoryDoorLeave,
     playOfficeLatch, playOfficeChairScrape, playThresholdRupture, playUnseenBlackoutPeak,
     playNightStep, playInteract, playUnlock, playHallDoorCascade,

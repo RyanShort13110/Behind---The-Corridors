@@ -1,8 +1,7 @@
 /**
  * DEV prototype — The Stairwells.
- * Eight stacked floors, switchback flights, all descending.
- * Each floor is a separate group/material set for later styling.
- * No story beats yet — geometry + rail only.
+ * Eight stacked floors, then an impossible straight flight into a vast dark,
+ * a sudden snap back to the real shaft, final landing, and exit.
  */
 
 export const STAIR = Object.freeze({
@@ -19,6 +18,10 @@ export const STAIR = Object.freeze({
   stepsPerFlight: 10,
   railH: 0.92,
   wallT: 0.18,
+  /** Extra straight steps in the anomalous flight (visual + rail). */
+  voidSteps: 72,
+  voidStepRun: 0.32,
+  voidStepRise: 0.175,
 });
 
 /** Horizontal run of one half-flight. */
@@ -40,25 +43,78 @@ export function stairFloorLabel(floorIndex) {
 export function createStairwellsStory() {
   const state = {
     noticedStairs: false,
-    reachedBottom: false,
+    enteredVoid: false,
+    voidDeep: false,
+    snapped: false,
+    onFinalFlight: false,
+    exitReady: false,
+    exited: false,
+    completed: false,
     currentFloor: STAIR.floors,
+    /** 0…1 visual intensity while in the void (lights out / walls gone). */
+    voidAmount: 0,
+    phase: 'shaft', // shaft | void | return | exit
   };
 
   function reset() {
     state.noticedStairs = false;
-    state.reachedBottom = false;
+    state.enteredVoid = false;
+    state.voidDeep = false;
+    state.snapped = false;
+    state.onFinalFlight = false;
+    state.exitReady = false;
+    state.exited = false;
+    state.completed = false;
     state.currentFloor = STAIR.floors;
+    state.voidAmount = 0;
+    state.phase = 'shaft';
   }
 
-  function observe(prev, next) {
-    if (next > 0.04) state.noticedStairs = true;
-    if (next > 0.97) state.reachedBottom = true;
-    // Approximate floor from progress (refined once route length is known).
-    const traveled = Math.max(0, Math.min(1, next));
-    state.currentFloor = Math.max(
-      1,
-      Math.ceil(STAIR.floors * (1 - traveled)),
-    );
+  /**
+   * @param {number} _prev
+   * @param {number} next
+   * @param {{ voidStart: number, voidDeep: number, snapAt: number, finalStart: number, exitStart: number, exitEnd: number }} marks
+   */
+  function observe(_prev, next, marks) {
+    const p = Math.max(0, Math.min(1, next));
+    if (p > 0.03) state.noticedStairs = true;
+
+    if (p < marks.voidStart) {
+      state.phase = 'shaft';
+      state.voidAmount = 0;
+    } else if (p < marks.snapAt) {
+      state.phase = 'void';
+      state.enteredVoid = true;
+      const u = (p - marks.voidStart) / Math.max(1e-6, marks.snapAt - marks.voidStart);
+      state.voidAmount = Math.max(0, Math.min(1, u));
+      if (p >= marks.voidDeep) state.voidDeep = true;
+    } else if (p < marks.exitStart) {
+      state.phase = 'return';
+      state.snapped = true;
+      state.onFinalFlight = p >= marks.finalStart;
+      state.voidAmount = 0;
+    } else {
+      state.phase = 'exit';
+      state.exitReady = true;
+      state.voidAmount = 0;
+      if (p >= marks.exitEnd) {
+        state.exited = true;
+        state.completed = true;
+      }
+    }
+
+    if (state.phase === 'void') {
+      state.currentFloor = 0;
+    } else if (state.phase === 'exit') {
+      state.currentFloor = 1;
+    } else {
+      // Rough floor from pre-void shaft progress.
+      const shaftT = Math.max(0, Math.min(1, p / Math.max(1e-6, marks.voidStart)));
+      state.currentFloor = Math.max(
+        2,
+        Math.ceil(STAIR.floors * (1 - shaftT * ((STAIR.floors - 1) / STAIR.floors))),
+      );
+    }
   }
 
   return { state, reset, observe };
@@ -66,13 +122,27 @@ export function createStairwellsStory() {
 
 export function stairwellsNarrative(progress, state) {
   let line = 'Concrete stairs. The air cools as you descend.';
-  if (progress < 0.05) line = 'A fire stair. Only one way: down.';
-  else if (state.reachedBottom) line = 'The last landing. Nowhere further.';
-  else if (progress > 0.55) line = 'The flights keep repeating.';
+  if (progress < 0.04) line = 'A fire stair. Only one way: down.';
+  else if (state.phase === 'void') {
+    if (state.voidAmount < 0.25) line = 'The flight keeps going. No landing.';
+    else if (state.voidAmount < 0.55) line = 'The walls fall away into dark.';
+    else if (state.voidAmount < 0.85) line = 'A room without edges. Something moves the air.';
+    else line = 'Too big. Far too big.';
+  } else if (state.phase === 'return') {
+    line = state.onFinalFlight
+      ? 'The shaft again. As if nothing happened.'
+      : 'The turn was always here.';
+  } else if (state.phase === 'exit') {
+    line = state.exited ? 'Outside the well.' : 'A door. Finally.';
+  } else if (progress > 0.45) {
+    line = 'The flights keep repeating.';
+  }
 
   return {
     chapter: 'DEV — THE STAIRWELLS',
     line,
-    instruction: 'SCROLL UP TO DESCEND · A / D OR SWIPE TO LOOK',
+    instruction: state.phase === 'exit' && !state.exited
+      ? 'SCROLL UP TO LEAVE · A / D OR SWIPE TO LOOK'
+      : 'SCROLL UP TO DESCEND · A / D OR SWIPE TO LOOK',
   };
 }

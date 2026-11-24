@@ -295,24 +295,26 @@ export function createOffice(scene, {
   } // end omitAisleClutter guard
 
   // Sticky note with the service-door code — takeable, readable in inventory.
-  // On the left desk that already has a mug (z≈-7.5); look left to take it.
+  // Same lesson as the lighter: deep left desks sit behind partitions and past
+  // look-yaw, so the note lives on the aisle side table (look right).
+  add(0.36, 0.04, 0.28, 1.12, 1.08, -17.15, materials.wood);
   const stickyNote = new THREE.Group();
   stickyNote.name = 'Sticky note / four-digit code';
-  stickyNote.position.set(-3.88, 0.945, -7.34);
-  stickyNote.rotation.y = 0.28;
-  stickyNote.rotation.z = -0.05;
+  stickyNote.position.set(1.12, 1.115, -17.15);
+  stickyNote.rotation.y = -0.35;
+  stickyNote.rotation.z = 0.04;
   world.add(stickyNote);
   add(0.11, 0.002, 0.12, 0, 0, 0, materials.sticky, stickyNote);
   add(0.07, 0.0015, 0.012, 0, 0.002, 0.02, materials.stickyInk, stickyNote);
   add(0.055, 0.0015, 0.01, 0, 0.002, 0.0, materials.stickyInk, stickyNote);
   add(0.06, 0.0015, 0.01, 0, 0.002, -0.02, materials.stickyInk, stickyNote);
-  const stickyHitGeo = new THREE.BoxGeometry(0.16, 0.06, 0.16);
+  const stickyHitGeo = new THREE.BoxGeometry(0.28, 0.12, 0.28);
   separateGeometries.push(stickyHitGeo);
   const stickyHit = new THREE.Mesh(
     stickyHitGeo,
     new THREE.MeshBasicMaterial({ visible: false })
   );
-  stickyHit.position.set(0, 0.01, 0);
+  stickyHit.position.set(0, 0.02, 0);
   stickyHit.userData.inspectHitOnly = true;
   stickyNote.add(stickyHit);
 
@@ -609,7 +611,7 @@ export function createOffice(scene, {
     {
       id: 'office-sticky-note',
       object: stickyNote,
-      radius: 5.0,
+      radius: 6.0,
       title: 'STICKY NOTE',
       body: `Four digits in blue ink: ${codeSpaced}.`,
       tooltip: `Four digits in blue ink: ${codeSpaced}.`,

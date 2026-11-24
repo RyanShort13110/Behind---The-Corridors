@@ -3,7 +3,7 @@ import { createCorridor } from './scene.js?v=cam-17';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
-import { createAudioDirector } from './audio.js?v=cam-7';
+import { createAudioDirector } from './audio.js?v=stairs-void-1';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
@@ -65,7 +65,8 @@ import {
   stairwellsCameraPose,
   STAIRWELLS_METERS,
   STAIRWELLS_START,
-} from './levels/stairwells-route.js?v=stairs-pitch-1';
+  STAIRWELLS_MARKS,
+} from './levels/stairwells-route.js?v=stairs-void-1';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -482,7 +483,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     audio?.setLevelBedMuted?.(true);
 
     if (id === 'office-01') {
-      const { createOffice } = await import('./levels/office.js?v=cam-6');
+      const { createOffice } = await import('./levels/office.js?v=sticky-1');
       const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-8');
       tapeSession = await startOfficeTape01({
         scene,
@@ -652,7 +653,7 @@ async function endCamcorderPlayback() {
       director.add('elevator', createElevator(scene));
       el.location.innerHTML = ORIGINAL_LOCATION_HTML;
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=cam-6');
+      const { createOffice } = await import('./levels/office.js?v=sticky-1');
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
@@ -1743,7 +1744,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=cam-6');
+    const { createOffice } = await import('./levels/office.js?v=sticky-1');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -2025,7 +2026,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=cam-6');
+      const { createOffice } = await import('./levels/office.js?v=sticky-1');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
@@ -2052,7 +2053,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-3');
+      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-void-1');
       stairwellsStory.reset();
       next.add('stairwells', createStairwells(scene));
     } else {
@@ -2099,6 +2100,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     else if (target === 'unseen') audio.enterUnseen();
     else if (isMemoryChapter(target)) audio.enterMemoryStaging();
     else if (target === 'hospital-reverse') audio.enterHospitalReverse();
+    else if (target === 'stairwells') audio.enterStairwells?.();
 
     hideEndCard();
       resetBriefDialogue();
@@ -2123,7 +2125,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     if (target === 'stairwells') {
       progress = displayed = 0;
       look?.setMaxYaw(1.15);
-      camera.far = 90;
+      camera.far = 160;
       camera.updateProjectionMatrix();
       const pose = stairwellsCameraPose(0);
       camera.rotation.order = 'YXZ';
@@ -2506,6 +2508,8 @@ function updateNarrative(p, dt = 0) {
   } else if (inWard) {
     if (state.completed && !ended) showEndCard('hospital-reverse');
     else if (!state.completed && ended) hideEndCard();
+  } else if (inStairs) {
+    // DEV prototype — no production end card yet.
   } else {
     if (state.completed && p <= UNSEEN_EXIT_PROGRESS && !ended) showEndCard('unseen');
     else if (p > 0.037 && ended) hideEndCard();
@@ -2604,9 +2608,15 @@ function frame(now) {
       }
       if (!wasExitReady && mem.state.exitReady) bindChapterInteractables();
     } else if (isStairwells()) {
-      stairwellsStory.observe(previousDisplayed, p);
-      const floorLabel = String(stairwellsStory.state.currentFloor).padStart(2, '0');
-      const loc = `DEV / THE STAIRWELLS <span class="separator">/</span> FLOOR ${floorLabel}`;
+      stairwellsStory.observe(previousDisplayed, p, STAIRWELLS_MARKS);
+      const s = stairwellsStory.state;
+      let loc = 'DEV / THE STAIRWELLS';
+      if (s.phase === 'void') loc += ' <span class="separator">/</span> ???';
+      else if (s.phase === 'exit') loc += ' <span class="separator">/</span> EXIT';
+      else {
+        const floorLabel = String(s.currentFloor).padStart(2, '0');
+        loc += ` <span class="separator">/</span> FLOOR ${floorLabel}`;
+      }
       if (el.location.innerHTML !== loc) el.location.innerHTML = loc;
     } else if (isHospitalReverse()) {
       const wasSideReady = hospitalReverseStory.state.sideDoorReady;
@@ -2865,6 +2875,7 @@ function frame(now) {
       audio.updateHospitalReverse(p, hospitalReverseStory.state);
     } else if (isStairwells()) {
       director.update(p, stairwellsStory.state, dt, reduced);
+      audio.updateStairwells?.(p, stairwellsStory.state);
     } else {
       director.update(p, unseenStory.state, dt, reduced);
       audio.updateUnseen(p, unseenStory.state, camera);
