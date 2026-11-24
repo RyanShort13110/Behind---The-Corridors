@@ -594,7 +594,7 @@ export function createOffice(scene, {
       tint: officeTapeDef.previewColor ?? 0x1e2226,
     });
     officeTape = officeTapeProp.group;
-    officeTape.position.set(-2.36, 0.02, -19.85);
+    officeTape.position.set(-2.18, 0.02, -19.85);
     officeTape.rotation.set(1.35, 0.55, 0.25);
     world.add(officeTape);
   }
