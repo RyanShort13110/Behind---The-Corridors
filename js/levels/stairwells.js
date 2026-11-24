@@ -6,6 +6,10 @@ import {
   stairFloorLabel,
 } from './stairwells-story.js';
 import { STAIR_ROUTE_LAYOUT, STAIR_VOID_LAYOUT } from './stairwells-route.js';
+import {
+  STAIR_VOID_SKYLINE_ENABLED,
+  createVoidSkyline,
+} from './stairwells-void-skyline.js';
 
 /**
  * DEV — The Stairwells.
@@ -89,9 +93,10 @@ export function createStairwells(scene) {
       const noseZ = towardNegZ ? z - Math.abs(dz) * 0.42 : z + Math.abs(dz) * 0.42;
       box(parent, STAIR.flightW, 0.03, 0.04, xCenter, y + STAIR_STEP_RISE * 0.5, noseZ, mats.nosing);
     }
+    // Outer wall = left-hand rail when descending each flight.
     const railX = xCenter < 0
-      ? xCenter + STAIR.flightW * 0.48
-      : xCenter - STAIR.flightW * 0.48;
+      ? xCenter - STAIR.flightW * 0.48
+      : xCenter + STAIR.flightW * 0.48;
     const railY = yTop - STAIR.floorHeight * 0.25 + STAIR.railH * 0.35;
     const zMid = (zStart + zEnd) * 0.5;
     const run = Math.abs(zEnd - zStart);
@@ -131,23 +136,52 @@ export function createStairwells(scene) {
     const wallH = STAIR.floorHeight;
     const wallY = y0 + wallH * 0.5;
 
-    box(group, STAIR.wallT, wallH, STAIR.wellD + STAIR.wallT * 2,
+    // Side walls stop at the well depth so they don't intersect end walls
+    // (overlapping corners z-fight into a checkerboard under point lights).
+    box(group, STAIR.wallT, wallH, STAIR.wellD,
       -halfW - STAIR.wallT * 0.5, wallY, 0, mats.wall);
-    box(group, STAIR.wallT, wallH, STAIR.wellD + STAIR.wallT * 2,
+    box(group, STAIR.wallT, wallH, STAIR.wellD,
       halfW + STAIR.wallT * 0.5, wallY, 0, mats.wallAlt);
-    box(group, STAIR.wellW + STAIR.wallT * 2, wallH, STAIR.wallT,
-      0, wallY, -halfD - STAIR.wallT * 0.5, mats.wall);
+    // End walls span past the side walls to close the corner from outside.
+    const endWallW = STAIR.wellW + STAIR.wallT * 2;
+    // Floor 01 (−Z): doorway into the continuing west flight so the camera
+    // never walks through a solid wall at the mid landing.
+    if (floor === 0) {
+      const openW = STAIR.flightW + 0.95;
+      const midSlabY = STAIR.floorHeight * 0.5;
+      // Full-height bay: mid-landing eye sits near the story top.
+      const openBottom = Math.max(0.05, midSlabY - 0.25);
+      const zBack = -halfD - STAIR.wallT * 0.5;
+      const openLeft = westX - openW * 0.5;
+      const openRight = westX + openW * 0.5;
+      const leftW = openLeft - (-halfW - STAIR.wallT);
+      const rightW = (halfW + STAIR.wallT) - openRight;
+      if (leftW > 0.05) {
+        box(group, leftW, wallH, STAIR.wallT,
+          -halfW - STAIR.wallT + leftW * 0.5, wallY, zBack, mats.wall);
+      }
+      if (rightW > 0.05) {
+        box(group, rightW, wallH, STAIR.wallT,
+          openRight + rightW * 0.5, wallY, zBack, mats.wall);
+      }
+      const belowH = Math.max(0.08, openBottom);
+      box(group, openW, belowH, STAIR.wallT, westX, belowH * 0.5, zBack, mats.wall);
+    } else {
+      box(group, endWallW, wallH, STAIR.wallT,
+        0, wallY, -halfD - STAIR.wallT * 0.5, mats.wall);
+    }
 
     const doorW = 1.05;
     const doorH = 2.15;
-    const sideW = (STAIR.wellW - doorW) * 0.5;
+    const sideW = (endWallW - doorW) * 0.5;
     const headerH = Math.max(0.2, wallH - doorH);
+    const zFront = halfD + STAIR.wallT * 0.5;
     box(group, sideW, wallH, STAIR.wallT,
-      -halfW + sideW * 0.5, wallY, halfD + STAIR.wallT * 0.5, mats.wall);
+      -endWallW * 0.5 + sideW * 0.5, wallY, zFront, mats.wall);
     box(group, sideW, wallH, STAIR.wallT,
-      halfW - sideW * 0.5, wallY, halfD + STAIR.wallT * 0.5, mats.wall);
+      endWallW * 0.5 - sideW * 0.5, wallY, zFront, mats.wall);
     box(group, doorW, headerH, STAIR.wallT,
-      0, y0 + doorH + headerH * 0.5, halfD + STAIR.wallT * 0.5, mats.wall);
+      0, y0 + doorH + headerH * 0.5, zFront, mats.wall);
 
     if (floor === 0) {
       // Operable exit door on the bottom landing.
@@ -196,13 +230,14 @@ export function createStairwells(scene) {
       box(group, STAIR.wellW - 0.04, 0.14, landingD,
         0, yMid - 0.07, -halfD + landingD * 0.5, mats.floor);
       for (const side of [-1, 1]) {
-        const sx = side * (halfW - 0.55);
-        const sy = yMid + 2.25;
-        const sz = -halfD + 0.12;
+        // Keep fixtures off the exact wall corner (was amplifying z-fight noise).
+        const sx = side * (halfW - 0.85);
+        const sy = yMid + 2.15;
+        const sz = -halfD + 0.28;
         box(group, 0.22, 0.14, 0.08, sx, sy, sz, mats.fixture);
         box(group, 0.12, 0.08, 0.05, sx, sy, sz + 0.06, mats.rail);
         const midLamp = new THREE.PointLight(0xb8c4b8, 0.48, 5.2, 2);
-        midLamp.position.set(sx, sy - 0.05, sz + 0.35);
+        midLamp.position.set(sx, sy - 0.12, sz + 0.22);
         midLamp.userData.baseIntensity = 0.48;
         group.add(midLamp);
         lights.push(midLamp);
@@ -234,107 +269,333 @@ export function createStairwells(scene) {
     box(floorGroups[0], STAIR.wellW, 0.22, STAIR.wellD, 0, -0.18, 0, mats.floor);
   }
 
-  // —— Anomalous endless flight + vast room ——
+  // —— Anomalous straight flight: walls continue ~80m, then the room ——
   const voidGroup = new THREE.Group();
   voidGroup.name = 'Stairwells / Void flight';
-  voidGroup.visible = false;
+  // Always present so the mid-landing opening leads into real geometry.
   world.add(voidGroup);
 
   const voidBag = [];
+  const ownedGeometries = [];
+  const ownedTextures = [];
+
+  function makeConcreteTexture({ blockW = 28, blockH = 14, base = '#5e6862', mortar = '#3a423e' } = {}) {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = base;
+    g.fillRect(0, 0, 256, 256);
+    // Fine grit
+    for (let i = 0; i < 4200; i += 1) {
+      const n = 40 + Math.random() * 50;
+      g.fillStyle = `rgba(${n},${n + 4},${n - 2},${0.04 + Math.random() * 0.07})`;
+      g.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1);
+    }
+    // CMU / painted-block courses
+    g.strokeStyle = mortar;
+    g.lineWidth = 2;
+    for (let y = 0; y < 256; y += blockH) {
+      g.beginPath();
+      g.moveTo(0, y + 0.5);
+      g.lineTo(256, y + 0.5);
+      g.stroke();
+      const odd = Math.floor(y / blockH) % 2;
+      for (let x = odd * (blockW * 0.5); x < 256; x += blockW) {
+        g.beginPath();
+        g.moveTo(x + 0.5, y);
+        g.lineTo(x + 0.5, y + blockH);
+        g.stroke();
+      }
+    }
+    // Soft stains / wear
+    for (let i = 0; i < 18; i += 1) {
+      const cx = Math.random() * 256;
+      const cy = Math.random() * 256;
+      const r = 12 + Math.random() * 40;
+      const grad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0, `rgba(20,24,22,${0.08 + Math.random() * 0.1})`);
+      grad.addColorStop(1, 'rgba(20,24,22,0)');
+      g.fillStyle = grad;
+      g.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.anisotropy = 8;
+    ownedTextures.push(tex);
+    return tex;
+  }
+
+  const wallTex = makeConcreteTexture({ base: '#616a64', mortar: '#3c4440' });
+  const wallTexAlt = makeConcreteTexture({ base: '#555e58', mortar: '#343c38', blockW: 32, blockH: 12 });
+  const ceilTex = makeConcreteTexture({ base: '#2c3432', mortar: '#1c2220', blockW: 40, blockH: 40 });
+
   const voidMats = {
     step: material({ color: 0x3a4240, roughness: 0.9 }, voidBag),
     nosing: material({ color: 0x222826, roughness: 0.75 }, voidBag),
-    rail: material({ color: 0x6a726c, roughness: 0.5, metalness: 0.4 }, voidBag),
-    room: material({ color: 0x101214, roughness: 1, side: THREE.BackSide }, voidBag),
+    rail: material({ color: 0x7a8480, roughness: 0.5, metalness: 0.4 }, voidBag),
+    wall: material({
+      color: 0xc8cfc8, map: wallTex, roughness: 0.94, metalness: 0.02,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    }, voidBag),
+    wallAlt: material({
+      color: 0xc0c8c0, map: wallTexAlt, roughness: 0.95, metalness: 0.02,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    }, voidBag),
+    ceiling: material({
+      color: 0xb0b8b4, map: ceilTex, roughness: 0.96,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    }, voidBag),
+    fixture: material({
+      color: 0xb8c4b8, emissive: 0x8a9a8a, emissiveIntensity: 0.4, roughness: 0.7,
+    }, voidBag),
+    room: material({ color: 0x0a0c0e, roughness: 1, side: THREE.BackSide }, voidBag),
     haze: material({
-      color: 0x1a1e22, roughness: 1, transparent: true, opacity: 0, depthWrite: false,
+      color: 0x14181c, roughness: 1, transparent: true, opacity: 0, depthWrite: false,
     }, voidBag),
   };
 
+  /** Solid box with UVs tiled in meters so long sleeve walls keep CMU scale. */
+  function tiledBox(parent, w, h, d, x, y, z, mat, tileM = 1.2) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    ownedGeometries.push(geo);
+    const uv = geo.attributes.uv;
+    const spans = [
+      [h / tileM, d / tileM], // +X
+      [h / tileM, d / tileM], // −X
+      [w / tileM, d / tileM], // +Y
+      [w / tileM, d / tileM], // −Y
+      [w / tileM, h / tileM], // +Z
+      [w / tileM, h / tileM], // −Z
+    ];
+    for (let f = 0; f < 6; f += 1) {
+      const [uSpan, vSpan] = spans[f];
+      const o = f * 4;
+      uv.setXY(o + 0, 0, vSpan);
+      uv.setXY(o + 1, uSpan, vSpan);
+      uv.setXY(o + 2, 0, 0);
+      uv.setXY(o + 3, uSpan, 0);
+    }
+    uv.needsUpdate = true;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    parent.add(mesh);
+    return mesh;
+  }
+
   const v = STAIR_VOID_LAYOUT;
+  const voidLen = v.lengthM || (v.steps * v.stepRun);
+  const voidDrop = v.dropM || (v.steps * v.stepRise);
+  const voidLights = [];
+
+  // Steps + handrail (world-aligned, same as the camera rail).
   for (let i = 0; i < v.steps; i += 1) {
     const y = v.yTop - (i + 1) * v.stepRise + v.stepRise * 0.5;
     const z = v.zStart - (i + 0.5) * v.stepRun;
     box(voidGroup, STAIR.flightW, v.stepRise, v.stepRun * 0.96, v.x, y, z, voidMats.step);
     box(voidGroup, STAIR.flightW, 0.03, 0.04, v.x, y + v.stepRise * 0.5, z - v.stepRun * 0.42, voidMats.nosing);
-    if (i % 4 === 0) {
-      box(voidGroup, 0.04, 0.9, 0.04,
-        v.x + STAIR.flightW * 0.48, y + 0.55, z, voidMats.rail);
-    }
   }
-  // Continuous rail along the void flight
-  box(voidGroup, 0.04, 0.04, v.steps * v.stepRun,
-    v.x + STAIR.flightW * 0.48,
-    v.yTop - (v.steps * v.stepRise) * 0.5 + 0.85,
-    v.zStart - (v.steps * v.stepRun) * 0.5,
-    voidMats.rail);
+  {
+    const railLen = Math.hypot(voidLen, voidDrop);
+    // Negative pitch: local −Z follows the descending flight.
+    const railPitch = -Math.atan2(voidDrop, voidLen);
+    const rail = new THREE.Mesh(cube, voidMats.rail);
+    rail.scale.set(0.04, 0.04, railLen);
+    // Left-hand / outer wall when facing down the west flight (−Z).
+    rail.position.set(
+      v.x - STAIR.flightW * 0.48,
+      v.yTop - voidDrop * 0.5 + 0.9,
+      v.zStart - voidLen * 0.5,
+    );
+    rail.rotation.x = railPitch;
+    voidGroup.add(rail);
+  }
 
-  // Enormous room — barely readable edges.
-  const roomW = 120;
-  const roomH = 90;
-  const roomD = 140;
-  const roomY = v.yTop - v.steps * v.stepRise * 0.45;
-  const roomZ = v.zStart - v.steps * v.stepRun * 0.55;
-  const room = box(voidGroup, roomW, roomH, roomD, 0, roomY, roomZ, voidMats.room);
+  // Continuous shaft sleeve along the stair slope.
+  // Starts at the −Z aperture (not inside the landing) so sleeve walls don't
+  // stack on the shaft walls — that overlap was the corner light checkerboard.
+  const sleeve = new THREE.Group();
+  sleeve.name = 'Stairwells / continuing shaft';
+  const apertureZ = -halfD - STAIR.wallT;
+  const sleeveLead = Math.max(0.05, v.zStart - apertureZ); // cover landing→aperture
+  sleeve.position.set(0, v.yTop + 0.08, apertureZ);
+  sleeve.rotation.x = -Math.atan2(voidDrop, voidLen);
+  voidGroup.add(sleeve);
+
+  const sleeveLen = Math.hypot(voidLen, voidDrop) + sleeveLead;
+  // Tall enough that wall tops overlap the soffit (short walls left a triangle
+  // of void at the entrance under the ceiling).
+  const sleeveH = 3.85;
+  const sleeveWallY = STAIR.eye * 0.5 + 0.25;
+  const sleeveMidZ = -sleeveLen * 0.5;
+  // Slight inward inset so we never share a plane with shaft side walls.
+  const sleeveX = halfW - 0.04;
+  // Keep the left sleeve face flush with the bay edge (not half-thickness into it).
+  const openLeftFlush = v.x - (STAIR.flightW + 0.95) * 0.5;
+  const leftWallX = Math.min(
+    -sleeveX - STAIR.wallT * 0.5,
+    openLeftFlush - STAIR.wallT * 0.5,
+  );
+  tiledBox(sleeve, STAIR.wallT, sleeveH, sleeveLen - STAIR.wallT,
+    leftWallX, sleeveWallY, sleeveMidZ + STAIR.wallT * 0.5, voidMats.wall, 1.15);
+  tiledBox(sleeve, STAIR.wallT, sleeveH, sleeveLen - STAIR.wallT,
+    sleeveX + STAIR.wallT * 0.5, sleeveWallY, sleeveMidZ + STAIR.wallT * 0.5, voidMats.wallAlt, 1.15);
+  // Ceiling spans onto wall thickness so L seams don't open.
+  tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, 0.18, sleeveLen - STAIR.wallT,
+    0, sleeveWallY + sleeveH * 0.5 - 0.02, sleeveMidZ + STAIR.wallT * 0.5, voidMats.ceiling, 1.5);
+  tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, sleeveH, STAIR.wallT,
+    0, sleeveWallY, -sleeveLen + STAIR.wallT * 0.5, voidMats.wall, 1.15);
+  // World-space left corner seal (unpitched). The shaft side wall ends at
+  // −halfD while the sleeve is pitched — that join was the triangular void
+  // under the soffit on the left at the bay. Keep the seal fully behind the
+  // −Z end wall and flush with openLeft so no brick lip sits in the bay.
+  {
+    const openW = STAIR.flightW + 0.95;
+    const openLeft = v.x - openW * 0.5;
+    const zBack = -halfD - STAIR.wallT * 0.5;
+    const sealW = STAIR.wallT + 0.14;
+    const sealD = 1.35;
+    const sealH = 4.1;
+    const sealY = v.yTop + sealH * 0.42;
+    const sealZ = zBack - sealD * 0.5;
+    const sealX = openLeft - sealW * 0.5;
+    tiledBox(voidGroup, sealW, sealH, sealD,
+      sealX, sealY, sealZ, voidMats.wall, 1.15);
+    // Soffit return only over the seal — not into the opening.
+    const soffitW = 0.5;
+    tiledBox(voidGroup, soffitW, 0.16, sealD,
+      openLeft - soffitW * 0.5, v.yTop + 3.15, sealZ, voidMats.ceiling, 1.5);
+  }
+
+  const sleeveLightCount = 16;
+  for (let i = 0; i < sleeveLightCount; i += 1) {
+    const u = (i + 0.5) / sleeveLightCount;
+    // Skip the first fraction so no lamp sits in the aperture / overlap zone.
+    const localZ = -0.8 - u * (sleeveLen - 1.6);
+    box(sleeve, 0.5, 0.04, 0.18, 0, sleeveWallY + sleeveH * 0.38, localZ, voidMats.fixture);
+    const lamp = new THREE.PointLight(0xb8c4b8, 0.55, 9, 2);
+    // Pull lamps off the ceiling/wall surfaces to avoid light acne.
+    lamp.position.set(0, sleeveWallY + sleeveH * 0.2, localZ);
+    lamp.userData.baseIntensity = 0.55;
+    sleeve.add(lamp);
+    lights.push(lamp);
+    voidLights.push(lamp);
+  }
+
+  // Enormous room — wide enough that the optional −X skyline sits inside it
+  // (a smaller box was occluding the buildings).
+  const roomW = 520;
+  const roomH = 160;
+  const roomD = 280;
+  const roomY = v.yTop - voidDrop * 0.45;
+  const roomZ = v.zStart - voidLen * 0.5;
+  const roomX = -90; // bias left so far buildings stay inside the volume
+  const room = box(voidGroup, roomW, roomH, roomD, roomX, roomY, roomZ, voidMats.room);
   room.visible = false;
-
-  // Soft distant volume cues (not creatures — just scale).
-  const hazeA = box(voidGroup, 40, 8, 40, -28, roomY - 10, roomZ - 20, voidMats.haze);
-  const hazeB = box(voidGroup, 55, 12, 35, 32, roomY + 8, roomZ + 15, voidMats.haze);
+  const hazeA = box(voidGroup, 48, 10, 48, -34, roomY - 12, roomZ - 24, voidMats.haze);
+  const hazeB = box(voidGroup, 60, 14, 40, 36, roomY + 10, roomZ + 18, voidMats.haze);
   hazeA.visible = false;
   hazeB.visible = false;
 
-  const voidAmbient = new THREE.HemisphereLight(0x2a3038, 0x050608, 0);
+  const voidAmbient = new THREE.HemisphereLight(0x3a4450, 0x080a0c, 0);
   voidGroup.add(voidAmbient);
   lights.push(voidAmbient);
 
-  // Ghost sleeve walls that peel away during the void approach.
-  const sleeve = new THREE.Group();
-  sleeve.name = 'Stairwells / peeling sleeve';
-  voidGroup.add(sleeve);
-  const sleeveBag = [];
-  const sleeveMat = material({
-    color: 0x5a635e, roughness: 0.96, transparent: true, opacity: 1, depthWrite: true,
-  }, sleeveBag);
-  const sleeveLen = Math.min(18, v.steps * v.stepRun * 0.35);
-  box(sleeve, STAIR.wallT, 3.2, sleeveLen,
-    -halfW - STAIR.wallT * 0.5, v.yTop - 1.2, v.zStart - sleeveLen * 0.5, sleeveMat);
-  box(sleeve, STAIR.wallT, 3.2, sleeveLen,
-    halfW + STAIR.wallT * 0.5, v.yTop - 1.2, v.zStart - sleeveLen * 0.5, sleeveMat);
-  box(sleeve, STAIR.wellW, 0.14, sleeveLen,
-    0, v.yTop + 1.55, v.zStart - sleeveLen * 0.5, sleeveMat);
+  // Optional far-left skyline — toggle STAIR_VOID_SKYLINE_ENABLED to remove.
+  const skyline = STAIR_VOID_SKYLINE_ENABLED
+    ? createVoidSkyline(voidGroup, {
+      originY: v.yTop,
+      originZ: v.zStart,
+      voidLen,
+      voidDrop,
+    })
+    : null;
+
+  // Void beat: ~first third walled, then blackout, then ~80m+ open walk.
+  // Absolute-ish: walls ~50m, dim/black ~15m, rest wall-less on the 150m run.
+  const WALLS_UNTIL = 0.33;
+  const DIM_UNTIL = 0.40;
+  const SWAP_AT = 0.43;
+  const ROOM_FROM = 0.46;
+  const FOG_BLACK = 0.55;
+  const BG_BLACK = 0x000000;
+  let skylineTime = 0;
 
   let voidAmount = 0;
 
   function applyVoidVisuals(amount, inVoid = false) {
     voidAmount = Math.max(0, Math.min(1, amount));
-    voidGroup.visible = inVoid || voidAmount > 0.01;
-    const shaftLit = 1 - voidAmount;
-    ambient.intensity = ambientBase * (0.15 + 0.85 * shaftLit);
+    voidGroup.visible = true;
+
+    let sleeveLit = 0.4;
+    let upperDim = 1;
+    let fogD = FOG_SHAFT;
+    let wallsGone = false;
+    let roomReveal = 0;
+    const bg = new THREE.Color(BG_SHAFT);
+
+    if (inVoid) {
+      if (voidAmount < WALLS_UNTIL) {
+        const t = voidAmount / WALLS_UNTIL;
+        sleeveLit = 0.95 - t * 0.12;
+        upperDim = 0.88 - t * 0.12;
+        fogD = FOG_SHAFT + (0.06 - FOG_SHAFT) * t;
+        bg.lerp(new THREE.Color(BG_VOID), t * 0.2);
+      } else if (voidAmount < DIM_UNTIL) {
+        // Drive everything to true black while walls are still present.
+        const t = (voidAmount - WALLS_UNTIL) / (DIM_UNTIL - WALLS_UNTIL);
+        const ease = t * t;
+        sleeveLit = Math.max(0, 0.82 * (1 - ease) ** 1.8);
+        upperDim = Math.max(0, 0.76 * (1 - ease));
+        fogD = 0.06 + (FOG_BLACK - 0.06) * ease;
+        bg.copy(new THREE.Color(BG_VOID)).lerp(new THREE.Color(BG_BLACK), ease);
+      } else if (voidAmount < ROOM_FROM) {
+        // Hold pitch black; swap geometry mid-hold so the cut is unseen.
+        sleeveLit = 0;
+        upperDim = 0;
+        fogD = FOG_BLACK;
+        bg.setHex(BG_BLACK);
+        wallsGone = voidAmount >= SWAP_AT;
+      } else {
+        // Slow lift out of black into the impossible room.
+        const t = (voidAmount - ROOM_FROM) / Math.max(1e-6, 1 - ROOM_FROM);
+        const ease = Math.min(1, t * t * (3 - 2 * t)); // smoothstep
+        sleeveLit = 0;
+        upperDim = 0;
+        wallsGone = true;
+        roomReveal = ease;
+        // Open fog so far-left window lights can read across the void.
+        fogD = FOG_BLACK + (0.0016 - FOG_BLACK) * ease;
+        bg.setHex(BG_BLACK).lerp(new THREE.Color(BG_VOID), ease * 0.85);
+      }
+    }
+
+    ambient.intensity = ambientBase * upperDim;
     for (const lamp of shaftLightRefs) {
-      lamp.intensity = (lamp.userData.baseIntensity || 0.7) * shaftLit;
+      lamp.intensity = (lamp.userData.baseIntensity || 0.7) * upperDim;
     }
-    for (const mat of shaftWallMats) {
-      mat.opacity = 0.2 + 0.8 * shaftLit;
-      mat.transparent = voidAmount > 0.02;
-      mat.depthWrite = voidAmount < 0.85;
+    for (const lamp of voidLights) {
+      lamp.intensity = (lamp.userData.baseIntensity || 0.7) * sleeveLit;
     }
-    // Hide shaft floors during deep void so the room reads as endless.
-    const hideShaft = voidAmount > 0.55;
+    voidMats.fixture.emissiveIntensity = 0.55 * sleeveLit;
+
+    sleeve.visible = !wallsGone;
+    room.visible = wallsGone;
+    hazeA.visible = wallsGone && roomReveal > 0.08;
+    hazeB.visible = wallsGone && roomReveal > 0.08;
+    voidMats.haze.opacity = wallsGone ? Math.min(0.36, roomReveal * 0.38) : 0;
+    voidAmbient.intensity = wallsGone ? roomReveal * 0.5 : 0;
+    skyline?.setReveal(wallsGone ? roomReveal : 0);
+
+    // Hide upper shaft once we're in the blackout so nothing floats in the dark.
+    const hideShaft = inVoid && voidAmount >= DIM_UNTIL;
     for (const g of floorGroups) g.visible = !hideShaft;
 
-    sleeveMat.opacity = Math.max(0, 1 - voidAmount * 1.35);
-    sleeve.visible = sleeveMat.opacity > 0.04;
-
-    const showRoom = voidAmount > 0.2;
-    room.visible = showRoom;
-    hazeA.visible = showRoom;
-    hazeB.visible = showRoom;
-    voidMats.haze.opacity = showRoom ? Math.min(0.35, (voidAmount - 0.2) * 0.5) : 0;
-    voidAmbient.intensity = showRoom ? 0.22 + voidAmount * 0.2 : 0;
-
-    const fogD = FOG_SHAFT + (FOG_VOID - FOG_SHAFT) * voidAmount;
-    const bg = new THREE.Color(BG_SHAFT).lerp(new THREE.Color(BG_VOID), voidAmount);
     scene.background.copy(bg);
     if (scene.fog) {
       scene.fog.color.copy(bg);
@@ -345,29 +606,29 @@ export function createStairwells(scene) {
   function update(_progress, state, dt = 1 / 60) {
     const inVoid = state?.phase === 'void';
     const targetVoid = inVoid ? (state.voidAmount || 0) : 0;
-    // Snap clears instantly; entering eases.
-    if (!inVoid && voidAmount > 0) applyVoidVisuals(0, false);
+    if (!inVoid) applyVoidVisuals(0, false);
     else {
-      const next = inVoid
-        ? voidAmount + (targetVoid - voidAmount) * Math.min(1, dt * 2.8)
-        : 0;
-      applyVoidVisuals(next, inVoid);
+      const next = voidAmount + (targetVoid - voidAmount) * Math.min(1, dt * 3.2);
+      applyVoidVisuals(next, true);
     }
+
+    skylineTime += dt;
+    skyline?.update(dt, skylineTime);
 
     const wantOpen = state?.phase === 'exit' ? 1 : 0;
     exitOpen += (wantOpen - exitOpen) * Math.min(1, dt * 2.4);
-    if (exitDoor) {
-      exitDoor.rotation.y = -exitOpen * 1.35;
-    }
+    if (exitDoor) exitDoor.rotation.y = -exitOpen * 1.35;
     if (exitDoorDark) exitDoorDark.visible = exitOpen > 0.15;
   }
 
   function reset() {
-    applyVoidVisuals(0);
     exitOpen = 0;
+    skylineTime = 0;
     if (exitDoor) exitDoor.rotation.y = 0;
     if (exitDoorDark) exitDoorDark.visible = false;
     for (const g of floorGroups) g.visible = true;
+    skyline?.setReveal(0);
+    applyVoidVisuals(0, false);
     scene.background.setHex(BG_SHAFT);
     if (scene.fog) {
       scene.fog.color.setHex(BG_SHAFT);
@@ -376,8 +637,11 @@ export function createStairwells(scene) {
   }
 
   function dispose() {
+    skyline?.dispose();
     scene.remove(world);
     cube.dispose();
+    for (const g of ownedGeometries) g.dispose();
+    for (const t of ownedTextures) t.dispose();
     for (const m of ownedMaterials) m.dispose();
     for (const light of lights) light.dispose?.();
   }

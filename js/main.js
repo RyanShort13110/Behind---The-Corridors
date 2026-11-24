@@ -3,7 +3,7 @@ import { createCorridor } from './scene.js?v=cam-17';
 import { createElevator } from './elevator.js';
 import { createSceneDirector } from './scene-manager.js';
 import { createStory, START_PROGRESS, DEAD_END_PROGRESS, corridorMinProgress } from './story.js?v=cascade-early-1';
-import { createAudioDirector } from './audio.js?v=stairs-void-1';
+import { createAudioDirector } from './audio.js?v=stairs-void-10';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
@@ -60,13 +60,14 @@ import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
 import {
   createStairwellsStory,
   stairwellsNarrative,
-} from './levels/stairwells-story.js';
+} from './levels/stairwells-story.js?v=stairs-void-10';
 import {
   stairwellsCameraPose,
   STAIRWELLS_METERS,
   STAIRWELLS_START,
   STAIRWELLS_MARKS,
-} from './levels/stairwells-route.js?v=stairs-void-1';
+  STAIRWELLS_WALK_SPEED,
+} from './levels/stairwells-route.js?v=stairs-void-10';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -290,12 +291,16 @@ function chapterMeters() {
   return UNSEEN_METERS;
 }
 
+function chapterWalkSpeed() {
+  return isStairwells() ? STAIRWELLS_WALK_SPEED : MAX_WALK_SPEED;
+}
+
 function setProgress(requested) {
   const raw = clamp(requested);
   const { min, max } = progressBounds();
   const bounded = THREE.MathUtils.clamp(raw, min, max);
   const meters = chapterMeters();
-  const lead = MAX_WALK_SPEED * SCROLL_LEAD_SECONDS / meters;
+  const lead = chapterWalkSpeed() * SCROLL_LEAD_SECONDS / meters;
   const limited = THREE.MathUtils.clamp(
     bounded,
     clamp(displayed - lead),
@@ -2057,7 +2062,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-void-1');
+      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-void-15');
       stairwellsStory.reset();
       next.add('stairwells', createStairwells(scene));
     } else {
@@ -2128,8 +2133,9 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     }
     if (target === 'stairwells') {
       progress = displayed = 0;
-      look?.setMaxYaw(1.15);
-      camera.far = 160;
+      look?.setMaxYaw(1.45); // look left far enough to catch the void skyline
+      // Far enough to catch the optional distant void skyline (−X).
+      camera.far = 480;
       camera.updateProjectionMatrix();
       const pose = stairwellsCameraPose(0);
       camera.rotation.order = 'YXZ';
@@ -2553,10 +2559,11 @@ function frame(now) {
 
   if (started && !transitioning && !gameOverActive && !(ended && chapterId === 'office')) {
     const meters = chapterMeters();
+    const walkSpeed = chapterWalkSpeed();
     // Apply held walk keys before reading scroll so look keys can't cancel motion.
     const walkDir = (walkKeys.forward ? 1 : 0) + (walkKeys.back ? -1 : 0);
     if (walkDir !== 0 && !interaction?.isOpen && !keypad?.isOpen) {
-      const keyStep = MAX_WALK_SPEED * dt / meters;
+      const keyStep = walkSpeed * dt / meters;
       const next = progress + walkDir * keyStep;
       window.scrollTo({ top: scrollYFor(THREE.MathUtils.clamp(next, 0, 1)), behavior: 'instant' });
     }
@@ -2571,7 +2578,7 @@ function frame(now) {
               : isMemoryChapter() ? MEMORY_STAGING_START_Z
                 : isHospitalReverse() ? HOSPITAL_REVERSE_START_Z
                   : isStairwells() ? STAIRWELLS_START.z : UNSEEN_START_Z;
-    const step = MAX_WALK_SPEED * dt / meters;
+    const step = walkSpeed * dt / meters;
     displayed = clamp(displayed + THREE.MathUtils.clamp(eased, -step, step));
     const bounds = progressBounds();
     displayed = THREE.MathUtils.clamp(displayed, bounds.min, bounds.max);

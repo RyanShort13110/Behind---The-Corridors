@@ -18,11 +18,17 @@ export const STAIR = Object.freeze({
   stepsPerFlight: 10,
   railH: 0.92,
   wallT: 0.18,
-  /** Extra straight steps in the anomalous flight (visual + rail). */
-  voidSteps: 72,
+  /**
+   * Anomalous straight flight: walls for the first stretch, then a long
+   * wall-less descent inside a vast dark room (~150m total run).
+   */
+  voidLengthM: 150,
   voidStepRun: 0.32,
   voidStepRise: 0.175,
 });
+
+/** Step count for the anomalous straight flight. */
+export const STAIR_VOID_STEPS = Math.round(STAIR.voidLengthM / STAIR.voidStepRun);
 
 /** Horizontal run of one half-flight. */
 export const STAIR_FLIGHT_RUN = STAIR.wellD - 2 * STAIR.landingD;
@@ -85,6 +91,7 @@ export function createStairwellsStory() {
     } else if (p < marks.snapAt) {
       state.phase = 'void';
       state.enteredVoid = true;
+      // 0→1 across the straight flight. Room reveal waits until nearly black.
       const u = (p - marks.voidStart) / Math.max(1e-6, marks.snapAt - marks.voidStart);
       state.voidAmount = Math.max(0, Math.min(1, u));
       if (p >= marks.voidDeep) state.voidDeep = true;
@@ -124,10 +131,10 @@ export function stairwellsNarrative(progress, state) {
   let line = 'Concrete stairs. The air cools as you descend.';
   if (progress < 0.04) line = 'A fire stair. Only one way: down.';
   else if (state.phase === 'void') {
-    if (state.voidAmount < 0.25) line = 'The flight keeps going. No landing.';
-    else if (state.voidAmount < 0.55) line = 'The walls fall away into dark.';
-    else if (state.voidAmount < 0.85) line = 'A room without edges. Something moves the air.';
-    else line = 'Too big. Far too big.';
+    if (state.voidAmount < 0.33) line = 'The flight keeps going. No landing.';
+    else if (state.voidAmount < 0.40) line = 'The lights thin out. Still only stairs.';
+    else if (state.voidAmount < 0.48) line = '…';
+    else line = 'The walls are gone. The dark has a size.';
   } else if (state.phase === 'return') {
     line = state.onFinalFlight
       ? 'The shaft again. As if nothing happened.'

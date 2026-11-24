@@ -1,14 +1,17 @@
 /**
  * Descending switchback rail for The Stairwells.
  *
- * Floors 08→02 switchback as usual. On the final mid-landing the flight
- * refuses to turn and runs straight into a void. A progress snap returns
- * you to that mid-landing; then the real right turn, last flight, landing,
- * and exit through the door.
+ * Beat:
+ *  1. Floors 08→02 — normal switchbacks
+ *  2. Last west flight to the mid landing — then NO turn
+ *  3. Straight endless descent into a vast dark room
+ *  4. Hard snap back to that mid landing
+ *  5. Right turn → final flight → floor 01 → exit door
  */
 import {
   STAIR,
   STAIR_FLIGHT_RUN,
+  STAIR_VOID_STEPS,
   stairFloorY,
 } from './stairwells-story.js';
 
@@ -22,6 +25,14 @@ const Z_FAR = -(STAIR.wellD * 0.5 - STAIR.landingD * 0.45);
 const Z_FLIGHT_NEAR = STAIR.wellD * 0.5 - STAIR.landingD;
 const Z_FLIGHT_FAR = -(STAIR.wellD * 0.5 - STAIR.landingD);
 const STAIR_PITCH = -0.24;
+
+/**
+ * Path length uses XZ only so 5.5 m/s matches corridor ground speed.
+ * (Including Y made flights feel like a sprint.)
+ */
+function segmentLength(a, b) {
+  return Math.hypot(b.x - a.x, b.z - a.z);
+}
 
 /**
  * @typedef {{ x:number, y:number, z:number, yaw:number, pitch:number, snap?: boolean }} PathPoint
@@ -40,8 +51,7 @@ function buildPath() {
   push(0, stairFloorY(top) + STAIR.eye, Z_NEAR + 0.55, yaw, 0);
   push(WEST_X, stairFloorY(top) + STAIR.eye, Z_NEAR, yaw, 0);
 
-  // Full switchbacks for floors 08 → 03 (indices top → 2), landing turns included.
-  // The transition from floor index 1 (label 02) is special — handled below.
+  // Switchbacks for floors 08 → 03 (arrive on floor 02 ready for the last west flight).
   for (let floor = top; floor >= 2; floor -= 1) {
     const yHi = stairFloorY(floor) + STAIR.eye;
     const yMid = stairFloorY(floor) - STAIR.floorHeight * 0.5 + STAIR.eye;
@@ -63,22 +73,15 @@ function buildPath() {
     push(EAST_X, yHalfE, zHalf, yaw, STAIR_PITCH);
     push(EAST_X, yLo, Z_FLIGHT_NEAR - 0.05, yaw, 0);
 
-    if (floor > 2) {
-      push(EAST_X, yLo, Z_NEAR, yaw, 0);
-      push(0, yLo, Z_NEAR, yaw - Math.PI * 0.5, 0);
-      yaw -= Math.PI;
-      push(WEST_X, yLo, Z_NEAR, yaw, 0);
-    } else {
-      // Arrive on floor 02 landing facing the last west flight.
-      push(EAST_X, yLo, Z_NEAR, yaw, 0);
-      push(0, yLo, Z_NEAR, yaw - Math.PI * 0.5, 0);
-      yaw -= Math.PI;
-      push(WEST_X, yLo, Z_NEAR, yaw, 0);
-    }
+    // Always turn on the lower landing so we face the next west flight.
+    push(EAST_X, yLo, Z_NEAR, yaw, 0);
+    push(0, yLo, Z_NEAR, yaw - Math.PI * 0.5, 0);
+    yaw -= Math.PI;
+    push(WEST_X, yLo, Z_NEAR, yaw, 0);
   }
 
   // —— Final transition (02 → 01): west flight, then the anomaly ——
-  const lastFrom = 1; // floor index label 02
+  const lastFrom = 1;
   const yHi = stairFloorY(lastFrom) + STAIR.eye;
   const yMid = stairFloorY(lastFrom) - STAIR.floorHeight * 0.5 + STAIR.eye;
   const yLo = stairFloorY(0) + STAIR.eye;
@@ -89,32 +92,43 @@ function buildPath() {
   push(WEST_X, yHalfW, zHalf, yaw, STAIR_PITCH);
   push(WEST_X, yMid, Z_FLIGHT_FAR + 0.05, yaw, 0);
 
-  // Mark: void begins as we refuse the turn and keep going −Z.
+  // Arrive at mid landing — and keep going straight instead of turning.
   const voidStartIndex = points.length;
   push(WEST_X, yMid, Z_FAR, yaw, 0);
 
-  // Endless straight flight: no turn, only down and deeper −Z.
-  const voidRun = STAIR.voidSteps * STAIR.voidStepRun;
-  const voidDrop = STAIR.voidSteps * STAIR.voidStepRise;
+  const voidRun = STAIR.voidLengthM;
+  const voidDrop = STAIR_VOID_STEPS * STAIR.voidStepRise;
   const voidZEnd = Z_FAR - voidRun;
   const voidYEnd = yMid - voidDrop;
-  const voidDeepIndexHint = points.length;
-  push(WEST_X, yMid - voidDrop * 0.35, Z_FAR - voidRun * 0.35, yaw, STAIR_PITCH);
-  push(WEST_X, yMid - voidDrop * 0.7, Z_FAR - voidRun * 0.7, yaw, STAIR_PITCH * 1.05);
-  push(WEST_X, voidYEnd, voidZEnd, yaw, STAIR_PITCH * 0.85);
+
+  // Dense samples along the anomalous flight (walled → room).
+  const voidSamples = 20;
+  let voidDeepIndex = voidStartIndex;
+  for (let i = 1; i <= voidSamples; i += 1) {
+    const u = i / voidSamples;
+    push(
+      WEST_X,
+      yMid - voidDrop * u,
+      Z_FAR - voidRun * u,
+      yaw,
+      STAIR_PITCH * (0.75 + 0.3 * Math.min(1, u * 1.2)),
+    );
+    // Room / wall-less zone (most of the 150m run is open).
+    if (i === Math.floor(voidSamples * 0.42)) voidDeepIndex = points.length - 1;
+  }
 
   // Sudden snap back to the real mid-landing (no blend).
-  const snapIndex = points.length;
+  const snapFromIndex = points.length;
   push(WEST_X, voidYEnd, voidZEnd, yaw, STAIR_PITCH * 0.85);
+  const snapToIndex = points.length;
   push(WEST_X, yMid, Z_FAR, yaw, 0, { snap: true });
 
-  // Now the turn that should have been there.
+  // The turn that should have been there all along.
   push(WEST_X, yMid, Z_FAR, yaw, 0);
   push(0, yMid, Z_FAR, yaw - Math.PI * 0.5, 0);
   yaw -= Math.PI;
   push(EAST_X, yMid, Z_FAR, yaw, 0);
 
-  // Final east flight → floor 01 landing.
   const finalStartIndex = points.length;
   const yHalfE = (yMid + yLo) * 0.5;
   push(EAST_X, yMid, Z_FLIGHT_FAR + 0.05, yaw, 0);
@@ -122,26 +136,23 @@ function buildPath() {
   push(EAST_X, yLo, Z_FLIGHT_NEAR - 0.05, yaw, 0);
   push(0, yLo, Z_NEAR, yaw, 0);
 
-  // Exit through the +Z door.
+  // Exit through the +Z door on floor 01.
   const exitStartIndex = points.length;
-  const doorZ = STAIR.wellD * 0.5 + 0.35;
+  const doorZ = STAIR.wellD * 0.5 + 0.4;
   push(0, yLo, doorZ, yaw, 0);
-  push(0, yLo, doorZ + 2.4, yaw, 0);
+  push(0, yLo, doorZ + 2.6, yaw, 0);
   const exitEndIndex = points.length - 1;
 
-  // Arc-length (snap segment counts as ~0 so the cut is instant).
   const dist = [0];
   for (let i = 1; i < points.length; i += 1) {
     if (points[i].snap) {
-      dist.push(dist[i - 1] + 0.001);
+      dist.push(dist[i - 1] + 0.0005);
       continue;
     }
-    const a = points[i - 1];
-    const b = points[i];
-    dist.push(dist[i - 1] + Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z));
+    dist.push(dist[i - 1] + segmentLength(points[i - 1], points[i]));
   }
 
-  const meters = dist[dist.length - 1];
+  const meters = Math.max(1, dist[dist.length - 1]);
   const at = (index) => dist[Math.max(0, Math.min(dist.length - 1, index))] / meters;
 
   return {
@@ -150,20 +161,25 @@ function buildPath() {
     meters,
     marks: {
       voidStart: at(voidStartIndex),
-      voidDeep: at(voidDeepIndexHint + 1),
-      snapAt: at(snapIndex + 1),
+      voidDeep: at(voidDeepIndex),
+      snapAt: at(snapToIndex),
       finalStart: at(finalStartIndex),
       exitStart: at(exitStartIndex),
       exitEnd: at(exitEndIndex),
     },
     void: {
       x: WEST_X,
+      /** Slab height under the mid landing (not eye height). */
       yTop: yMid - STAIR.eye,
       zStart: Z_FAR,
       stepRun: STAIR.voidStepRun,
       stepRise: STAIR.voidStepRise,
-      steps: STAIR.voidSteps,
+      steps: STAIR_VOID_STEPS,
+      lengthM: voidRun,
+      dropM: voidDrop,
+      yaw,
     },
+    snapFromIndex,
   };
 }
 
@@ -171,9 +187,14 @@ const PATH = buildPath();
 
 export const STAIRWELLS_METERS = PATH.meters;
 export const STAIRWELLS_START = PATH.points[0];
-/** Progress bookmarks for story / visuals / audio. */
 export const STAIRWELLS_MARKS = PATH.marks;
 export const STAIR_VOID_LAYOUT = PATH.void;
+
+/**
+ * Stairwells are slower than flat halls (~half of 5.5) — careful descent.
+ * Used by main.js instead of the global 5.5 m/s cap.
+ */
+export const STAIRWELLS_WALK_SPEED = 2.7;
 
 export function stairwellsCameraPose(progress) {
   const p = clamp01(progress);
@@ -189,7 +210,6 @@ export function stairwellsCameraPose(progress) {
 
   const a = points[i0];
   const b = points[i1];
-  // Hard cut across the snap segment — no interpolated ghost pose.
   if (b.snap) {
     const choose = t < 0.5 ? a : b;
     return {

@@ -96,11 +96,15 @@ export function createAudioDirector() {
   // Lazy initialization avoids audio work in chapters where it is not used.
   let nightAirSource = null, nightAirGain = null, nightAirFilter = null;
   let nightDroneSource = null, nightDroneGain = null;
-  // Stairwells void: ultra-low presence + slow air, lazy-init.
+  // Stairwells void: ultra-low presence + room bed (wind / rustle / distant metal).
   let stairsVoidReady = false;
   let stairsSub = null, stairsSubGain = null;
   let stairsAir = null, stairsAirGain = null, stairsAirFilter = null;
   let stairsRumble = null, stairsRumbleGain = null;
+  let stairsWind = null, stairsWindGain = null, stairsWindFilter = null;
+  let stairsRustle = null, stairsRustleGain = null, stairsRustleFilter = null;
+  let stairsRustleLfo = null, stairsRustleLfoGain = null;
+  let stairsMetalNext = 0;
   let unseenNoiseGain = null, unseenToneGain = null, unseenPanner = null;
   let unseenNoise = null, unseenTone = null, unseenFilter = null;
   let unseenCueBus = null, unseenFinalBus = null;
@@ -1717,6 +1721,9 @@ export function createAudioDirector() {
     setGain(stairsSubGain, 0, 0.05);
     setGain(stairsAirGain, 0, 0.05);
     setGain(stairsRumbleGain, 0, 0.05);
+    setGain(stairsWindGain, 0, 0.05);
+    setGain(stairsRustleGain, 0, 0.05);
+    stairsMetalNext = 0;
     setGain(unseenNoiseGain, 0, 0.05);
     setGain(unseenToneGain, 0, 0.05);
     setGain(unseenRoarBus, 0, 0.03);
@@ -1937,6 +1944,21 @@ export function createAudioDirector() {
     setGain(stairsSubGain, 0, 0.1);
     setGain(stairsAirGain, 0, 0.1);
     setGain(stairsRumbleGain, 0, 0.1);
+    setGain(stairsWindGain, 0, 0.1);
+    setGain(stairsRustleGain, 0, 0.1);
+    stairsMetalNext = 0;
+  }
+
+  function makeBrownNoiseBuffer(seconds = 3.2) {
+    const count = Math.ceil(ctx.sampleRate * seconds);
+    const buffer = ctx.createBuffer(1, count, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < count; i += 1) {
+      last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
+      data[i] = last;
+    }
+    return buffer;
   }
 
   function ensureStairwellsVoidSound() {
@@ -1963,16 +1985,9 @@ export function createAudioDirector() {
     stairsRumbleGain.gain.value = 0;
     stairsRumble.connect(rumbleFilter).connect(stairsRumbleGain).connect(ctx.destination);
 
-    const count = Math.ceil(ctx.sampleRate * 3.2);
-    const buffer = ctx.createBuffer(1, count, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < count; i += 1) {
-      last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
-      data[i] = last;
-    }
+    const airBuf = makeBrownNoiseBuffer(3.2);
     stairsAir = ctx.createBufferSource();
-    stairsAir.buffer = buffer;
+    stairsAir.buffer = airBuf;
     stairsAir.loop = true;
     stairsAirFilter = ctx.createBiquadFilter();
     stairsAirFilter.type = 'lowpass';
@@ -1982,9 +1997,130 @@ export function createAudioDirector() {
     stairsAirGain.gain.value = 0;
     stairsAir.connect(stairsAirFilter).connect(stairsAirGain).connect(ctx.destination);
 
+    // Faint open-space breeze once the shaft opens into the room.
+    const windBuf = makeBrownNoiseBuffer(4.5);
+    stairsWind = ctx.createBufferSource();
+    stairsWind.buffer = windBuf;
+    stairsWind.loop = true;
+    stairsWindFilter = ctx.createBiquadFilter();
+    stairsWindFilter.type = 'bandpass';
+    stairsWindFilter.frequency.value = 520;
+    stairsWindFilter.Q.value = 0.55;
+    const windHigh = ctx.createBiquadFilter();
+    windHigh.type = 'highpass';
+    windHigh.frequency.value = 180;
+    stairsWindGain = ctx.createGain();
+    stairsWindGain.gain.value = 0;
+    stairsWind.connect(stairsWindFilter).connect(windHigh).connect(stairsWindGain).connect(ctx.destination);
+
+    // Slow, deep rustle — something large shifting far out in the dark.
+    const rustleBuf = makeBrownNoiseBuffer(5.5);
+    stairsRustle = ctx.createBufferSource();
+    stairsRustle.buffer = rustleBuf;
+    stairsRustle.loop = true;
+    stairsRustleFilter = ctx.createBiquadFilter();
+    stairsRustleFilter.type = 'bandpass';
+    stairsRustleFilter.frequency.value = 95;
+    stairsRustleFilter.Q.value = 0.7;
+    stairsRustleGain = ctx.createGain();
+    stairsRustleGain.gain.value = 0;
+    // LFO gently breathes the rustle so it never feels looped-flat.
+    stairsRustleLfo = ctx.createOscillator();
+    stairsRustleLfo.type = 'sine';
+    stairsRustleLfo.frequency.value = 0.07;
+    stairsRustleLfoGain = ctx.createGain();
+    stairsRustleLfoGain.gain.value = 0;
+    stairsRustle.connect(stairsRustleFilter).connect(stairsRustleGain).connect(ctx.destination);
+    stairsRustleLfo.connect(stairsRustleLfoGain).connect(stairsRustleGain.gain);
+
     stairsSub.start();
     stairsRumble.start();
     stairsAir.start();
+    stairsWind.start();
+    stairsRustle.start();
+    stairsRustleLfo.start();
+    stairsMetalNext = ctx.currentTime + 2.5;
+  }
+
+  /** Far-off pipe / beam collision — quiet, heavy, heavily muffled. */
+  function playStairsDistantMetal() {
+    if (!enabled || !ctx) return;
+    const t = ctx.currentTime;
+    const pan = (Math.random() * 2 - 1) * 0.85;
+    const spatial = ctx.createStereoPanner?.();
+    const master = ctx.createGain();
+    master.gain.value = 0;
+    if (spatial) {
+      spatial.pan.value = pan;
+      master.connect(spatial).connect(ctx.destination);
+    } else {
+      master.connect(ctx.destination);
+    }
+
+    // Body thud of mass hitting mass.
+    const thud = ctx.createOscillator();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(48 + Math.random() * 18, t);
+    thud.frequency.exponentialRampToValueAtTime(22, t + 0.55);
+    const thudAmp = ctx.createGain();
+    thudAmp.gain.setValueAtTime(0.0001, t);
+    thudAmp.gain.exponentialRampToValueAtTime(0.045, t + 0.012);
+    thudAmp.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+    const thudLp = ctx.createBiquadFilter();
+    thudLp.type = 'lowpass';
+    thudLp.frequency.value = 140;
+    thud.connect(thudLp).connect(thudAmp).connect(master);
+    thud.start(t);
+    thud.stop(t + 0.75);
+
+    // Metallic ring — filtered noise, very distant.
+    const nLen = Math.ceil(ctx.sampleRate * 1.1);
+    const nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
+    const nData = nBuf.getChannelData(0);
+    for (let i = 0; i < nLen; i += 1) {
+      const env = Math.exp(-i / ctx.sampleRate * 2.4);
+      nData[i] = (Math.random() * 2 - 1) * env;
+    }
+    const clang = ctx.createBufferSource();
+    clang.buffer = nBuf;
+    const clangBp = ctx.createBiquadFilter();
+    clangBp.type = 'bandpass';
+    clangBp.frequency.value = 220 + Math.random() * 160;
+    clangBp.Q.value = 3.5;
+    const clangLp = ctx.createBiquadFilter();
+    clangLp.type = 'lowpass';
+    clangLp.frequency.value = 900;
+    const clangAmp = ctx.createGain();
+    clangAmp.gain.setValueAtTime(0.0001, t);
+    clangAmp.gain.exponentialRampToValueAtTime(0.028, t + 0.008);
+    clangAmp.gain.exponentialRampToValueAtTime(0.0001, t + 1.05);
+    clang.connect(clangBp).connect(clangLp).connect(clangAmp).connect(master);
+    clang.start(t);
+    clang.stop(t + 1.1);
+
+    // Occasional second hit a beat later (two beams settling).
+    if (Math.random() < 0.45) {
+      const t2 = t + 0.18 + Math.random() * 0.35;
+      const thud2 = ctx.createOscillator();
+      thud2.type = 'triangle';
+      thud2.frequency.setValueAtTime(36 + Math.random() * 12, t2);
+      thud2.frequency.exponentialRampToValueAtTime(18, t2 + 0.4);
+      const a2 = ctx.createGain();
+      a2.gain.setValueAtTime(0.0001, t2);
+      a2.gain.exponentialRampToValueAtTime(0.022, t2 + 0.01);
+      a2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.5);
+      const lp2 = ctx.createBiquadFilter();
+      lp2.type = 'lowpass';
+      lp2.frequency.value = 110;
+      thud2.connect(lp2).connect(a2).connect(master);
+      thud2.start(t2);
+      thud2.stop(t2 + 0.55);
+    }
+
+    master.gain.setValueAtTime(0.0001, t);
+    master.gain.linearRampToValueAtTime(0.55, t + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    markSfx(1.2);
   }
 
   function enterStairwells() {
@@ -2002,6 +2138,9 @@ export function createAudioDirector() {
     setGain(stairsSubGain, 0, 0.05);
     setGain(stairsAirGain, 0, 0.05);
     setGain(stairsRumbleGain, 0, 0.05);
+    setGain(stairsWindGain, 0, 0.05);
+    setGain(stairsRustleGain, 0, 0.05);
+    stairsMetalNext = 0;
   }
 
   function updateStairwells(progress, state) {
@@ -2010,6 +2149,8 @@ export function createAudioDirector() {
       setGain(stairsSubGain, 0, 0.08);
       setGain(stairsAirGain, 0, 0.08);
       setGain(stairsRumbleGain, 0, 0.08);
+      setGain(stairsWindGain, 0, 0.08);
+      setGain(stairsRustleGain, 0, 0.08);
       return;
     }
     const inVoid = state?.phase === 'void';
@@ -2021,20 +2162,50 @@ export function createAudioDirector() {
     setGain(musicGain, inVoid ? 0.01 : 0.03, 0.6);
 
     const deep = Math.max(0, (amount - 0.2) / 0.8);
+    // Room reveal matches visuals (ambient lift after blackout ~0.46).
+    const room = Math.max(0, Math.min(1, (amount - 0.46) / 0.35));
+
     setGain(stairsSubGain, deep * 0.085, 0.5);
     setGain(stairsRumbleGain, deep * 0.028 * (0.85 + 0.15 * Math.sin((ctx.currentTime || 0) * 0.17)), 0.4);
     setGain(stairsAirGain, amount * 0.022, 0.45);
+
+    // Huge-room bed: faint breeze + deep rustle swell after the blackout.
+    setGain(stairsWindGain, room * 0.016, 0.9);
+    setGain(stairsRustleGain, room * 0.012, 1.1);
+    if (stairsRustleLfoGain) {
+      stairsRustleLfoGain.gain.setTargetAtTime(room * 0.006, ctx.currentTime, 1.2);
+    }
+    if (stairsWindFilter && room > 0.01) {
+      stairsWindFilter.frequency.setTargetAtTime(420 + room * 220, ctx.currentTime, 1.5);
+    }
+    if (stairsRustleFilter && room > 0.01) {
+      stairsRustleFilter.frequency.setTargetAtTime(70 + room * 50, ctx.currentTime, 1.8);
+    }
+
     if (stairsSub && amount > 0) {
       stairsSub.frequency.setTargetAtTime(26 + deep * 6, ctx.currentTime, 0.8);
     }
     if (stairsRumble && amount > 0) {
       stairsRumble.frequency.setTargetAtTime(38 + deep * 10, ctx.currentTime, 0.9);
     }
+
+    // Sparse distant metal collisions while inside the room.
+    if (room > 0.25 && ctx.currentTime >= stairsMetalNext) {
+      playStairsDistantMetal();
+      stairsMetalNext = ctx.currentTime + 4.5 + Math.random() * 7.5;
+    }
+
     // Hard cut on snap / leave.
     if (!inVoid && amount < 0.01) {
       setGain(stairsSubGain, 0, 0.08);
       setGain(stairsRumbleGain, 0, 0.08);
       setGain(stairsAirGain, 0, 0.12);
+      setGain(stairsWindGain, 0, 0.15);
+      setGain(stairsRustleGain, 0, 0.15);
+      if (stairsRustleLfoGain) {
+        stairsRustleLfoGain.gain.setTargetAtTime(0, ctx.currentTime, 0.2);
+      }
+      stairsMetalNext = 0;
     }
   }
 
