@@ -26,21 +26,24 @@ export function createVoidSkyline(parent, layout) {
 
   const ownedMats = [];
   const ownedGeos = [];
-  /** @type {{ mesh: THREE.Mesh, base: number, phase: number, speed: number, mode: string }[]} */
+  /** @type {{ mesh: THREE.Mesh, base: number, phase: number, speed: number, mode: string, delay: number }[]} */
   const windowLights = [];
 
   // Unlit hulls — void ambient is too weak for MeshStandard at this range.
   const hullMat = new THREE.MeshBasicMaterial({
     color: 0x04060a,
     fog: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
   });
   ownedMats.push(hullMat);
 
-  const makeWindowMat = (hex, intensity) => {
+  const makeWindowMat = (hex) => {
     const m = new THREE.MeshBasicMaterial({
       color: hex,
       transparent: true,
-      opacity: intensity,
+      opacity: 0,
       depthWrite: false,
       // Survive FogExp2 so distant lights still read when you look left.
       fog: false,
@@ -54,24 +57,24 @@ export function createVoidSkyline(parent, layout) {
   const winGeo = new THREE.PlaneGeometry(1, 1);
   ownedGeos.push(winGeo);
 
-  // Far left, but still inside the oversized void room volume.
-  const clusterX = -155;
+  // Far left — smaller massing so they read as distant city lights.
+  const clusterX = -310;
   const clusterZ0 = layout.originZ - layout.voidLen * 0.45;
   const clusterY0 = layout.originY - layout.voidDrop * 0.55;
 
   const buildings = [
-    { x: 0, z: 0, w: 32, d: 24, h: 110 },
-    { x: -38, z: 60, w: 20, d: 20, h: 78 },
-    { x: 52, z: -45, w: 38, d: 18, h: 140 },
-    { x: -72, z: -85, w: 24, d: 28, h: 62 },
-    { x: 95, z: 35, w: 18, d: 44, h: 98 },
-    { x: -28, z: 120, w: 44, d: 22, h: 72 },
-    { x: 58, z: 100, w: 16, d: 16, h: 155 },
-    { x: -100, z: 25, w: 34, d: 20, h: 54 },
-    { x: 22, z: -130, w: 26, d: 32, h: 88 },
-    { x: -55, z: -160, w: 40, d: 24, h: 60 },
-    { x: 110, z: -70, w: 22, d: 30, h: 70 },
-    { x: -15, z: 170, w: 28, d: 18, h: 95 },
+    { x: 0, z: 0, w: 14, d: 10, h: 48 },
+    { x: -22, z: 34, w: 9, d: 9, h: 34 },
+    { x: 28, z: -26, w: 16, d: 8, h: 58 },
+    { x: -40, z: -48, w: 11, d: 12, h: 28 },
+    { x: 52, z: 20, w: 8, d: 18, h: 42 },
+    { x: -16, z: 68, w: 18, d: 10, h: 32 },
+    { x: 32, z: 56, w: 7, d: 7, h: 66 },
+    { x: -56, z: 14, w: 15, d: 9, h: 24 },
+    { x: 12, z: -72, w: 11, d: 14, h: 38 },
+    { x: -30, z: -88, w: 17, d: 10, h: 26 },
+    { x: 60, z: -40, w: 10, d: 13, h: 30 },
+    { x: -8, z: 92, w: 12, d: 8, h: 40 },
   ];
 
   const winColors = [0xfff0c8, 0xe8f0ff, 0xffe0a8, 0xd0e0ff, 0xffd090];
@@ -87,33 +90,31 @@ export function createVoidSkyline(parent, layout) {
     hull.scale.set(spec.w, spec.h, spec.d);
     group.add(hull);
 
-    const cols = Math.max(4, Math.floor(spec.w / 4.8));
-    const rows = Math.max(5, Math.floor(spec.h / 5.5));
-    const faceX = bx + spec.w * 0.5 + 0.5;
+    const cols = Math.max(3, Math.floor(spec.w / 3.2));
+    const rows = Math.max(4, Math.floor(spec.h / 4.2));
+    const faceX = bx + spec.w * 0.5 + 0.35;
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
-        // Slightly denser than before so the cluster reads at range.
-        if (Math.random() > 0.48) continue;
-        const wy = clusterY0 + 4 + (row + 0.5) * (spec.h - 8) / rows;
+        if (Math.random() > 0.42) continue;
+        const wy = clusterY0 + 2.2 + (row + 0.5) * (spec.h - 4.5) / rows;
         const wz = bz - spec.d * 0.42 + (col + 0.5) * (spec.d * 0.84) / cols;
-        const mat = makeWindowMat(
-          winColors[(b + row + col) % winColors.length],
-          0.55 + Math.random() * 0.4,
-        );
+        const mat = makeWindowMat(winColors[(b + row + col) % winColors.length]);
         const win = new THREE.Mesh(winGeo, mat);
         win.position.set(faceX, wy, wz);
-        // Slightly larger quads so they hold up as points of light at distance.
-        win.scale.set(2.2 + Math.random() * 1.1, 2.8 + Math.random() * 0.9, 1);
+        // Small quads — distant points of light, not nearby panes.
+        win.scale.set(0.7 + Math.random() * 0.45, 0.9 + Math.random() * 0.4, 1);
         win.rotation.y = Math.PI * 0.5;
         win.renderOrder = 3;
         group.add(win);
         windowLights.push({
           mesh: win,
-          base: mat.opacity,
+          base: 0.45 + Math.random() * 0.4,
           phase: Math.random() * Math.PI * 2,
           speed: 0.4 + Math.random() * 1.6,
           mode: Math.random() < 0.5 ? 'pulse' : (Math.random() < 0.75 ? 'flicker' : 'steady'),
+          // Stagger so the cluster wakes up unevenly instead of all at once.
+          delay: Math.random() * 0.35,
         });
       }
     }
@@ -123,13 +124,17 @@ export function createVoidSkyline(parent, layout) {
 
   function setReveal(amount) {
     reveal = Math.max(0, Math.min(1, amount));
-    group.visible = reveal > 0.04;
+    group.visible = reveal > 0.01;
+    hullMat.opacity = Math.min(0.92, reveal * 0.95);
   }
 
   function update(_dt = 1 / 60, timeSec = 0) {
-    if (!group.visible || reveal < 0.04) return;
+    if (!group.visible || reveal < 0.01) return;
     for (const w of windowLights) {
       const mat = w.mesh.material;
+      const local = Math.max(0, Math.min(1, (reveal - w.delay) / Math.max(1e-6, 1 - w.delay)));
+      // Ease-in so lights bloom rather than snap on.
+      const fade = local * local * (3 - 2 * local);
       let mul = 1;
       if (w.mode === 'pulse') {
         mul = 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(timeSec * w.speed + w.phase));
@@ -138,7 +143,7 @@ export function createVoidSkyline(parent, layout) {
           * Math.sin(timeSec * w.speed * 3.1 + w.phase * 1.7);
         mul = n > 0.72 ? 0.12 + Math.random() * 0.2 : 0.8 + Math.random() * 0.2;
       }
-      mat.opacity = w.base * mul * (0.45 + reveal * 0.55);
+      mat.opacity = w.base * mul * fade;
     }
   }
 

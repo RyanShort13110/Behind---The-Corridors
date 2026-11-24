@@ -1,11 +1,11 @@
 /**
  * DEV prototype — The Stairwells.
- * Eight stacked floors, then an impossible straight flight into a vast dark,
+ * Six stacked floors, then an impossible straight flight into a vast dark,
  * a sudden snap back to the real shaft, final landing, and exit.
  */
 
 export const STAIR = Object.freeze({
-  floors: 8,
+  floors: 6,
   /** Slab-to-slab height (meters). */
   floorHeight: 3.5,
   eye: 1.7,
@@ -133,7 +133,7 @@ export function stairwellsNarrative(progress, state) {
   else if (state.phase === 'void') {
     if (state.voidAmount < 0.33) line = 'The flight keeps going. No landing.';
     else if (state.voidAmount < 0.40) line = 'The lights thin out. Still only stairs.';
-    else if (state.voidAmount < 0.48) line = '…';
+    else if (state.voidAmount < 0.63) line = '…';
     else line = 'The walls are gone. The dark has a size.';
   } else if (state.phase === 'return') {
     line = state.onFinalFlight

@@ -13,7 +13,7 @@ import {
 
 /**
  * DEV — The Stairwells.
- * Eight switchback floors, an anomalous endless flight into a vast dark room,
+ * Six switchback floors, an anomalous endless flight into a vast dark room,
  * a hard snap back to the shaft, then the real final landing and exit.
  */
 export function createStairwells(scene) {
@@ -230,14 +230,16 @@ export function createStairwells(scene) {
       box(group, STAIR.wellW - 0.04, 0.14, landingD,
         0, yMid - 0.07, -halfD + landingD * 0.5, mats.floor);
       for (const side of [-1, 1]) {
-        // Keep fixtures off the exact wall corner (was amplifying z-fight noise).
+        // End-wall sconces: inset from corners, flush to the −Z face.
+        const fixtureD = 0.08;
         const sx = side * (halfW - 0.85);
         const sy = yMid + 2.15;
-        const sz = -halfD + 0.28;
-        box(group, 0.22, 0.14, 0.08, sx, sy, sz, mats.fixture);
-        box(group, 0.12, 0.08, 0.05, sx, sy, sz + 0.06, mats.rail);
+        const sz = -halfD + fixtureD * 0.5 + 0.01;
+        box(group, 0.22, 0.14, fixtureD, sx, sy, sz, mats.fixture);
+        box(group, 0.12, 0.08, 0.04, sx, sy, sz + fixtureD * 0.5 + 0.025, mats.rail);
         const midLamp = new THREE.PointLight(0xb8c4b8, 0.48, 5.2, 2);
-        midLamp.position.set(sx, sy - 0.12, sz + 0.22);
+        // Keep the point light slightly off the wall to avoid light acne.
+        midLamp.position.set(sx, sy - 0.12, sz + 0.14);
         midLamp.userData.baseIntensity = 0.48;
         group.add(midLamp);
         lights.push(midLamp);
@@ -450,26 +452,32 @@ export function createStairwells(scene) {
     0, sleeveWallY + sleeveH * 0.5 - 0.02, sleeveMidZ + STAIR.wallT * 0.5, voidMats.ceiling, 1.5);
   tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, sleeveH, STAIR.wallT,
     0, sleeveWallY, -sleeveLen + STAIR.wallT * 0.5, voidMats.wall, 1.15);
-  // World-space left corner seal (unpitched). The shaft side wall ends at
-  // −halfD while the sleeve is pitched — that join was the triangular void
-  // under the soffit on the left at the bay. Keep the seal fully behind the
-  // −Z end wall and flush with openLeft so no brick lip sits in the bay.
+  // World-space corner seals (unpitched). The shaft end wall meets the pitched
+  // sleeve under the soffit on both bay edges — those joins were triangular
+  // voids. Keep seals fully behind the −Z end wall and flush with the opening
+  // so no brick lip sits in the bay.
   {
     const openW = STAIR.flightW + 0.95;
     const openLeft = v.x - openW * 0.5;
+    const openRight = v.x + openW * 0.5;
     const zBack = -halfD - STAIR.wallT * 0.5;
     const sealW = STAIR.wallT + 0.14;
     const sealD = 1.35;
     const sealH = 4.1;
     const sealY = v.yTop + sealH * 0.42;
     const sealZ = zBack - sealD * 0.5;
-    const sealX = openLeft - sealW * 0.5;
-    tiledBox(voidGroup, sealW, sealH, sealD,
-      sealX, sealY, sealZ, voidMats.wall, 1.15);
-    // Soffit return only over the seal — not into the opening.
     const soffitW = 0.5;
+    const soffitY = v.yTop + 3.15;
+    // Left bay edge
+    tiledBox(voidGroup, sealW, sealH, sealD,
+      openLeft - sealW * 0.5, sealY, sealZ, voidMats.wall, 1.15);
     tiledBox(voidGroup, soffitW, 0.16, sealD,
-      openLeft - soffitW * 0.5, v.yTop + 3.15, sealZ, voidMats.ceiling, 1.5);
+      openLeft - soffitW * 0.5, soffitY, sealZ, voidMats.ceiling, 1.5);
+    // Right bay edge (mirror)
+    tiledBox(voidGroup, sealW, sealH, sealD,
+      openRight + sealW * 0.5, sealY, sealZ, voidMats.wallAlt, 1.15);
+    tiledBox(voidGroup, soffitW, 0.16, sealD,
+      openRight + soffitW * 0.5, soffitY, sealZ, voidMats.ceiling, 1.5);
   }
 
   const sleeveLightCount = 16;
@@ -489,12 +497,12 @@ export function createStairwells(scene) {
 
   // Enormous room — wide enough that the optional −X skyline sits inside it
   // (a smaller box was occluding the buildings).
-  const roomW = 520;
-  const roomH = 160;
-  const roomD = 280;
+  const roomW = 780;
+  const roomH = 180;
+  const roomD = 380;
   const roomY = v.yTop - voidDrop * 0.45;
   const roomZ = v.zStart - voidLen * 0.5;
-  const roomX = -90; // bias left so far buildings stay inside the volume
+  const roomX = -180; // bias left so far buildings stay inside the volume
   const room = box(voidGroup, roomW, roomH, roomD, roomX, roomY, roomZ, voidMats.room);
   room.visible = false;
   const hazeA = box(voidGroup, 48, 10, 48, -34, roomY - 12, roomZ - 24, voidMats.haze);
@@ -516,12 +524,14 @@ export function createStairwells(scene) {
     })
     : null;
 
-  // Void beat: ~first third walled, then blackout, then ~80m+ open walk.
+  // Void beat: ~first third walled, then blackout, then open walk.
   // Absolute-ish: walls ~50m, dim/black ~15m, rest wall-less on the 150m run.
   const WALLS_UNTIL = 0.33;
   const DIM_UNTIL = 0.40;
   const SWAP_AT = 0.43;
-  const ROOM_FROM = 0.46;
+  // Stay black until ~63%, then lift into the impossible room.
+  const ROOM_FROM = 0.63;
+  const REVEAL_SPAN = 0.22;
   const FOG_BLACK = 0.55;
   const BG_BLACK = 0x000000;
   let skylineTime = 0;
@@ -562,9 +572,9 @@ export function createStairwells(scene) {
         bg.setHex(BG_BLACK);
         wallsGone = voidAmount >= SWAP_AT;
       } else {
-        // Slow lift out of black into the impossible room.
-        const t = (voidAmount - ROOM_FROM) / Math.max(1e-6, 1 - ROOM_FROM);
-        const ease = Math.min(1, t * t * (3 - 2 * t)); // smoothstep
+        // Faster lift out of black into the impossible room.
+        const t = Math.min(1, (voidAmount - ROOM_FROM) / REVEAL_SPAN);
+        const ease = Math.min(1, Math.pow(t, 0.72));
         sleeveLit = 0;
         upperDim = 0;
         wallsGone = true;
@@ -590,7 +600,11 @@ export function createStairwells(scene) {
     hazeB.visible = wallsGone && roomReveal > 0.08;
     voidMats.haze.opacity = wallsGone ? Math.min(0.36, roomReveal * 0.38) : 0;
     voidAmbient.intensity = wallsGone ? roomReveal * 0.5 : 0;
-    skyline?.setReveal(wallsGone ? roomReveal : 0);
+    // Skyline lags the ambient lift slightly so windows ease in, not pop.
+    const skyReveal = wallsGone
+      ? Math.max(0, Math.min(1, (roomReveal - 0.06) / 0.78))
+      : 0;
+    skyline?.setReveal(skyReveal);
 
     // Hide upper shaft once we're in the blackout so nothing floats in the dark.
     const hideShaft = inVoid && voidAmount >= DIM_UNTIL;

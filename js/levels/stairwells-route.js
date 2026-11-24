@@ -2,7 +2,7 @@
  * Descending switchback rail for The Stairwells.
  *
  * Beat:
- *  1. Floors 08→02 — normal switchbacks
+ *  1. Floors 06→02 — normal switchbacks
  *  2. Last west flight to the mid landing — then NO turn
  *  3. Straight endless descent into a vast dark room
  *  4. Hard snap back to that mid landing
@@ -25,6 +25,8 @@ const Z_FAR = -(STAIR.wellD * 0.5 - STAIR.landingD * 0.45);
 const Z_FLIGHT_NEAR = STAIR.wellD * 0.5 - STAIR.landingD;
 const Z_FLIGHT_FAR = -(STAIR.wellD * 0.5 - STAIR.landingD);
 const STAIR_PITCH = -0.24;
+/** Inflate landing U-turn path length so yaw eases without slowing stair flights. */
+const LANDING_TURN_PACE = 2.4;
 
 /**
  * Path length uses XZ only so 5.5 m/s matches corridor ground speed.
@@ -35,7 +37,7 @@ function segmentLength(a, b) {
 }
 
 /**
- * @typedef {{ x:number, y:number, z:number, yaw:number, pitch:number, snap?: boolean }} PathPoint
+ * @typedef {{ x:number, y:number, z:number, yaw:number, pitch:number, snap?: boolean, pace?: number }} PathPoint
  */
 
 function buildPath() {
@@ -45,13 +47,25 @@ function buildPath() {
     points.push({ x, y, z, yaw, pitch, ...(extra || {}) });
   };
 
+  /** 180° landing U-turn — denser samples + paced length, geometry unchanged. */
+  const pushLandingTurn = (xFrom, xTo, y, z, yaw0) => {
+    const xMid = (xFrom + xTo) * 0.5;
+    const pace = LANDING_TURN_PACE;
+    push(xFrom, y, z, yaw0, 0);
+    push(lerp(xFrom, xMid, 0.5), y, z, yaw0 - Math.PI * 0.25, 0, { pace });
+    push(xMid, y, z, yaw0 - Math.PI * 0.5, 0, { pace });
+    push(lerp(xMid, xTo, 0.5), y, z, yaw0 - Math.PI * 0.75, 0, { pace });
+    push(xTo, y, z, yaw0 - Math.PI, 0, { pace });
+    return yaw0 - Math.PI;
+  };
+
   const top = STAIR.floors - 1;
   let yaw = 0;
 
   push(0, stairFloorY(top) + STAIR.eye, Z_NEAR + 0.55, yaw, 0);
   push(WEST_X, stairFloorY(top) + STAIR.eye, Z_NEAR, yaw, 0);
 
-  // Switchbacks for floors 08 → 03 (arrive on floor 02 ready for the last west flight).
+  // Switchbacks for floors 06 → 03 (arrive on floor 02 ready for the last west flight).
   for (let floor = top; floor >= 2; floor -= 1) {
     const yHi = stairFloorY(floor) + STAIR.eye;
     const yMid = stairFloorY(floor) - STAIR.floorHeight * 0.5 + STAIR.eye;
@@ -64,20 +78,14 @@ function buildPath() {
     push(WEST_X, yHalfW, zHalf, yaw, STAIR_PITCH);
     push(WEST_X, yMid, Z_FLIGHT_FAR + 0.05, yaw, 0);
 
-    push(WEST_X, yMid, Z_FAR, yaw, 0);
-    push(0, yMid, Z_FAR, yaw - Math.PI * 0.5, 0);
-    yaw -= Math.PI;
-    push(EAST_X, yMid, Z_FAR, yaw, 0);
+    yaw = pushLandingTurn(WEST_X, EAST_X, yMid, Z_FAR, yaw);
 
     push(EAST_X, yMid, Z_FLIGHT_FAR + 0.05, yaw, 0);
     push(EAST_X, yHalfE, zHalf, yaw, STAIR_PITCH);
     push(EAST_X, yLo, Z_FLIGHT_NEAR - 0.05, yaw, 0);
 
     // Always turn on the lower landing so we face the next west flight.
-    push(EAST_X, yLo, Z_NEAR, yaw, 0);
-    push(0, yLo, Z_NEAR, yaw - Math.PI * 0.5, 0);
-    yaw -= Math.PI;
-    push(WEST_X, yLo, Z_NEAR, yaw, 0);
+    yaw = pushLandingTurn(EAST_X, WEST_X, yLo, Z_NEAR, yaw);
   }
 
   // —— Final transition (02 → 01): west flight, then the anomaly ——
@@ -124,10 +132,7 @@ function buildPath() {
   push(WEST_X, yMid, Z_FAR, yaw, 0, { snap: true });
 
   // The turn that should have been there all along.
-  push(WEST_X, yMid, Z_FAR, yaw, 0);
-  push(0, yMid, Z_FAR, yaw - Math.PI * 0.5, 0);
-  yaw -= Math.PI;
-  push(EAST_X, yMid, Z_FAR, yaw, 0);
+  yaw = pushLandingTurn(WEST_X, EAST_X, yMid, Z_FAR, yaw);
 
   const finalStartIndex = points.length;
   const yHalfE = (yMid + yLo) * 0.5;
@@ -149,7 +154,8 @@ function buildPath() {
       dist.push(dist[i - 1] + 0.0005);
       continue;
     }
-    dist.push(dist[i - 1] + segmentLength(points[i - 1], points[i]));
+    const pace = points[i].pace || 1;
+    dist.push(dist[i - 1] + segmentLength(points[i - 1], points[i]) * pace);
   }
 
   const meters = Math.max(1, dist[dist.length - 1]);
