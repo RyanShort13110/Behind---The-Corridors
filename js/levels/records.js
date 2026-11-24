@@ -32,6 +32,16 @@ export function createRecords(scene) {
     photoBack: new THREE.MeshStandardMaterial({ color: 0x625f55, roughness: 0.96 }),
     photoDetail: new THREE.MeshStandardMaterial({ color: 0x979181, roughness: 0.96 }),
     label: new THREE.MeshStandardMaterial({ color: 0x9a9786, roughness: 1 }),
+    // Card reader — soft pad + LED so it reads in the dark aisle end.
+    readerPad: new THREE.MeshStandardMaterial({
+      color: 0xc4cec6, emissive: 0x5a7a68, emissiveIntensity: 0.55, roughness: 0.48, metalness: 0.12,
+    }),
+    readerLedOff: new THREE.MeshStandardMaterial({
+      color: 0x3a1812, emissive: 0xb84828, emissiveIntensity: 0.7, roughness: 0.45,
+    }),
+    readerLedOn: new THREE.MeshStandardMaterial({
+      color: 0x88aa88, emissive: 0x44dd66, emissiveIntensity: 0.95, roughness: 0.4,
+    }),
     light: new THREE.MeshStandardMaterial({ color: 0xb4b4a3, emissive: 0x858d7a, emissiveIntensity: 0.35, roughness: 0.72 }),
     glass: new THREE.MeshStandardMaterial({ color: 0x728681, roughness: 0.36, transparent: true, opacity: 0.35, depthWrite: false }),
     // One-shot aisle dart — unlit so it reads as a void, not a lit prop.
@@ -273,13 +283,15 @@ export function createRecords(scene) {
   box(0.87, 0.035, 0.26, 0.74, 3.07, -57.3, mat.light);
 
   // Wall-mounted access reader — ordinary office hardware, not sci-fi.
+  // Register the whole group so proximity outlines the visible body (not only
+  // the invisible hit box, which skips edge highlights).
   const reader = new THREE.Group();
   reader.name = 'Records card reader';
   reader.position.set(-1.55, 1.35, doorZ + 0.22);
   world.add(reader);
   box(0.18, 0.28, 0.06, 0, 0, 0, mat.darkMetal, reader);
-  box(0.12, 0.08, 0.02, 0, 0.06, 0.035, mat.label, reader);
-  const readerLed = box(0.04, 0.03, 0.015, 0, -0.08, 0.035, mat.darkMetal, reader);
+  box(0.12, 0.08, 0.02, 0, 0.06, 0.035, mat.readerPad, reader);
+  const readerLed = box(0.04, 0.03, 0.015, 0, -0.08, 0.035, mat.readerLedOff, reader);
   const readerHit = new THREE.Mesh(
     new THREE.BoxGeometry(0.45, 0.55, 0.4),
     new THREE.MeshBasicMaterial({ visible: false })
@@ -362,7 +374,7 @@ export function createRecords(scene) {
     cigaretteInteractable('cigarette-records', cigarette),
     {
       id: 'records-fob-reader',
-      object: readerHit,
+      object: reader,
       radius: 5.2,
       title: 'CARD READER',
       body: 'A small wall reader. The LED is dark.',
@@ -370,7 +382,7 @@ export function createRecords(scene) {
       unlockedBody: 'The LED is steady. The door is unlocked.',
       requiresItem: 'key-fob',
       requiresItemLabel: 'KEY FOB',
-      consumesItem: false,
+      consumesItem: true,
     },
   ];
 
@@ -508,14 +520,14 @@ export function createRecords(scene) {
         : exitDoor.rotation.y + (doorAngle - exitDoor.rotation.y)
             * (1 - Math.exp(-dt * 2.8));
       if (readerLed) {
-        readerLed.material = state.doorUnlocked ? mat.light : mat.darkMetal;
+        readerLed.material = state.doorUnlocked ? mat.readerLedOn : mat.readerLedOff;
       }
     },
     reset() {
       movingDrawer.position.x = 0;
       for (const spec of distantOpeners) spec.group.position.x = 0;
       exitDoor.rotation.y = 0;
-      if (readerLed) readerLed.material = mat.darkMetal;
+      if (readerLed) readerLed.material = mat.readerLedOff;
       cigarette.visible = true;
       cigarette.userData.taken = false;
       dartPlaying = false;

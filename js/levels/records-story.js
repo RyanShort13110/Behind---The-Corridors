@@ -8,10 +8,10 @@ export const RECORDS_START_Z = 4.6;
 /**
  * Approach the locked exit — cannot pass until the fob unlocks the door.
  * Must sit close enough that the wall reader is inside use-reach (~radius×1.4).
- * At 0.905 the player stopped ~6.8m short and could never swipe.
+ * Hold sits ~3.9m from the door face so the reader fills the view.
  */
-export const RECORDS_DOOR_HOLD = 0.935;
-export const RECORDS_END_PROGRESS = 0.977;
+export const RECORDS_DOOR_HOLD = 0.958;
+export const RECORDS_END_PROGRESS = 0.988;
 
 export function createRecordsStory() {
   const state = {

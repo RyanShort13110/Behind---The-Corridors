@@ -36,7 +36,7 @@ import { corridorCameraPose } from './levels/corridor-route.js?v=bay-2';
 import {
   createRecordsStory, recordsNarrative, RECORDS_METERS, RECORDS_START_Z,
   RECORDS_DOOR_HOLD,
-} from './levels/records-story.js?v=fob-reach-1';
+} from './levels/records-story.js?v=fob-reach-2';
 import { recordsCameraPose } from './levels/records-route.js';
 import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS } from './levels/night-story.js';
 import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js?v=steady-expand-1';
@@ -405,7 +405,7 @@ try {
       if (targetId === 'records-fob-reader') {
         recordsStory.unlockDoor();
         audio.playRecordsFobAccess();
-        // Keep the fob; door swing is driven by story state in records.update.
+        // Fob is consumed by the interaction system; door swing follows story state.
       }
     },
     onKeypad: () => {
@@ -666,7 +666,7 @@ async function endCamcorderPlayback() {
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=notice-flat-1');
+      const { createRecords } = await import('./levels/records.js?v=fob-consume-1');
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
@@ -1855,7 +1855,7 @@ async function enterRecords() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js?v=notice-flat-1');
+    const { createRecords } = await import('./levels/records.js?v=fob-consume-1');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
@@ -2152,7 +2152,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=notice-flat-1');
+      const { createRecords } = await import('./levels/records.js?v=fob-consume-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
