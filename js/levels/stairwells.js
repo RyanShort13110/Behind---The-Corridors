@@ -13,7 +13,7 @@ import {
 
 /**
  * DEV — The Stairwells.
- * Six switchback floors, an anomalous endless flight into a vast dark room,
+ * Four switchback floors, an anomalous endless flight into a vast dark room,
  * a hard snap back to the shaft, then the real final landing and exit.
  */
 export function createStairwells(scene) {
@@ -333,24 +333,33 @@ export function createStairwells(scene) {
     return tex;
   }
 
-  const wallTex = makeConcreteTexture({ base: '#616a64', mortar: '#3c4440' });
-  const wallTexAlt = makeConcreteTexture({ base: '#555e58', mortar: '#343c38', blockW: 32, blockH: 12 });
-  const ceilTex = makeConcreteTexture({ base: '#2c3432', mortar: '#1c2220', blockW: 40, blockH: 40 });
+  // Higher-contrast CMU so mortar still reads under the dim void lighting.
+  const wallTex = makeConcreteTexture({ base: '#6a736c', mortar: '#1a1e1c' });
+  const wallTexAlt = makeConcreteTexture({ base: '#5c6560', mortar: '#141816', blockW: 32, blockH: 12 });
+  const ceilTex = makeConcreteTexture({ base: '#3a4240', mortar: '#101412', blockW: 40, blockH: 40 });
+  const stepTex = makeConcreteTexture({ base: '#454e4a', mortar: '#1c2220', blockW: 36, blockH: 18 });
 
   const voidMats = {
-    step: material({ color: 0x3a4240, roughness: 0.9 }, voidBag),
+    // color ~white so the map carries the tone (tint was washing CMU to flat gray).
+    step: material({
+      color: 0xffffff, map: stepTex, roughness: 0.9, metalness: 0.02,
+    }, voidBag),
     nosing: material({ color: 0x222826, roughness: 0.75 }, voidBag),
     rail: material({ color: 0x7a8480, roughness: 0.5, metalness: 0.4 }, voidBag),
     wall: material({
-      color: 0xc8cfc8, map: wallTex, roughness: 0.94, metalness: 0.02,
+      color: 0xffffff, map: wallTex, roughness: 0.94, metalness: 0.02,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
     }, voidBag),
     wallAlt: material({
-      color: 0xc0c8c0, map: wallTexAlt, roughness: 0.95, metalness: 0.02,
+      color: 0xffffff, map: wallTexAlt, roughness: 0.95, metalness: 0.02,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
     }, voidBag),
     ceiling: material({
-      color: 0xb0b8b4, map: ceilTex, roughness: 0.96,
+      color: 0xffffff, map: ceilTex, roughness: 0.96,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    }, voidBag),
+    floor: material({
+      color: 0xffffff, map: stepTex, roughness: 0.92, metalness: 0.02,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
     }, voidBag),
     fixture: material({
@@ -444,14 +453,17 @@ export function createStairwells(scene) {
     openLeftFlush - STAIR.wallT * 0.5,
   );
   tiledBox(sleeve, STAIR.wallT, sleeveH, sleeveLen - STAIR.wallT,
-    leftWallX, sleeveWallY, sleeveMidZ + STAIR.wallT * 0.5, voidMats.wall, 1.15);
+    leftWallX, sleeveWallY, sleeveMidZ + STAIR.wallT * 0.5, voidMats.wall, 1.0);
   tiledBox(sleeve, STAIR.wallT, sleeveH, sleeveLen - STAIR.wallT,
-    sleeveX + STAIR.wallT * 0.5, sleeveWallY, sleeveMidZ + STAIR.wallT * 0.5, voidMats.wallAlt, 1.15);
+    sleeveX + STAIR.wallT * 0.5, sleeveWallY, sleeveMidZ + STAIR.wallT * 0.5, voidMats.wallAlt, 1.0);
+  // Deck beside / under the flight so the run isn't flanked by blank slabs.
+  tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, 0.14, sleeveLen - STAIR.wallT,
+    0, 0.05, sleeveMidZ + STAIR.wallT * 0.5, voidMats.floor, 1.0);
   // Ceiling spans onto wall thickness so L seams don't open.
   tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, 0.18, sleeveLen - STAIR.wallT,
-    0, sleeveWallY + sleeveH * 0.5 - 0.02, sleeveMidZ + STAIR.wallT * 0.5, voidMats.ceiling, 1.5);
+    0, sleeveWallY + sleeveH * 0.5 - 0.02, sleeveMidZ + STAIR.wallT * 0.5, voidMats.ceiling, 1.2);
   tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, sleeveH, STAIR.wallT,
-    0, sleeveWallY, -sleeveLen + STAIR.wallT * 0.5, voidMats.wall, 1.15);
+    0, sleeveWallY, -sleeveLen + STAIR.wallT * 0.5, voidMats.wall, 1.0);
   // World-space corner seals (unpitched). The shaft end wall meets the pitched
   // sleeve under the soffit on both bay edges — those joins were triangular
   // voids. Keep seals fully behind the −Z end wall and flush with the opening

@@ -1,11 +1,11 @@
 /**
  * DEV prototype — The Stairwells.
- * Six stacked floors, then an impossible straight flight into a vast dark,
- * a sudden snap back to the real shaft, final landing, and exit.
+ * Four stacked floors, then an impossible straight flight into a vast dark,
+ * a sudden snap onto the last landing, final flight, and exit.
  */
 
 export const STAIR = Object.freeze({
-  floors: 6,
+  floors: 4,
   /** Slab-to-slab height (meters). */
   floorHeight: 3.5,
   eye: 1.7,
@@ -112,6 +112,8 @@ export function createStairwellsStory() {
 
     if (state.phase === 'void') {
       state.currentFloor = 0;
+    } else if (state.phase === 'return') {
+      state.currentFloor = state.onFinalFlight ? 1 : 2;
     } else if (state.phase === 'exit') {
       state.currentFloor = 1;
     } else {
@@ -137,8 +139,8 @@ export function stairwellsNarrative(progress, state) {
     else line = 'The walls are gone. The dark has a size.';
   } else if (state.phase === 'return') {
     line = state.onFinalFlight
-      ? 'The shaft again. As if nothing happened.'
-      : 'The turn was always here.';
+      ? 'One flight left. The door is below.'
+      : 'The landing. As if nothing happened.';
   } else if (state.phase === 'exit') {
     line = state.exited ? 'Outside the well.' : 'A door. Finally.';
   } else if (progress > 0.45) {

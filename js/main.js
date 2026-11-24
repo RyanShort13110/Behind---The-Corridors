@@ -60,14 +60,14 @@ import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
 import {
   createStairwellsStory,
   stairwellsNarrative,
-} from './levels/stairwells-story.js?v=stairs-void-19';
+} from './levels/stairwells-story.js?v=stairs-void-25';
 import {
   stairwellsCameraPose,
   STAIRWELLS_METERS,
   STAIRWELLS_START,
   STAIRWELLS_MARKS,
   STAIRWELLS_WALK_SPEED,
-} from './levels/stairwells-route.js?v=stairs-void-19';
+} from './levels/stairwells-route.js?v=stairs-void-25';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -2003,7 +2003,7 @@ const DEV_CHAPTER_CONFIG = {
   'stairwells': {
     start: 0,
     z: STAIRWELLS_START.z,
-    location: 'DEV / THE STAIRWELLS <span class="separator">/</span> FLOOR 06',
+    location: 'DEV / THE STAIRWELLS <span class="separator">/</span> FLOOR 04',
   },
 };
 
@@ -2062,7 +2062,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-void-20');
+      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-void-25');
       stairwellsStory.reset();
       next.add('stairwells', createStairwells(scene));
     } else {

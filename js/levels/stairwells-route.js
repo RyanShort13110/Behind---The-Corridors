@@ -2,11 +2,11 @@
  * Descending switchback rail for The Stairwells.
  *
  * Beat:
- *  1. Floors 06→02 — normal switchbacks
+ *  1. Floors 04→02 — normal switchbacks
  *  2. Last west flight to the mid landing — then NO turn
  *  3. Straight endless descent into a vast dark room
- *  4. Hard snap back to that mid landing
- *  5. Right turn → final flight → floor 01 → exit door
+ *  4. Hard snap onto the mid landing, already facing the last flight
+ *  5. Down the east stairs → floor 01 → exit door
  */
 import {
   STAIR,
@@ -65,7 +65,7 @@ function buildPath() {
   push(0, stairFloorY(top) + STAIR.eye, Z_NEAR + 0.55, yaw, 0);
   push(WEST_X, stairFloorY(top) + STAIR.eye, Z_NEAR, yaw, 0);
 
-  // Switchbacks for floors 06 → 03 (arrive on floor 02 ready for the last west flight).
+  // Switchbacks for floors 04 → 03 (arrive on floor 02 ready for the last west flight).
   for (let floor = top; floor >= 2; floor -= 1) {
     const yHi = stairFloorY(floor) + STAIR.eye;
     const yMid = stairFloorY(floor) - STAIR.floorHeight * 0.5 + STAIR.eye;
@@ -125,28 +125,31 @@ function buildPath() {
     if (i === Math.floor(voidSamples * 0.42)) voidDeepIndex = points.length - 1;
   }
 
-  // Sudden snap back to the real mid-landing (no blend).
+  // Sudden snap out of the void onto the real mid landing — already facing
+  // the last east flight so the floor-01 door reads ahead/below (no U-turn).
+  const voidYaw = yaw;
   const snapFromIndex = points.length;
-  push(WEST_X, voidYEnd, voidZEnd, yaw, STAIR_PITCH * 0.85);
+  push(WEST_X, voidYEnd, voidZEnd, voidYaw, STAIR_PITCH * 0.85);
+  const returnYaw = Math.PI; // face +Z down the east run toward floor 01
   const snapToIndex = points.length;
-  push(WEST_X, yMid, Z_FAR, yaw, 0, { snap: true });
-
-  // The turn that should have been there all along.
-  yaw = pushLandingTurn(WEST_X, EAST_X, yMid, Z_FAR, yaw);
+  push(EAST_X, yMid, Z_FAR, returnYaw, 0, { snap: true });
+  // Brief settle on the landing before committing to the stairs.
+  push(EAST_X, yMid, Z_FAR + 0.12, returnYaw, 0);
 
   const finalStartIndex = points.length;
   const yHalfE = (yMid + yLo) * 0.5;
-  push(EAST_X, yMid, Z_FLIGHT_FAR + 0.05, yaw, 0);
-  push(EAST_X, yHalfE, zHalf, yaw, STAIR_PITCH);
-  push(EAST_X, yLo, Z_FLIGHT_NEAR - 0.05, yaw, 0);
-  push(0, yLo, Z_NEAR, yaw, 0);
+  push(EAST_X, yMid, Z_FLIGHT_FAR + 0.05, returnYaw, 0);
+  push(EAST_X, yHalfE, zHalf, returnYaw, STAIR_PITCH);
+  push(EAST_X, yLo, Z_FLIGHT_NEAR - 0.05, returnYaw, 0);
+  push(0, yLo, Z_NEAR, returnYaw, 0);
 
   // Exit through the +Z door on floor 01.
   const exitStartIndex = points.length;
   const doorZ = STAIR.wellD * 0.5 + 0.4;
-  push(0, yLo, doorZ, yaw, 0);
-  push(0, yLo, doorZ + 2.6, yaw, 0);
+  push(0, yLo, doorZ, returnYaw, 0);
+  push(0, yLo, doorZ + 2.6, returnYaw, 0);
   const exitEndIndex = points.length - 1;
+  yaw = returnYaw;
 
   const dist = [0];
   for (let i = 1; i < points.length; i += 1) {
@@ -183,7 +186,7 @@ function buildPath() {
       steps: STAIR_VOID_STEPS,
       lengthM: voidRun,
       dropM: voidDrop,
-      yaw,
+      yaw: voidYaw,
     },
     snapFromIndex,
   };
