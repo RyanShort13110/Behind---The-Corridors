@@ -484,7 +484,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
 
     if (id === 'office-01') {
       const { createOffice } = await import('./levels/office.js?v=tape-nudge-1');
-      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-8');
+      const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-9');
       tapeSession = await startOfficeTape01({
         scene,
         camera,
@@ -536,9 +536,13 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
   }
 }
 
-/** Debug-only URL boot: `?debug=1&tape=<id>`. */
+/** Debug-only URL boot: `?debug=1&tape=<id>`. Office tape is in-world only. */
 async function bootDebugTape(id) {
   if (!DEBUG_MODE) return;
+  if (id === 'office-01') {
+    console.info('[Behind. TAPE] office-01 plays from the in-world cassette — URL boot removed.');
+    return;
+  }
   await startTapeRecording(id, { fromCamcorder: false });
 }
 
@@ -2221,7 +2225,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=dev-drag-1').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=tape-clean-1').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -2281,7 +2285,9 @@ if (DEBUG_MODE) {
       },
       grantAllTapes() {
         if (!inventory) return;
+        // Office cassette is findable in-world; only grant tapes still debug-only.
         for (const tape of TAPE_LIBRARY) {
+          if (tape.id === 'tape-office-01') continue;
           inventory.add(tape.id, tapeInventoryMeta(tape));
           discoverTape(tape.id);
         }

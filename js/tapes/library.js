@@ -20,7 +20,7 @@
  *   recordingId: string,
  *   label: string,
  *   tooltip: string,
- *   debugQuery: string,
+ *   debugQuery?: string,
  *   previewColor?: number,
  * }} TapeDefinition */
 
@@ -31,7 +31,6 @@ export const TAPE_LIBRARY = [
     recordingId: 'office-01',
     label: 'TAPE · OFFICE',
     tooltip: 'A short cassette. No label.',
-    debugQuery: 'tape=office-01',
     previewColor: 0x1e2226,
   },
   {

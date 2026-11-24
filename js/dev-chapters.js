@@ -133,7 +133,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
       <div class="dev-chapters__title">CAMCORDER</div>
       <div class="dev-chapters__row">
         <button type="button" data-cam-grant> +CAM</button>
-        <button type="button" data-cam-tapes> +TAPES</button>
+        <button type="button" data-cam-tapes title="Grant debug-only tapes (not the in-world office cassette)"> +TAPES</button>
         <button type="button" data-cam-open>OPEN</button>
       </div>
       <p class="dev-chapters__status" id="dev-camcorder-status" aria-live="polite">Cam: —</p>

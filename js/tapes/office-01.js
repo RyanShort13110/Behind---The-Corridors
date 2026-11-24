@@ -338,59 +338,11 @@ export async function startOfficeTape01({
     syncSoundUi(on);
   });
 
-  // Tape-only lighting inspector; normal gameplay and chapter dev controls
-  // remain untouched. Sliders adjust existing GLB materials/light in place.
-  const inspector = document.createElement('aside');
-  inspector.setAttribute('aria-label', 'Tape creature lighting controls');
-  inspector.style.cssText = [
-    'position:fixed', 'right:16px', 'top:76px', 'z-index:9999',
-    'width:220px', 'padding:12px 14px', 'border:1px solid #4a657077',
-    'background:#080e12ed', 'color:#c2d2d8', 'font:12px/1.5 monospace',
-    'border-radius:5px', 'pointer-events:auto',
-  ].join(';');
-  const addSlider = (label, property, min, max, step) => {
-    const row = document.createElement('label');
-    row.style.cssText = 'display:block;margin:0 0 10px';
-    const title = document.createElement('div');
-    title.style.cssText = 'display:flex;justify-content:space-between';
-    const name = document.createElement('span');
-    name.textContent = label;
-    const value = document.createElement('output');
-    value.textContent = Number(creature.config[property]).toFixed(2);
-    title.append(name, value);
-    const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.min = String(min);
-    slider.max = String(max);
-    slider.step = String(step);
-    slider.value = String(creature.config[property]);
-    slider.style.cssText = 'display:block;width:100%;accent-color:#7897a6';
-    slider.addEventListener('input', () => {
-      creature.config[property] = Number(slider.value);
-      value.textContent = Number(slider.value).toFixed(2);
-      creature.applyShading();
-    });
-    row.append(title, slider);
-    inspector.appendChild(row);
-  };
-  const inspectorTitle = document.createElement('div');
-  inspectorTitle.textContent = 'WAITING THING / LIGHTING';
-  inspectorTitle.style.cssText = 'font-weight:bold;letter-spacing:0.06em;margin-bottom:10px';
-  inspector.appendChild(inspectorTitle);
-  addSlider('DARKNESS', 'darkness', 0, 1, 0.01);
-  addSlider('RIM INTENSITY', 'rimLightIntensity', 0, 3, 0.01);
-  const note = document.createElement('small');
-  note.textContent = 'Debug tape only · changes are not saved';
-  note.style.opacity = '0.7';
-  inspector.appendChild(note);
-  experience?.appendChild(inspector);
-
   const baseFov = camera.fov;
   let elapsed = 0;
   let vanished = false;
   let reappeared = false;
   let finished = false;
-  let holdFraming = false;
 
   creature.setGaze(0);
 
@@ -401,56 +353,12 @@ export async function startOfficeTape01({
   camera.updateProjectionMatrix();
   renderer.render(scene, camera);
 
-  console.info(
-    '[Behind. TAPE] office-01 ready · The Waiting Thing ·',
-    `mode=${OFFICE_01_CREATURE.mode} height=${OFFICE_01_CREATURE.height}m`,
-  );
-  console.info(
-    '[Behind. TAPE] Tune OFFICE_01_CREATURE in js/tapes/creature.js (position/height/yaw).',
-  );
-  if (typeof window !== 'undefined') {
-    // Live tweak while the tape runs, e.g.:
-    // __tapeCreature.config.height = 3.2; await __tapeCreature.applyConfig();
-    window.__tapeCreature = creature;
-    window.__tapeCamera = camera;
-    /** Freeze timeline and stare at the creature for framing checks. */
-    window.__tapeHoldOnCreature = () => {
-      holdFraming = true;
-      elapsed = 10.7;
-      finished = false;
-      vanished = false;
-      reappeared = false;
-      creature.setWorldPose({
-        x: CREATURE_POS.x, y: CREATURE_POS.y, z: CREATURE_POS.z,
-        yaw: OFFICE_01_CREATURE.yaw,
-      });
-      creature.setGaze(0.85);
-      creature.setVisible(true);
-      const pose = samplePath(elapsed);
-      applyPose(camera, pose, { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0 });
-      return { t: elapsed, look: pose.look, creature: { ...OFFICE_01_CREATURE.position } };
-    };
-  }
-
   return {
     id: 'office-01',
     duration: DURATION,
     get elapsed() { return elapsed; },
     get finished() { return finished; },
     update(dt) {
-      if (holdFraming) {
-        const pose = samplePath(10.7);
-        const shake = handheld(10.7, reduced);
-        applyPose(camera, pose, {
-          x: shake.x * 0.4, y: shake.y * 0.4, z: shake.z * 0.4,
-          yaw: shake.yaw * 0.4, pitch: shake.pitch * 0.4, roll: shake.roll * 0.4,
-        });
-        creature.setVisible(true);
-        creature.update(dt, camera);
-        if (tcEl) tcEl.textContent = formatTimecode(10.7);
-        return;
-      }
-
       if (finished) {
         // Soft hold on final frame with residual handheld.
         const hold = samplePath(DURATION);
@@ -492,25 +400,6 @@ export async function startOfficeTape01({
         roll: shake.roll * focus,
       });
       creature.update(dt, camera);
-      if (typeof window !== 'undefined') {
-        window.__tapeDebug = {
-          t: Number(t.toFixed(2)),
-          vanished,
-          reappeared,
-          creature: {
-            x: Number(creature.root.position.x.toFixed(2)),
-            y: Number(creature.root.position.y.toFixed(2)),
-            z: Number(creature.root.position.z.toFixed(2)),
-            height: OFFICE_01_CREATURE.height,
-          },
-          cam: {
-            x: Number(camera.position.x.toFixed(2)),
-            y: Number(camera.position.y.toFixed(2)),
-            z: Number(camera.position.z.toFixed(2)),
-          },
-          look: pose.look,
-        };
-      }
 
       if (!reduced) {
         const fovWobble = Math.sin(t * 0.7) * 0.35 + Math.sin(t * 3.1) * 0.15;
@@ -543,12 +432,6 @@ export async function startOfficeTape01({
       creature.root.removeFromParent();
       creature.dispose();
       chrome.remove();
-      inspector.remove();
-      if (typeof window !== 'undefined') {
-        delete window.__tapeCreature;
-        delete window.__tapeCamera;
-        delete window.__tapeHoldOnCreature;
-      }
       experience?.classList.remove('tape-mode');
       experience?.removeAttribute('data-tape');
       camera.fov = baseFov;

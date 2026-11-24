@@ -185,7 +185,7 @@ body.debug-performance .perf-hud{display:block}
 .keypad-close:hover,.keypad-close:focus-visible{color:#fff}
 @media(prefers-reduced-motion:reduce){.keypad{transition:none}}
 
-/* Found-footage tape prototype (debug-only: ?debug=1&tape=office-01)
+/* Found-footage tape overlay (camcorder LCD / in-world playback)
    VHS look is CSS overlays only (transform/opacity) — no WebGL post, no blur filters. */
 #experience.tape-mode .grain{
   opacity:.62;
