@@ -68,6 +68,8 @@ export function createOffice(scene, {
   const batches = new Map();
   const batchesToDispose = [];
   const separateGeometries = [];
+  const ownedTextures = [];
+  const ownedMaterials = [];
   const add = (w, h, d, x, y, z, material, parent = world) => {
     if (parent !== world) {
       const mesh = new THREE.Mesh(cube, material);
@@ -363,6 +365,77 @@ export function createOffice(scene, {
   // adds distant, low-volume analogue rings while the player approaches.
   add(0.30, 0.11, 0.20, 4.02, 0.99, -31.9, materials.plastic);
   add(0.24, 0.07, 0.06, 4.02, 1.075, -31.9, materials.metal);
+
+  // Outside-world intrusion — ordinary yellow sticky beside the phone.
+  // Not the keypad-code collectible; no outline, inspect, or gameplay hooks.
+  {
+    const noteW = 640;
+    const noteH = 360;
+    const canvas = document.createElement('canvas');
+    canvas.width = noteW;
+    canvas.height = noteH;
+    const ctx = canvas.getContext('2d');
+    // Match materials.sticky tone so it lights like other desk paper.
+    ctx.fillStyle = '#d6c46a';
+    ctx.fillRect(0, 0, noteW, noteH);
+    for (let i = 0; i < 1400; i += 1) {
+      const n = 150 + Math.random() * 55;
+      ctx.fillStyle = `rgba(${n},${n - 12},${n - 40},${0.04 + Math.random() * 0.06})`;
+      ctx.fillRect(Math.random() * noteW, Math.random() * noteH, 1 + Math.random() * 2, 1);
+    }
+    // Soft adhesive shadow along the top edge
+    ctx.fillStyle = 'rgba(80,70,40,0.12)';
+    ctx.fillRect(0, 0, noteW, 18);
+    const phrase = 'I came back today.';
+    ctx.fillStyle = '#1e2a32';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'italic 54px "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive';
+    let totalW = 0;
+    for (let i = 0; i < phrase.length; i += 1) {
+      totalW += ctx.measureText(phrase[i]).width + 0.9;
+    }
+    totalW -= 0.9;
+    let x = (noteW - totalW) * 0.5;
+    const baseline = 200;
+    for (let i = 0; i < phrase.length; i += 1) {
+      const ch = phrase[i];
+      const wobbleY = (Math.sin(i * 1.6) * 1.8) + (i % 3 === 0 ? 0.9 : -0.5);
+      const wobbleRot = Math.sin(i * 0.85) * 0.024;
+      ctx.save();
+      ctx.translate(x, baseline + wobbleY);
+      ctx.rotate(wobbleRot);
+      ctx.fillText(ch, 0, 0);
+      x += ctx.measureText(ch).width + 0.9;
+      ctx.restore();
+    }
+
+    const noteTex = new THREE.CanvasTexture(canvas);
+    noteTex.colorSpace = THREE.SRGBColorSpace;
+    noteTex.anisotropy = 8;
+    noteTex.generateMipmaps = true;
+    noteTex.minFilter = THREE.LinearMipmapLinearFilter;
+    noteTex.magFilter = THREE.LinearFilter;
+    ownedTextures.push(noteTex);
+    const noteMat = new THREE.MeshStandardMaterial({
+      map: noteTex,
+      color: 0xffffff,
+      roughness: 0.88,
+      metalness: 0,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    });
+    ownedMaterials.push(noteMat);
+    const noteGeo = new THREE.PlaneGeometry(0.38, 0.22);
+    separateGeometries.push(noteGeo);
+    const intrusionNote = new THREE.Mesh(noteGeo, noteMat);
+    intrusionNote.name = 'Office outside-world note';
+    // Aisle-side of the phone, tipped toward the approach so limited look can read it.
+    intrusionNote.position.set(3.42, 1.08, -31.55);
+    intrusionNote.rotation.y = -0.95;
+    intrusionNote.rotation.z = 0.04;
+    world.add(intrusionNote);
+  }
 
   // Glass-walled CONFERENCE ROOM (right side, x=2.58..6.2, z=-35.3..-45.3).
   // Unlike the cubicle rows, this is a deliberate shared space: one long table
@@ -734,6 +807,8 @@ export function createOffice(scene, {
       fobHit?.material.dispose();
       keypadHit.material.dispose();
       separateGeometries.forEach(geometry => geometry.dispose());
+      ownedTextures.forEach(texture => texture.dispose());
+      ownedMaterials.forEach(material => material.dispose());
       Object.values(materials).forEach(material => material.dispose());
       scene.remove(ambient);
       scene.remove(world);

@@ -200,7 +200,8 @@ Occasionally, short messages appear inside the game environment that feel out of
 
 **Rules**
 
-- Appear in mundane, inappropriate locations (a break-room board, institutional wall writing, etc.).
+- **Every outside-world message must originate as a believable fragment of something someone might actually say to an unconscious loved one. The environmental placement comes afterward.**
+- Appear in mundane, inappropriate locations (a desk sticky, a break-room board, institutional wall writing, etc.).
 - Compassionate / concerned tone only — no threats, riddles, or building-as-speaker voice.
 - Meaning stays ambiguous; do not explicitly reveal hospitalization, a clinical diagnosis, or a final explanation in player-facing text.
 - Low frequency — each discovery should feel significant.
@@ -212,16 +213,17 @@ Occasionally, short messages appear inside the game environment that feel out of
 
 | Chapter | Placement | Text | Presentation |
 |---|---|---|---|
+| 02 — Office | Yellow sticky beside the ringing phone | “I came back today.” | Handwritten desk note; no outline, inspect, sound, or composure effect; separate from the keypad-code sticky |
 | 04 — Night Shift | Cork noticeboard in the kitchenette | “We're all here.” | Small handwritten paper note; no outline, inspect, sound, or composure effect |
 | 05 — Stairwells | Floor 03 landing wall, before the void | “Please wake up.” | Worn institutional signage / writing; no camera beat, outline, or gameplay trigger |
 
-**OPEN / PROVISIONAL (later beats — do not implement in Ch 01–03)**
+**OPEN / PROVISIONAL (later beats — do not implement in Ch 01 or Ch 03)**
 
 - “We need you.”
 - “I know you can't hear me, but...” (especially significant; may later become real-world speech intrusion — voice/audio not yet authorized)
 - A message that addresses the protagonist personally (no name invented yet; do not use a developer name as a placeholder)
 
-Chapters 01–03 remain restrained and free of these prophetic or personal warnings. Exact later chapter placements undecided.
+Chapters 01 and 03 remain restrained and free of these warnings. Exact later chapter placements for reserved lines undecided.
 
 ---
 
@@ -331,6 +333,8 @@ The dead-end, return, and elevator movement instructions remain independent of d
 - Lighter (inspect), sticky note (take), key fob (take), wall keypad (second approach only).
 - Empty glass meeting room. On the second approach, one conference chair slides back from the table once (empty-seat STEADY); aisle chair stays static.
 - Service door opens only after correct keypad entry.
+
+**Outside-world intrusion (IMPLEMENTED):** A yellow handwritten sticky beside the ringing phone reads **“I came back today.”** Not the keypad-code collectible. No outline, inspect panel, dialogue, sound, or composure effect.
 
 ### Dialogue Revision 002 (IMPLEMENTED)
 
@@ -503,3 +507,4 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Stairwells as Chapter 05:** Inserted between Night Shift and Threshold; Threshold→06, Unseen→07. Four-floor void descent retained. |
 | 2026-11 | **Records exit polish:** Walk closer to end door; fob reader highlight; fob consumed on use. |
 | 2026-11 | **Outside-world intrusions (first pass):** Public bible rules + Night Shift cork note (“We're all here.”) + Stairwells Floor 03 sign (“Please wake up.”); later lines reserved; writer-only explanation stays gitignored. |
+| 2026-11 | **Outside-world — Office:** Sticky beside the ringing phone (“I came back today.”); writing-origin rule added (spoken fragment first, placement second). |
