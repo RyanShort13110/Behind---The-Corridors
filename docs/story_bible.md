@@ -1,9 +1,10 @@
 # BEHIND. — Living Story Bible
 
-**Status:** Working draft / synchronized with playable Chapters 01–07 (Corridor → Unseen), November 2026. Stairwells is Chapter 05 between Night Shift and Threshold. Records exit requires the Office key fob (consumed on use).  
+**Status:** Working draft / synchronized with playable Chapters 01–07 (Corridor → Unseen), November 2026. Stairwells is Chapter 05 between Night Shift and Threshold. Records exit requires the Office key fob (consumed on use). Narrative direction updated November 2026 (grief of separation; outside-world motif; player discovery may precede protagonist recognition — private facts stay in `docs/writer-only/`).  
 **Genre:** Interactive first-person psychological horror web film  
 **Target:** Approximately 10 chapters, 45–60+ minutes in its eventual complete form  
-**Creative rule:** *The building doesn't chase you. It waits for you to look away.*
+**Creative rule:** *The building doesn't chase you. It waits for you to look away.*  
+**Storytelling philosophy:** *Let the player discover the truth. Never explain something they are capable of understanding themselves.*
 
 ### Status labels (use throughout)
 
@@ -17,7 +18,11 @@
 
 **ESTABLISHED CANON**
 
-The player may notice an emotional connection before the protagonist can put it into words. The experience should never resolve every ambiguity for them. Early chapters are grounded in missing people, mundane belongings, and discrepancies that could almost be explained away. The building is not presented as a character with dialogue or a collection of supernatural puzzles.
+The player may notice an emotional connection — and, later, pattern-level meaning — **before** the protagonist can put it into words. **The player is allowed to understand what is happening before the protagonist does.** Do not confirm a player's private theory through protagonist dialogue, cinematic reveals, explanatory subtitles, or forced recognition beats. Trust the audience; some will connect the pattern early, others much later — both outcomes are intentional.
+
+The experience should never resolve every ambiguity for them. Early chapters are grounded in missing people, mundane belongings, and discrepancies that could almost be explained away. The building is not presented as a character with dialogue or a collection of supernatural puzzles.
+
+The goal is not only fear. Leave the player with **profound absence and loss** — the devastation of a reality or relationship that felt completely real. Horror systems, creatures, impossible geometry, and environmental wrongness remain; the game must still frighten someone who never grasps any deeper explanation.
 
 **No jumpscares or overt creatures in Chapters 01–03.** Avoid prophetic warnings, sinister computer messages, blood, sudden faces, or overexplained memory sequences. Let lighting, location, sound, and changed objects do the work.
 
@@ -171,12 +176,15 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 **ESTABLISHED CANON**
 
-- The story centers on **grief**.
-- Guilt and memory suppression are secondary but interconnected themes.
-- The protagonist’s loss includes both a loved person and their former shared life.
+- The story centers on **grief** — not as a solved mystery, but as lived absence.
+- The dominant grief is **separation**: two people cut off from each other, each experiencing the other's absence. Longing, confusion, and unreliable memory matter as much as fear.
+- Guilt and memory suppression remain secondary but interconnected themes.
+- The protagonist may feel they have permanently lost a loved person and a shared life; **do not yet force that belief into explicit player-facing exposition**, and do not confirm or deny it in public copy.
 - Memories may be incomplete, selective, or contradictory.
 - Memory exploration is an integral storytelling mechanic (scroll-rail recollection spaces).
+- White / black stuffed dragons, the remembered apartment, ordinary personal objects, and the contrast between comforting and painful recollection remain significant — do not reinterpret every object as a literal clue to a single off-screen explanation.
 - The protagonist’s guilt does **not** establish actual responsibility for any off-screen tragedy.
+- Psychological horror, creatures, unsettling geometry, and environmental storytelling remain valid even if a player never forms a deeper theory.
 
 ### Narrative restraint (formal writing principles)
 
@@ -187,8 +195,10 @@ Objects should appear ordinary until repetition gives them emotional weight.
 5. Do not depict any absent person solely as a device for the protagonist’s suffering.
 6. Avoid reducing grief to a puzzle that can be solved.
 7. Never force explicit confession of relationship, accident, argument, or gift-giving in player-facing text.
+8. **Player discovery may precede protagonist recognition.** Do not hand-hold, confirm, or make the protagonist voice the player's theory.
+9. Prefer narrative ambiguity over tidy reveal. Never explain what the player is capable of understanding themselves.
 
-**Writer-only spoiler backstory** (partner, argument, accident, dragons-as-gifts, and any private explanation of outside-world messages) is kept **out of this public bible**. Maintain it in a local, unpublished writer reference only (`docs/writer-only/` is gitignored). Do not put spoilers in a “private” file on a public remote.
+**Writer-only spoiler backstory** (partner status, accident circumstances, dragons-as-gifts, and any private explanation of outside-world messages) is kept **out of this public bible**. Maintain it in a local, unpublished writer reference only (`docs/writer-only/` is gitignored). Do not put spoilers in a “private” file on a public remote.
 
 ---
 
@@ -196,18 +206,21 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 **ESTABLISHED CANON (presentation rules)**
 
-Occasionally, short messages appear inside the game environment that feel out of place — ordinary text in ordinary materials, in locations where they do not quite belong. Their language is compassionate and concerned, never threatening. To the player they should remain ambiguous: easy to overlook, easy to rationalize, never explained by the protagonist.
+Occasionally, short messages appear inside the game environment that feel out of place — ordinary text in ordinary materials, in locations where they do not quite belong. Their language is compassionate and concerned: expressions of care, exhaustion, and hope — never threats, supernatural warnings, or instructions from the building. To the player they should remain ambiguous at first: easy to overlook, easy to rationalize, never explained by the protagonist.
+
+**Intended recognition (without confirmation):** By the time a player reaches **“Please wake up.”** (Stairwells), they may suddenly reconsider earlier notes. That suspicion is welcome. **Do not confirm it** — no protagonist dialogue about the messages, no cinematic revelation, no explanatory subtitle, no forced recognition beat.
 
 **Rules**
 
 - **Every outside-world message must originate as a believable fragment of something someone might actually say to an unconscious loved one. The environmental placement comes afterward.**
 - Appear in mundane, inappropriate locations (a desk sticky, a break-room board, institutional wall writing, etc.).
 - Compassionate / concerned tone only — no threats, riddles, or building-as-speaker voice.
-- Meaning stays ambiguous; do not explicitly reveal hospitalization, a clinical diagnosis, or a final explanation in player-facing text.
-- Low frequency — each discovery should feel significant.
+- Meaning stays ambiguous in player-facing text; do not explicitly spell out a final explanation.
+- Low frequency — each discovery should feel significant. Avoid excessive repetition as the motif continues.
+- Later messages (when authorized) should grow **more emotionally personal**, not more overtly frightening.
 - The protagonist does not deliver explanatory dialogue about them.
 - Never required as puzzle clues or for progression.
-- Reinforce the existing grief / absence / fragile-connection narrative; do **not** replace it.
+- Reinforce the grief / absence / fragile-connection narrative; do **not** replace it or the rest of the horror design.
 
 **IMPLEMENTED**
 
@@ -217,13 +230,14 @@ Occasionally, short messages appear inside the game environment that feel out of
 | 04 — Night Shift | Cork noticeboard in the kitchenette | “We're all here.” | Small handwritten paper note; no outline, inspect, sound, or composure effect |
 | 05 — Stairwells | Floor 03 landing wall, before the void | “Please wake up.” | Worn institutional signage / writing; no camera beat, outline, or gameplay trigger |
 
-**OPEN / PROVISIONAL (later beats — do not implement in Ch 01 or Ch 03)**
+**OPEN / PROVISIONAL (later beats — do not implement yet; not for Ch 01 or Ch 03)**
 
 - “We need you.”
-- “I know you can't hear me, but...” (especially significant; may later become real-world speech intrusion — voice/audio not yet authorized)
+- “I know you can't hear me, but...” (especially significant; may later become speech intrusion — voice/audio not yet authorized)
+- “I still tell you about my day.”
 - A message that addresses the protagonist personally (no name invented yet; do not use a developer name as a placeholder)
 
-Chapters 01 and 03 remain restrained and free of these warnings. Exact later chapter placements for reserved lines undecided.
+Placement, timing, and presentation for reserved lines remain undecided. Chapters 01 and 03 remain restrained and free of these messages.
 
 ---
 
@@ -400,6 +414,7 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 - Does the protagonist belong here, or is familiarity the most unsettling aspect of being lost?
 - When and how should the key fob unlock something in Records without confirming employment?
 - What memories (if any) do the stuffed dragons unlock — and how do the two relate?
+- How much of the player's private pattern-recognition (if any) should ever be acknowledged in-fiction — and how late — without collapsing ambiguity?
 
 ## Chapter 04: The Night Shift — Prototype 004.2 / Act II begins
 
@@ -508,3 +523,4 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Records exit polish:** Walk closer to end door; fob reader highlight; fob consumed on use. |
 | 2026-11 | **Outside-world intrusions (first pass):** Public bible rules + Night Shift cork note (“We're all here.”) + Stairwells Floor 03 sign (“Please wake up.”); later lines reserved; writer-only explanation stays gitignored. |
 | 2026-11 | **Outside-world — Office:** Sticky beside the ringing phone (“I came back today.”); writing-origin rule added (spoken fragment first, placement second). |
+| 2026-11 | **Narrative direction update (continuity):** Public bible reframes grief as separation/absence; formalizes player-discovery-before-protagonist; expands outside-world restraint and reserved later lines. Private revised backstory kept only in gitignored writer-only notes (superseded prior private outline marked there — not rewritten into historical public entries). |
