@@ -670,9 +670,10 @@ async function endCamcorderPlayback() {
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=ow-msg-1');
+      const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
       director.add('night', createNightShift(scene));
       el.location.textContent = 'SOUTH WING / NIGHT STAFF';
+      look?.setMaxYaw(1.05); // face the kitchenette cork board from the rail
     } else if (target === 'stairwells') {
       const { createStairwells } = await import('./levels/stairwells.js?v=ow-msg-1');
       director.add('stairwells', createStairwells(scene));
@@ -1906,7 +1907,7 @@ async function enterNightShift() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createNightShift } = await import('./levels/night.js?v=ow-msg-1');
+    const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
     module = createNightShift(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1924,6 +1925,7 @@ async function enterNightShift() {
     hideEndCard();
     el.location.textContent = 'SOUTH WING / NIGHT STAFF';
     progress = displayed = 0;
+    look?.setMaxYaw(1.05); // face the kitchenette cork board from the rail
     camera.position.set(0, 1.7, NIGHT_START_Z);
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
@@ -2155,7 +2157,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createRecords } = await import('./levels/records.js?v=fob-consume-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=ow-msg-1');
+      const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
       const { createThreshold } = await import('./levels/threshold.js?v=organic-pair-2');
@@ -2188,6 +2190,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     next = null; // Ownership was transferred to the active director.
     chapterId = target;
     look?.setMaxYaw();
+    if (target === 'night') look?.setMaxYaw(1.05); // kitchenette / cork board
     if (target !== 'stairwells' && camera.far !== 65) {
       camera.far = 65;
       camera.updateProjectionMatrix();
