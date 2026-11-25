@@ -29,6 +29,8 @@ export function createStairwells(scene) {
   scene.fog = new THREE.FogExp2(BG_SHAFT, FOG_SHAFT);
 
   const ownedMaterials = [];
+  const ownedGeometries = [];
+  const ownedTextures = [];
   const lights = [];
   const floorGroups = [];
   const shaftLightRefs = [];
@@ -206,6 +208,70 @@ export function createStairwells(scene) {
     box(group, 0.28, 0.18, 0.04,
       -doorW * 0.55 - 0.2, y0 + 1.65, halfD - 0.02, mats.plaque);
 
+    // Floor 03 (+Z landing, HUD): worn outside-world writing on the side wall —
+    // before the void, not on the reserved door. Easy to notice during the U-turn.
+    if (floor === 2) {
+      const signCanvas = document.createElement('canvas');
+      signCanvas.width = 512;
+      signCanvas.height = 160;
+      const sctx = signCanvas.getContext('2d');
+      sctx.fillStyle = '#9a9a8e';
+      sctx.fillRect(0, 0, 512, 160);
+      // Institutional wear
+      for (let i = 0; i < 1400; i += 1) {
+        const n = 90 + Math.random() * 70;
+        sctx.fillStyle = `rgba(${n},${n - 4},${n - 10},${0.05 + Math.random() * 0.08})`;
+        sctx.fillRect(Math.random() * 512, Math.random() * 160, 1 + Math.random() * 3, 1);
+      }
+      // Soft edge fade / peeled corners
+      sctx.fillStyle = 'rgba(55,58,52,0.22)';
+      sctx.fillRect(0, 0, 512, 10);
+      sctx.fillRect(0, 150, 512, 10);
+      sctx.fillStyle = 'rgba(40,42,38,0.28)';
+      sctx.beginPath();
+      sctx.moveTo(0, 0);
+      sctx.lineTo(36, 0);
+      sctx.lineTo(0, 28);
+      sctx.fill();
+      // Slightly uneven stencil lettering
+      sctx.fillStyle = '#2c302c';
+      sctx.textAlign = 'center';
+      sctx.textBaseline = 'middle';
+      sctx.font = '600 42px "Courier New", Courier, monospace';
+      const wake = 'Please wake up.';
+      let wx = 256 - (sctx.measureText(wake).width * 0.5);
+      for (let i = 0; i < wake.length; i += 1) {
+        const ch = wake[i];
+        const jy = (i % 4 === 1 ? 1.5 : 0) + (i % 5 === 0 ? -1.2 : 0);
+        sctx.globalAlpha = 0.82 + (i % 3) * 0.05;
+        sctx.fillText(ch, wx + sctx.measureText(ch).width * 0.5, 82 + jy);
+        wx += sctx.measureText(ch).width;
+      }
+      sctx.globalAlpha = 1;
+
+      const signTex = new THREE.CanvasTexture(signCanvas);
+      signTex.colorSpace = THREE.SRGBColorSpace;
+      signTex.anisotropy = 4;
+      ownedTextures.push(signTex);
+      const signMat = material({
+        map: signTex,
+        color: 0xffffff,
+        roughness: 0.94,
+        metalness: 0.02,
+      }, mats.bag);
+      const signGeo = new THREE.PlaneGeometry(0.62, 0.2);
+      ownedGeometries.push(signGeo);
+      const sign = new THREE.Mesh(signGeo, signMat);
+      sign.name = 'Stairwells / outside-world sign';
+      // East inner wall of Floor 03 landing — faces into the well; clear of the door.
+      sign.position.set(halfW - 0.025, y0 + 1.58, halfD - landingD * 0.55);
+      sign.rotation.y = -Math.PI / 2;
+      group.add(sign);
+      // Thin backing plate so it reads as mounted signage, not a floating texture.
+      box(group, 0.018, 0.22, 0.66,
+        halfW - 0.012, y0 + 1.58, halfD - landingD * 0.55, mats.plaque);
+    }
+
     {
       const lx = 0;
       const ly = y1 - 0.1;
@@ -278,8 +344,6 @@ export function createStairwells(scene) {
   world.add(voidGroup);
 
   const voidBag = [];
-  const ownedGeometries = [];
-  const ownedTextures = [];
 
   function makeConcreteTexture({ blockW = 28, blockH = 14, base = '#5e6862', mortar = '#3a423e' } = {}) {
     const c = document.createElement('canvas');

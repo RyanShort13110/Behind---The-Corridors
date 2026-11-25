@@ -1,6 +1,6 @@
 # BEHIND. — Living Story Bible
 
-**Status:** Working draft / synchronized with playable Levels 01–03, November 2026. Records exit requires the Office key fob.  
+**Status:** Working draft / synchronized with playable Chapters 01–07 (Corridor → Unseen), November 2026. Stairwells is Chapter 05 between Night Shift and Threshold. Records exit requires the Office key fob (consumed on use).  
 **Genre:** Interactive first-person psychological horror web film  
 **Target:** Approximately 10 chapters, 45–60+ minutes in its eventual complete form  
 **Creative rule:** *The building doesn't chase you. It waits for you to look away.*
@@ -87,10 +87,11 @@ Timed defensive reaction (X / tap) during major impossible events. Not combat. R
 | 02 Office | ~18 | Phone / silence **0** · Latch audio only (no QTE) · Empty-seat STEADY 18/9/4 at ~0.66 second approach |
 | 03 Records | ~24 | Polaroid / drawers **0** · Dart STEADY 20/10/4 · Peek **4** unavoidable |
 | 04 Night | 0 | Emotional lull — lamp / chair / hush never tax composure |
-| 05 Threshold | ~18 | Rupture STEADY 18/9/4 at ~0.605 (organic contraction); other provisional hits retired |
-| 06 Unseen | ~22 | Blackout STEADY 22/11/4 at darkness (~0.43 retreat); other provisional hits retired |
+| 05 Stairwells | 0 | Descent / void / snap — atmospheric; no composure tax in current build |
+| 06 Threshold | ~18 | Rupture STEADY 18/9/4 at ~0.605 (organic contraction); other provisional hits retired |
+| 07 Unseen | ~22 | Blackout STEADY 22/11/4 at darkness (~0.43 retreat); other provisional hits retired |
 
-**PROVISIONAL (L04–L06):** Prior budget numbers remain design targets; damage application is **gated off** (`enableLateChapterDamage: false`) until this pass expands.
+**PROVISIONAL (L04–L07):** Prior budget numbers remain design targets; late-chapter damage application remains **gated off** (`enableLateChapterDamage: false`) until this pass expands.
 
 ### Checkpoints (**IMPLEMENTED** L01–L03)
 
@@ -98,7 +99,7 @@ Chapter-start snapshot + one safe mid-chapter snapshot before major STEADY threa
 
 ### Cigarettes (collectible)
 
-**IMPLEMENTED:** Pack props in Corridor (left baseboard), Office (aisle chair), Records (receiving counter); also Night / Threshold / Unseen placements from earlier pass. Inventory label **CIGARETTES**. Temporary coping only.
+**IMPLEMENTED:** Pack props in Corridor (left baseboard), Office (aisle chair), Records (receiving counter); also Night / Stairwells / Threshold / Unseen placements from earlier pass. Inventory label **CIGARETTES**. Temporary coping only.
 
 Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game over, retry checkpoint. Chapter jumps seed completed hit IDs.
 
@@ -121,7 +122,7 @@ Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game ove
 ### Orange key fob
 
 **ESTABLISHED CANON:** Plain orange plastic fob with a worn metal ring. Collectible without implying the protagonist worked here or owned it.  
-**IMPLEMENTED (L02→L03):** Takeable in the Office (`key-fob`). Inspect: “Orange plastic. The metal ring is worn.” Inventory is preserved into Records. Office cannot complete / leave for Records without taking the fob (softlock prevention). In Records, the fob unlocks a wall card reader at the far exit door. The fob **remains in inventory** after use. No lore explains why it works.
+**IMPLEMENTED (L02→L03):** Takeable in the Office (`key-fob`). Inspect: “Orange plastic. The metal ring is worn.” Inventory is preserved into Records. Office cannot complete / leave for Records without taking the fob (softlock prevention). In Records, the fob unlocks a wall card reader at the far exit door and is **consumed on use**. No lore explains why it works.
 
 ### Brass key (Level 01)
 
@@ -129,7 +130,7 @@ Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game ove
 
 ### House key
 
-**OPEN / PROVISIONAL:** Faded/worn tag; belonging and access. Planned around Chapter 04 or 05. No inventory collection planned. Visible but uncollected in Threshold as currently designed.
+**OPEN / PROVISIONAL:** Faded/worn tag; belonging and access. Planned around mid Act II. No inventory collection planned. Visible but uncollected in Threshold (Chapter 06) as currently designed.
 
 ### Face-down photograph
 
@@ -140,7 +141,7 @@ Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game ove
 
 **ESTABLISHED CANON:** Solid white plush. Associated with comforting, accessible recollection — not “good.” Collectible. Can open a memory environment.
 
-**IMPLEMENTED (dev prototype only):** `?debug=1&level=memory-white` — staging pickup → warm afternoon living room on a scroll rail → subtle discrepancy → unfinished thought near the hallway → exit via front door. Not in ordinary L01–L06 progression.
+**IMPLEMENTED (dev prototype only):** `?debug=1&level=memory-white` — staging pickup → warm afternoon living room on a scroll rail → subtle discrepancy → unfinished thought near the hallway → exit via front door. Not in ordinary L01–L07 progression.
 
 **OPEN / PROVISIONAL:** Final Act II placement undecided.
 
@@ -160,7 +161,7 @@ Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game ove
 - White memory may omit uncomfortable details without being entirely false.
 - Black memory is not automatically objective truth.
 
-**Technical:** `js/props/stuffed-dragon.js` reusable prop. Shared home modules: `memory-home.js`, `memory-home-story.js`, `memory-home-route.js`. Neither dragon appears in L01–L06 story progression yet.
+**Technical:** `js/props/stuffed-dragon.js` reusable prop. Shared home modules: `memory-home.js`, `memory-home-story.js`, `memory-home-route.js`. Neither dragon appears in L01–L07 story progression yet.
 
 Objects should appear ordinary until repetition gives them emotional weight.
 
@@ -187,7 +188,40 @@ Objects should appear ordinary until repetition gives them emotional weight.
 6. Avoid reducing grief to a puzzle that can be solved.
 7. Never force explicit confession of relationship, accident, argument, or gift-giving in player-facing text.
 
-**Writer-only spoiler backstory** (partner, argument, accident, dragons-as-gifts) is kept **out of this public bible**. Maintain it in a local, unpublished writer reference only (`docs/writer-only/` is gitignored). Do not put spoilers in a “private” file on a public remote.
+**Writer-only spoiler backstory** (partner, argument, accident, dragons-as-gifts, and any private explanation of outside-world messages) is kept **out of this public bible**. Maintain it in a local, unpublished writer reference only (`docs/writer-only/` is gitignored). Do not put spoilers in a “private” file on a public remote.
+
+---
+
+## Outside-world intrusions
+
+**ESTABLISHED CANON (presentation rules)**
+
+Occasionally, short messages appear inside the game environment that feel out of place — ordinary text in ordinary materials, in locations where they do not quite belong. Their language is compassionate and concerned, never threatening. To the player they should remain ambiguous: easy to overlook, easy to rationalize, never explained by the protagonist.
+
+**Rules**
+
+- Appear in mundane, inappropriate locations (a break-room board, institutional wall writing, etc.).
+- Compassionate / concerned tone only — no threats, riddles, or building-as-speaker voice.
+- Meaning stays ambiguous; do not explicitly reveal hospitalization, a clinical diagnosis, or a final explanation in player-facing text.
+- Low frequency — each discovery should feel significant.
+- The protagonist does not deliver explanatory dialogue about them.
+- Never required as puzzle clues or for progression.
+- Reinforce the existing grief / absence / fragile-connection narrative; do **not** replace it.
+
+**IMPLEMENTED**
+
+| Chapter | Placement | Text | Presentation |
+|---|---|---|---|
+| 04 — Night Shift | Cork noticeboard in the kitchenette | “We're all here.” | Small handwritten paper note; no outline, inspect, sound, or composure effect |
+| 05 — Stairwells | Floor 03 landing wall, before the void | “Please wake up.” | Worn institutional signage / writing; no camera beat, outline, or gameplay trigger |
+
+**OPEN / PROVISIONAL (later beats — do not implement in Ch 01–03)**
+
+- “We need you.”
+- “I know you can't hear me, but...” (especially significant; may later become real-world speech intrusion — voice/audio not yet authorized)
+- A message that addresses the protagonist personally (no name invented yet; do not use a developer name as a placeholder)
+
+Chapters 01–03 remain restrained and free of these prophetic or personal warnings. Exact later chapter placements undecided.
 
 ---
 
@@ -210,7 +244,7 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 ## Hospital reverse prototype — The Ward
 
-**PROTOTYPE / EXPERIMENTAL** — not confirmed final story placement; not in ordinary L01–L06 progression. Current polish models **warning → escalating threat → player response → consequence** with cinematic reverse pacing; not a finalized story chapter.
+**PROTOTYPE / EXPERIMENTAL** — not confirmed final story placement; not in ordinary L01–L07 progression. Current polish models **warning → escalating threat → player response → consequence** with cinematic reverse pacing; not a finalized story chapter.
 
 **Design question:** Can reverse-movement horror carry real gameplay stakes when the player must retreat into unseen space, using sound as the primary warning system?
 
@@ -244,8 +278,9 @@ Objects should appear ordinary until repetition gives them emotional weight.
 | 02 — The Office | **WHAT WAS LEFT BEHIND.** | Ordinary belongings after an absence |
 | 03 — The Records | **SOME THINGS STAY HIDDEN.** | The face-down photograph and chosen refusal |
 | 04 — The Night Shift | **ALMOST LIKE HOME.** | An institution begins feeling domestic |
-| 05 — The Threshold | **IT WON'T STAY BURIED.** | Suppression bleeding into the architecture |
-| 06 — The Unseen | **IT'S STILL THERE.** | A presence and a feeling that persist |
+| 05 — The Stairwells | **YOU KEPT GOING DOWN.** | Compulsion to continue; architecture that will not let descent end cleanly |
+| 06 — The Threshold | **IT WON'T STAY BURIED.** | Suppression bleeding into the architecture |
+| 07 — The Unseen | **IT'S STILL THERE.** | A presence and a feeling that persist |
 
 The Ward remains a development-only mechanics prototype; its heading is unchanged. End-card supporting text and continue controls are unchanged in this pass.
 
@@ -317,7 +352,7 @@ Movement prompts, keypad guidance, and the **TAKE THE KEY FOB** reminder remain 
 **Motif — face-down Polaroid:** Rests on the sorting surface mid-floor. Camera never reveals the front; no artwork, name, or Take. Discovery via A/D look; proximity triggers no composure damage and no ambient dialogue. Inspect-only panel: title **PHOTOGRAPH**, body **“No.”** A refusal without explanation. Do not connect the Polaroid to any off-screen person in player-facing text.  
 **Environmental memory:** A right-side drawer is ajar on first approach; after the camera passes, it is closed. No close animation or sound. Optional backtrack may yield **“That was open.”** Not required for progression. Separately, drawers on the last filing cabinets toward the exit ease open ahead of the player mid-hall (quiet, no composure tax). Past the sorting station, a one-shot dark blot darts across the aisle (STEADY). Later, a head-only shadow peeks once (small unavoidable composure tax; skipped under reduced motion).  
 **Other dialogue (Revision 002):** The optional one-shot **“That was open.”** plays if the player notices the altered drawer on return. Otherwise silence. The locked card reader still provides an instruction hint.  
-**Exit (IMPLEMENTED):** Far door locked until the Office key fob is used on the card reader. Soft beep + latch + quiet hinge. Progress cannot complete the chapter while the door is locked. Unlock opens the path into Night Shift.  
+**Exit (IMPLEMENTED):** Far door locked until the Office key fob is used on the card reader. Soft beep + latch + quiet hinge. The fob is consumed on successful use. Progress cannot complete the chapter while the door is locked. Unlock opens the path into Night Shift.  
 **Audio direction:** Near-silence — faint sustained tones, sparse unresolved two-note fragments, long rests; low HVAC / thin ballast; rare distant metal settle. Duck music slightly at the Polaroid. No stings, whispers, footsteps, or crash references.
 
 ### Why Level 03 breaks the Level 01–02 return pattern
@@ -374,14 +409,29 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **Pacing:** No mandatory backtrack, STEADY/QTEs, jumpscares, or chase. Forward path stays open. Atmospheric events deal **0** composure.
 
-**Motifs:** Do not add the lighter or face-down photograph here. The house key remains available for Chapter 05.
+**Outside-world intrusion (IMPLEMENTED):** A small handwritten note on the kitchenette cork board reads **“We're all here.”** Easy to miss; no interaction outline, inspect panel, dialogue, sound, or composure effect.
 
-**Production status:** First-pass emotional redesign on `staging` (004.2). Playtest before merging to `main`.
+**Motifs:** Do not add the lighter or face-down photograph here. The house key remains reserved for Threshold (Chapter 06).
 
-## Chapter 05: The Threshold — Prototype 005.0
+**Production status:** Emotional redesign live on `staging` / `main` (004.2). Outside-world note added in the intrusion pass.
+
+## Chapter 05: The Stairwells — playable / Act II
+
+**IMPLEMENTED** unless noted.
+
+**Emotion:** Compulsion to keep descending; ordinary institutional space that stops obeying expected landings.  
+**Entry:** Night Shift's open final doorway into a concrete fire stair.  
+**Architecture:** Four switchback floors (HUD Floors 04→01), mid-landing U-turns, then an anomalous straight flight into a vast dark room, a hard snap back onto the mid landing facing the last flight, and exit through the Floor 01 door into Threshold.  
+**Movement:** Slower descent (~2.7 m/s). Camera rail and staircase geometry are locked for this pass — do not alter void, snap-back, or exit sequencing casually.  
+**Outside-world intrusion (IMPLEMENTED):** On the Floor 03 landing wall **before** the void, worn institutional writing reads **“Please wake up.”** Not on the reserved future hidden-room door. No camera beat, outline, sound, or composure tax.  
+**Narrative discipline:** No protagonist explanation of the sign or the void. Composure damage remains 0. End card: **YOU KEPT GOING DOWN.**
+
+**OPEN / PROVISIONAL:** Optional hidden room off a reserved stair door; further intrusion placements.
+
+## Chapter 06: The Threshold — Prototype 005.0 (renumbered)
 
 **Emotion:** The first overt rupture in reality; unavoidable dread rather than shock.
-**Entry:** Chapter 04's partially open final doorway. At the new chapter start a freestanding, hinged door stands in the center of an otherwise ordinary hallway. It is not connected to the side walls.
+**Entry:** Chapter 05's stair exit. At the new chapter start a freestanding, hinged door stands in the center of an otherwise ordinary hallway. It is not connected to the side walls.
 **Progression:** The door opens gently as the viewer approaches. The corridor beyond seems similar at first. Then plaster appears to split and seams distort. Farther down, membrane-like wall geometry and tendon ridges absorb normal trim and fixtures. The final stretch is drenched in red light. At every stage the recognizable *office corridor architecture* remains visible.
 **Recurring motif:** The house key is visible on a ledge embedded in the red-hall architecture. The worn tag's presence remains ambiguous. It is never collected or accompanied by a factual explanation.
 **Audio:** Familiar hum degrades into a low filtered pulse; no stingers, scream, or chase cue. Visual and narrative beats remain legible with sound off.
@@ -391,25 +441,25 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **STEADY — Threshold Rupture (IMPLEMENTED):** Around progress `0.605`, organic wall seams contract inward once with a deep groan and a brief light weaken; STEADY (`threshold-rupture`, 18/9/4) peaks with the contraction. No monster, sting, or new dialogue.
 
-## Chapter 06: The Unseen — Prototype 006.0 / first playable pass
+## Chapter 07: The Unseen — Prototype 006.0 / first playable pass (renumbered)
 
-**Emotion:** Fear of proximity without visible evidence. A deliberately quiet, ordinary environment after Chapter 05's organic nightmare.
+**Emotion:** Fear of proximity without visible evidence. A deliberately quiet, ordinary environment after Chapter 06's organic nightmare.
 
-**Entry:** Level 05's final corridor hands off under the existing opaque veil to a service passage lined with pipes, metal access panels, low fluorescent fixtures, an abandoned janitor trolley, and translucent plastic sheeting at its entrance.
+**Entry:** Level 06's final corridor hands off under the existing opaque veil to a service passage lined with pipes, metal access panels, low fluorescent fixtures, an abandoned janitor trolley, and translucent plastic sheeting at its entrance.
 
-**The turn:** The forward path ends at a sealed maintenance barrier. From somewhere ahead comes a faint, spatially located dragging/scraping sound. Nothing is rendered as the source. The protagonist retreats *while still facing the empty corridor*. The sound's perceived distance changes over time and movement, unlike Chapter 04's follower footsteps. Only tiny ambient visual reactions occur: overhead lamps lose some intensity, a cable and grate barely vibrate. Never add a monster, silhouette, stinger, or explicit diagnosis of the sound.
+**The turn:** The forward path ends at a sealed maintenance barrier. From somewhere ahead comes a faint, spatially located dragging/scraping sound. Nothing is rendered as the source. The protagonist retreats *while still facing the empty corridor*. The sound's perceived distance changes over time and movement, unlike early companion-footstep experiments. Only tiny ambient visual reactions occur: overhead lamps lose some intensity, a cable and grate barely vibrate. Never add a monster, silhouette, stinger, or explicit diagnosis of the sound.
 
-**The exit:** A left-side maintenance door, previously another ordinary access panel, opens once the retreat has begun. Near the door the camera turns left, then scrolling DOWN moves the player laterally through that doorway. The camera does not turn back to reveal or explain the presence. Completing the retreat ends Chapter 06; the continuation beyond it is not implemented yet.
+**The exit:** A left-side maintenance door, previously another ordinary access panel, opens once the retreat has begun. Near the door the camera turns left, then scrolling DOWN moves the player laterally through that doorway. The camera does not turn back to reveal or explain the presence. Completing the retreat ends Chapter 07; the continuation beyond it is not implemented yet.
 
 **Narration:** Keep quiet during exploration. At the blocked end, describe an audible scrape in text, including when sound is disabled. Instruction explicitly invites backward movement. Once the player begins retreating, use silence and, briefly, “It is still moving.” At the side junction: “The maintenance door is open.”
 
 **Mechanics:** Forward progress is capped at the solid barrier. Reaching it latches the encounter; returning the scrollbar does not reset the state. The side passage is inaccessible until that condition occurs. The side-turn camera route never exceeds the established 5.5 m/s movement cap. The scene is recyclable/disposable; audio sources are created lazily when needed and are muted on jump/reset.
 
-**Debug testing:** `?debug=1&level=06` loads the fresh chapter. Named checkpoints can recreate state for `approach`, `retreat`, and `exit`, with URLs such as `?debug=1&level=06&checkpoint=retreat`. These are development tools only; none of them save a gameplay checkpoint.
+**Debug testing:** `?debug=1&level=07` (or `level=unseen`) loads the chapter. Named checkpoints can recreate state for `approach`, `retreat`, and `exit`. These are development tools only; none of them save a gameplay checkpoint.
 
-**Status:** First functional pass. Timing, spatial audio perceived over headphones, lighting balance, the left-side door's readability, and camera choreography should all receive an in-browser playtest before Level 06 is treated as creatively locked.
+**Status:** First functional pass. Timing, spatial audio perceived over headphones, lighting balance, the left-side door's readability, and camera choreography should all receive an in-browser playtest before Chapter 07 is treated as creatively locked.
 
-### Prototype 006.1 — Level 06 Retreat Pass (2026-10-25)
+### Prototype 006.1 — Unseen Retreat Pass (2026-10-25) — historical note
 
 Environmental horror operates in descending backward-scroll beats: first taps, a right-hand electrical cabinet opening, irregular scraping migrating between walls, ceiling vibration, an advancing blackout, near-absolute silence, and an impossible final click close to the protagonist. The presence is never shown. Player speed modulates scratching; stopping invites one small tap. All changes remain one-way after triggering, not reversible by scrubbing. Developer jump checkpoints preserve each staged state and never play historical sounds.
 
@@ -425,12 +475,13 @@ Environmental horror operates in descending backward-scroll beats: first taps, a
 |---|---|---|---|---|
 | 01 Corridor | Orientation; first sensory doubt; “behind you” reveal | Scroll corridor + return changes + rear elevator seal / hall cascade | Vulnerability, spatial dread | **Retain** as Act I opener; keep sparse dialogue. |
 | 02 Office | Occupied absence; rationalizing emptiness; first inventory puzzles | Phone + keypad code exit; collectibles | Unease without recognition claims | **Retain**; may later feed Act II memory setup after Records. |
-| 03 Records | Avoidance; photograph as unreadable personal pressure | Optional backtrack; “Leave it.” | Intimacy without disclosure | **Retain**; candidate beat *before* white-dragon memory (Act II). Fob unlock still missing. |
-| 04 Night Shift | Unseen companion suggestion | Pace-following footsteps | Paranoia without proof | **Condense or redesign** if Act II memories carry companion themes; else keep as palate cleanser. |
-| 05 Threshold | Overt reality rupture | Progressive corridor corruption; uncollected house key | Dread from visible wrongness | **Retain** late-game; ensure it doesn’t undercut quieter memory horror. |
-| 06 Unseen | Proximity fear; forced retreat | Barrier + spatial scrape + side exit | Panic with empty evidence | **Retain / polish**; evaluate whether it should follow Threshold or a memory beat. |
+| 03 Records | Avoidance; photograph as unreadable personal pressure | Optional backtrack; “Leave it.” | Intimacy without disclosure | **Retain**; candidate beat *before* white-dragon memory (Act II). Fob unlock **now implemented** (consumed on use). |
+| 04 Night Shift | Domestic lull; occupied absence | Lamp / empty chair; warm→cool hall | Soft grief without proof | **Retain** as Act II palate cleanser (footsteps redesign already applied). |
+| 05 Stairwells | Compulsion to descend; architectural impossibility | Switchbacks → void → snap → exit | Quiet wrongness before overt rupture | **Retain** between Night and Threshold (inserted 2026-11). |
+| 06 Threshold | Overt reality rupture | Progressive corridor corruption; uncollected house key | Dread from visible wrongness | **Retain** late Act II; ensure it doesn’t undercut quieter memory horror. |
+| 07 Unseen | Proximity fear; forced retreat | Barrier + spatial scrape + side exit | Panic with empty evidence | **Retain / polish**; evaluate whether it should follow Threshold or a memory beat. |
 
-Do not delete or reorder chapters in code based on this table alone.
+Historical note: an earlier draft of this table numbered Threshold as 05 and Unseen as 06 before Stairwells entered the main path. Do not delete or reorder chapters in code based on this table alone.
 
 ---
 
@@ -449,3 +500,6 @@ Do not delete or reorder chapters in code based on this table alone.
 | 2026-11 | **Composure Survival Balance Pass:** Max/start 100; cigarette restore 40; one pack→one cig per chapter (all six mains); persist unused cigs; block use at full; chapter damage budgets + one-shot story flags; Overwhelmed soft retry; debug presets; no time/movement drain. |
 | 2026-11 | **Psychological Survival System v2 (L01–L03):** Stages; STEADY (cascade/latch/dart); game over at 0; checkpoints; cig restore 40; L04–L06 damage gated; office +5 anomaly reserved/disabled. |
 | 2026-11 | **STEADY expansion & composure rebalance:** Office empty-seat replaces latch QTE; Threshold rupture + Unseen blackout STEADY; atmospheric hits zeroed (phone/photo/drawers/breath/Night); altered-door & peek small taxes; latch remains audio-only. |
+| 2026-11 | **Stairwells as Chapter 05:** Inserted between Night Shift and Threshold; Threshold→06, Unseen→07. Four-floor void descent retained. |
+| 2026-11 | **Records exit polish:** Walk closer to end door; fob reader highlight; fob consumed on use. |
+| 2026-11 | **Outside-world intrusions (first pass):** Public bible rules + Night Shift cork note (“We're all here.”) + Stairwells Floor 03 sign (“Please wake up.”); later lines reserved; writer-only explanation stays gitignored. |

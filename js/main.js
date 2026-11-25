@@ -670,11 +670,11 @@ async function endCamcorderPlayback() {
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
+      const { createNightShift } = await import('./levels/night.js?v=ow-msg-1');
       director.add('night', createNightShift(scene));
       el.location.textContent = 'SOUTH WING / NIGHT STAFF';
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-ch05-1');
+      const { createStairwells } = await import('./levels/stairwells.js?v=ow-msg-1');
       director.add('stairwells', createStairwells(scene));
       el.location.innerHTML = 'THE STAIRWELLS <span class="separator">/</span> FLOOR 04';
       look?.setMaxYaw(1.45);
@@ -1906,7 +1906,7 @@ async function enterNightShift() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
+    const { createNightShift } = await import('./levels/night.js?v=ow-msg-1');
     module = createNightShift(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -1953,7 +1953,7 @@ async function enterStairwells() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createStairwells } = await import('./levels/stairwells.js?v=stairs-ch05-1');
+    const { createStairwells } = await import('./levels/stairwells.js?v=ow-msg-1');
     module = createStairwells(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -2155,7 +2155,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createRecords } = await import('./levels/records.js?v=fob-consume-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=exit-door-1');
+      const { createNightShift } = await import('./levels/night.js?v=ow-msg-1');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
       const { createThreshold } = await import('./levels/threshold.js?v=organic-pair-2');
@@ -2175,7 +2175,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=stairs-ch05-1');
+      const { createStairwells } = await import('./levels/stairwells.js?v=ow-msg-1');
       stairwellsStory.reset();
       next.add('stairwells', createStairwells(scene));
     } else {

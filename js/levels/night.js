@@ -50,6 +50,8 @@ export function createNightShift(scene) {
   const transform = new THREE.Object3D();
   const batches = new Map();
   const ownedGeometry = [];
+  const ownedTextures = [];
+  const ownedMaterials = [];
   const lightsToDarken = [];
   const fixturesToDarken = [];
   const hallLights = [];
@@ -132,7 +134,78 @@ export function createNightShift(scene) {
   add(0.34, 0.04, 0.34, -4.55, 0.52, -9.85, mat.metal);
   // Cork notice board — gap between board and fridge.
   add(0.04, 0.72, 1.05, -5.55, 1.85, -9.65, mat.wood);
-  add(0.01, 0.18, 0.22, -5.52, 2.05, -9.85, mat.paper);
+  // Upper slot: handwritten outside-world note (easy to miss; no interaction).
+  {
+    const noteW = 256;
+    const noteH = 180;
+    const canvas = document.createElement('canvas');
+    canvas.width = noteW;
+    canvas.height = noteH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#e8dfc8';
+    ctx.fillRect(0, 0, noteW, noteH);
+    // Soft paper grain / age
+    for (let i = 0; i < 900; i += 1) {
+      const n = 160 + Math.random() * 60;
+      ctx.fillStyle = `rgba(${n},${n - 8},${n - 20},${0.04 + Math.random() * 0.06})`;
+      ctx.fillRect(Math.random() * noteW, Math.random() * noteH, 1 + Math.random() * 2, 1);
+    }
+    // Faint ruled lines — ordinary scrap paper
+    ctx.strokeStyle = 'rgba(120,140,170,0.18)';
+    ctx.lineWidth = 1;
+    for (let y = 48; y < noteH - 20; y += 28) {
+      ctx.beginPath();
+      ctx.moveTo(18, y);
+      ctx.lineTo(noteW - 18, y);
+      ctx.stroke();
+    }
+    // Handwritten ink — slight per-character jitter, no glow
+    const phrase = "We're all here.";
+    ctx.fillStyle = '#2a3a58';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'italic 28px "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive';
+    let x = 28;
+    const baseline = 102;
+    for (let i = 0; i < phrase.length; i += 1) {
+      const ch = phrase[i];
+      const wobbleY = (Math.sin(i * 1.7) * 1.4) + (i % 3 === 0 ? 0.8 : -0.4);
+      const wobbleRot = (Math.sin(i * 0.9) * 0.03);
+      ctx.save();
+      ctx.translate(x, baseline + wobbleY);
+      ctx.rotate(wobbleRot);
+      ctx.fillText(ch, 0, 0);
+      x += ctx.measureText(ch).width + 0.6;
+      ctx.restore();
+    }
+    // Tiny corner pin shadow
+    ctx.fillStyle = 'rgba(40,36,30,0.35)';
+    ctx.beginPath();
+    ctx.arc(14, 14, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    const noteTex = new THREE.CanvasTexture(canvas);
+    noteTex.colorSpace = THREE.SRGBColorSpace;
+    noteTex.anisotropy = 4;
+    ownedTextures.push(noteTex);
+    const noteMat = new THREE.MeshStandardMaterial({
+      map: noteTex,
+      color: 0xffffff,
+      roughness: 0.92,
+      metalness: 0,
+    });
+    ownedMaterials.push(noteMat);
+    const noteGeo = new THREE.PlaneGeometry(0.24, 0.17);
+    ownedGeometry.push(noteGeo);
+    const note = new THREE.Mesh(noteGeo, noteMat);
+    note.name = 'Night cork note';
+    // Face into the room (+X); sit on the cork face toward the aisle.
+    note.position.set(-5.515, 2.02, -9.82);
+    note.rotation.y = Math.PI / 2;
+    note.rotation.z = -0.04;
+    world.add(note);
+  }
+  // Lower blank scrap — ordinary board clutter.
   add(0.01, 0.14, 0.18, -5.52, 1.70, -9.45, mat.paper);
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.099, 0.19, 10), mat.ceramic);
   cup.position.set(-5.08, 1.195, -13.65);
@@ -430,6 +503,8 @@ export function createNightShift(scene) {
       cube.dispose();
       disposeCigaretteProp(cigarette);
       ownedGeometry.forEach(geometry => geometry.dispose());
+      ownedTextures.forEach(texture => texture.dispose());
+      ownedMaterials.forEach(material => material.dispose());
       Object.values(mat).forEach(material => material.dispose());
       fixturesToDarken.forEach(material => material.dispose());
       hallFixtures.forEach(material => material.dispose());
