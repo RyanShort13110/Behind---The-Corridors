@@ -426,14 +426,14 @@ export function createOffice(scene, {
       polygonOffsetUnits: -1,
     });
     ownedMaterials.push(noteMat);
-    const noteGeo = new THREE.PlaneGeometry(0.38, 0.22);
+    const noteGeo = new THREE.PlaneGeometry(0.48, 0.28);
     separateGeometries.push(noteGeo);
     const intrusionNote = new THREE.Mesh(noteGeo, noteMat);
     intrusionNote.name = 'Office outside-world note';
-    // Aisle-side of the phone, tipped toward the approach so limited look can read it.
-    intrusionNote.position.set(3.42, 1.08, -31.55);
-    intrusionNote.rotation.y = -0.95;
-    intrusionNote.rotation.z = 0.04;
+    // Flush on the service-alcove near wall (z ≈ -32.25), beside the phone.
+    // Faces the approach (+Z) so it reads as stuck to the surface, not floating.
+    intrusionNote.position.set(3.55, 1.32, -32.23);
+    intrusionNote.rotation.set(0, 0, 0);
     world.add(intrusionNote);
   }
 
