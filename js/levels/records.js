@@ -123,6 +123,34 @@ export function createRecords(scene) {
   for (let i = 0; i < 3; i++) {
     box(0.38, 0.027, 0.26, -2.42 + i * 0.43, 1.10 + i * 0.018, -4.75, mat.paper);
   }
+
+  // Experiment 001 — unmarked binder: present on first pass, gone once past,
+  // leaving only a dust-free rectangle. No interaction, dialogue, or audio.
+  const binderDustFree = new THREE.MeshStandardMaterial({
+    color: 0x6e6250, roughness: 0.88, metalness: 0,
+  });
+  const binderCover = new THREE.MeshStandardMaterial({
+    color: 0x3a4540, roughness: 0.82, metalness: 0.04,
+  });
+  const binderSpine = new THREE.MeshStandardMaterial({
+    color: 0x2e3834, roughness: 0.78, metalness: 0.06,
+  });
+  const binderOwnedMats = [binderDustFree, binderCover, binderSpine];
+  const anomalyBinder = new THREE.Group();
+  anomalyBinder.name = 'Records anomaly / unmarked binder';
+  anomalyBinder.position.set(-1.52, 1.085, -4.42);
+  anomalyBinder.rotation.y = 0.18;
+  world.add(anomalyBinder);
+  box(0.28, 0.018, 0.36, 0, 0.01, 0, binderCover, anomalyBinder);
+  box(0.28, 0.012, 0.02, 0, 0.01, -0.17, binderSpine, anomalyBinder);
+  box(0.24, 0.004, 0.30, 0, 0.022, 0.01, mat.paper, anomalyBinder);
+  const anomalyTrace = new THREE.Mesh(cube, binderDustFree);
+  anomalyTrace.name = 'Records anomaly / dust-free trace';
+  anomalyTrace.scale.set(0.30, 0.004, 0.38);
+  anomalyTrace.position.set(-1.52, 1.074, -4.42);
+  anomalyTrace.rotation.y = 0.18;
+  anomalyTrace.visible = false;
+  world.add(anomalyTrace);
   // Flat against the left wall (thin in X); not a slab poking into the aisle.
   box(0.04, 0.72, 1.20, -5.10, 2.06, -7.8, mat.wood);
   box(0.05, 0.42, 0.83, -5.07, 2.06, -7.8, mat.paper);
@@ -389,6 +417,11 @@ export function createRecords(scene) {
   return {
     interactables,
     update(progress, state, dt, reduced) {
+      // Experiment 001: binder vanishes off-camera; dust-free mark remains.
+      const gone = Boolean(state.binderVanished);
+      anomalyBinder.visible = !gone;
+      anomalyTrace.visible = gone;
+
       // Discrepancy drawer: open on arrival, flush after the Polaroid pass.
       const closedOffset = state.drawerSettled ? 0.32 : 0;
       movingDrawer.position.x = reduced
@@ -530,6 +563,8 @@ export function createRecords(scene) {
       if (readerLed) readerLed.material = mat.readerLedOff;
       cigarette.visible = true;
       cigarette.userData.taken = false;
+      anomalyBinder.visible = true;
+      anomalyTrace.visible = false;
       dartPlaying = false;
       dartAge = 0;
       dartFlashed = false;
@@ -551,6 +586,7 @@ export function createRecords(scene) {
       peekMat.dispose();
       readerHit.geometry.dispose();
       readerHit.material.dispose();
+      binderOwnedMats.forEach(material => material.dispose());
       Object.values(mat).forEach(material => material.dispose());
       scene.remove(ambient);
       scene.remove(world);

@@ -41,7 +41,12 @@ export function createRecordsStory() {
     shadowPeekPlay: false,
     shadowPeekDone: false,
     drawersOpeningNoticed: false,
+    // Experiment 001 — unmarked binder vanishes once well past the counter.
+    binderVanished: false,
   };
+
+  /** Progress where the receiving-counter binder is safely off-camera. */
+  const BINDER_VANISH_PROGRESS = 0.32;
 
   return {
     state,
@@ -87,6 +92,8 @@ export function createRecordsStory() {
       }
       // Drawer settles only after the camera is well past it — no onscreen close.
       if (current >= 0.68) state.drawerSettled = true;
+      // Binder gone only after the counter is well behind the camera.
+      if (current >= BINDER_VANISH_PROGRESS) state.binderVanished = true;
       // Shadow dart: once, forward only, past the table looking toward the exit.
       if (
         !state.shadowDartDone
@@ -152,6 +159,7 @@ export function createRecordsStory() {
         state.shadowDartDone = true;
         state.shadowPeekDone = true;
         state.drawersOpeningNoticed = true;
+        state.binderVanished = true;
         return { progress: 0.88, giveFob: false, doorUnlocked: false };
       }
       if (name === 'fob' || name === 'with-fob') {
@@ -165,6 +173,7 @@ export function createRecordsStory() {
         state.shadowDartDone = true;
         state.shadowPeekDone = true;
         state.drawersOpeningNoticed = true;
+        state.binderVanished = true;
         return { progress: 0.88, giveFob: true, doorUnlocked: false };
       }
       if (name === 'unlocked' || name === 'open') {
@@ -178,6 +187,7 @@ export function createRecordsStory() {
         state.shadowDartDone = true;
         state.shadowPeekDone = true;
         state.drawersOpeningNoticed = true;
+        state.binderVanished = true;
         state.doorUnlocked = true;
         state.lockedDoorLineSaid = true;
         state.lockedDoorLineDone = true;
@@ -186,6 +196,7 @@ export function createRecordsStory() {
       if (name === 'photo' || name === 'mid') {
         state.cabinetsLineSaid = true;
         state.cabinetsLineDone = true;
+        state.binderVanished = true;
         return { progress: 0.54, giveFob: true, doorUnlocked: false };
       }
       return { progress: 0, giveFob: true, doorUnlocked: false };
@@ -214,6 +225,7 @@ export function createRecordsStory() {
         shadowPeekPlay: false,
         shadowPeekDone: false,
         drawersOpeningNoticed: false,
+        binderVanished: false,
       });
     },
   };
