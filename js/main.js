@@ -67,14 +67,14 @@ import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
 import {
   createStairwellsStory,
   stairwellsNarrative,
-} from './levels/stairwells-story.js?v=stairs-ch05-1';
+} from './levels/stairwells-story.js?v=stairs-exit-1';
 import {
   stairwellsCameraPose,
   STAIRWELLS_METERS,
   STAIRWELLS_START,
   STAIRWELLS_MARKS,
   STAIRWELLS_WALK_SPEED,
-} from './levels/stairwells-route.js?v=stairs-ch05-1';
+} from './levels/stairwells-route.js?v=stairs-exit-1';
 import {
   createOutsideDialogue,
   OUTSIDE_EVENTS,
@@ -3200,7 +3200,7 @@ function updateNarrative(p, dt = 0) {
     else if (!state.completed && ended) hideEndCard();
   } else if (inStairs) {
     if (state.completed && !ended) showEndCard('stairwells');
-    else if (!state.completed && ended) hideEndCard();
+    else if (p < (STAIRWELLS_MARKS.exitStart ?? 0.98) - 0.025 && ended) hideEndCard();
   } else {
     if (state.completed && p <= UNSEEN_EXIT_PROGRESS && !ended) showEndCard('unseen');
     else if (p > 0.037 && ended) hideEndCard();

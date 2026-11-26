@@ -147,8 +147,9 @@ function buildPath() {
   const exitStartIndex = points.length;
   const doorZ = STAIR.wellD * 0.5 + 0.4;
   push(0, yLo, doorZ, returnYaw, 0);
-  push(0, yLo, doorZ + 2.6, returnYaw, 0);
+  // Completion fires at the door threshold (not the far linger point).
   const exitEndIndex = points.length - 1;
+  push(0, yLo, doorZ + 2.6, returnYaw, 0);
   yaw = returnYaw;
 
   const dist = [0];

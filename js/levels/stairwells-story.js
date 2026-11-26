@@ -104,7 +104,13 @@ export function createStairwellsStory() {
       state.phase = 'exit';
       state.exitReady = true;
       state.voidAmount = 0;
-      if (p >= marks.exitEnd) {
+      // Complete at the exit door, not only at rail terminus (progress === 1).
+      // exitEnd often lands on 1.0 after a short post-door segment, which scroll
+      // lead / camera easing can miss — leaving the player stuck with no end card.
+      const completeAt = Number.isFinite(marks.exitEnd) && marks.exitEnd < 0.999
+        ? marks.exitEnd
+        : marks.exitStart;
+      if (p >= completeAt) {
         state.exited = true;
         state.completed = true;
       }
