@@ -1,11 +1,15 @@
 /**
- * Pure turn-based combat state machine (v0.3).
+ * Pure turn-based combat state machine (v0.4).
  * No DOM / Three.js — safe to unit-test in Node.
  */
 
 import { COMBAT_CONFIG, COMBAT_COMMANDS, COMBAT_ITEMS } from './config.js';
-import { CROWBAR_ITEM_ID, FLARE_ITEM_ID } from '../items/catalog.js';
-import { getWeaponDef, resolveAttackWeapon } from '../items/weapons.js';
+import { CROWBAR_ITEM_ID, REVOLVER_ITEM_ID } from '../items/catalog.js';
+import {
+  resolveAttackWeapon,
+  reloadCylinder,
+  REVOLVER_CYLINDER_CAPACITY,
+} from '../items/weapons.js';
 
 const PHASE = Object.freeze({
   PLAYER: 'player',
@@ -46,18 +50,33 @@ function openingStartLog(cfg) {
   return 'Something is waiting.';
 }
 
+function defaultEquippedId(cfg, loadout) {
+  if (loadout && 'equippedWeaponId' in loadout) return loadout.equippedWeaponId;
+  if (cfg.player.startEquippedWeaponId) return cfg.player.startEquippedWeaponId;
+  if (cfg.player.startWithCrowbarEquipped) return CROWBAR_ITEM_ID;
+  return null;
+}
+
 /**
  * @param {typeof COMBAT_CONFIG} [config]
  * @param {object} [loadout] optional debug loadout override
  */
 export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
   const cfg = cloneConfig(config);
+  const capacity = loadout?.cylinderCapacity
+    ?? cfg.player.revolverCylinderCapacity
+    ?? REVOLVER_CYLINDER_CAPACITY;
+
   const initialLoadout = {
     cigarettes: loadout?.cigarettes ?? cfg.player.cigaretteCount ?? 0,
-    flares: loadout?.flares ?? cfg.player.flareCount ?? 0,
-    equippedWeaponId: loadout && 'equippedWeaponId' in loadout
-      ? loadout.equippedWeaponId
-      : (cfg.player.startWithCrowbarEquipped ? CROWBAR_ITEM_ID : null),
+    equippedWeaponId: defaultEquippedId(cfg, loadout),
+    cylinderLoaded: loadout?.cylinderLoaded
+      ?? cfg.player.revolverCylinderLoaded
+      ?? capacity,
+    ammoReserve: loadout?.ammoReserve
+      ?? cfg.player.revolverAmmoReserve
+      ?? 0,
+    cylinderCapacity: capacity,
   };
 
   let turn = 1;
@@ -65,8 +84,10 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
   let composure = cfg.player.composureStart;
   let presence = cfg.enemy.presenceStart;
   let cigarettes = initialLoadout.cigarettes;
-  let flares = initialLoadout.flares;
   let equippedWeaponId = initialLoadout.equippedWeaponId;
+  let cylinderLoaded = initialLoadout.cylinderLoaded;
+  let ammoReserve = initialLoadout.ammoReserve;
+  const cylinderCapacity = initialLoadout.cylinderCapacity;
   let patternIndex = 0;
   let nextAttackId = cfg.enemy.pattern[0];
   let observed = false;
@@ -102,9 +123,44 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
     return resolveAttackWeapon(equippedWeaponId);
   }
 
+  function openingBonusFor(weapon) {
+    if (weapon?.openingBonusDamage != null) return weapon.openingBonusDamage;
+    return cfg.player.openingBonusDamage;
+  }
+
+  function buildCombatItems() {
+    const weapon = attackWeapon();
+    const items = [
+      {
+        id: COMBAT_ITEMS.CIGARETTE,
+        label: 'CIGARETTES',
+        qty: cigarettes,
+        disabled: cigarettes <= 0 || composure >= cfg.player.composureMax,
+        disabledReason: cigarettes <= 0
+          ? 'no-items'
+          : composure >= cfg.player.composureMax
+            ? 'full-composure'
+            : null,
+      },
+    ];
+    if (weapon.usesAmmo) {
+      const full = cylinderLoaded >= cylinderCapacity;
+      const noReserve = ammoReserve <= 0;
+      items.push({
+        id: COMBAT_ITEMS.RELOAD,
+        label: full ? 'RELOAD · FULL' : noReserve ? 'RELOAD · EMPTY' : 'RELOAD',
+        qty: ammoReserve,
+        disabled: full || noReserve,
+        disabledReason: full ? 'cylinder-full' : noReserve ? 'no-ammo' : null,
+      });
+    }
+    return items;
+  }
+
   function snapshot() {
     const atk = nextAttack();
     const weapon = attackWeapon();
+    const emptyCylinder = Boolean(weapon.usesAmmo && cylinderLoaded <= 0);
     return {
       turn,
       phase,
@@ -113,11 +169,15 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
       presence,
       presenceMax: cfg.enemy.presenceMax,
       cigarettes,
-      flares,
       equippedWeaponId,
       equippedWeaponLabel: weapon.label,
       attackDamage: weapon.baseDamage,
       attackDamageType: weapon.damageType,
+      usesAmmo: Boolean(weapon.usesAmmo),
+      cylinderLoaded,
+      ammoReserve,
+      cylinderCapacity,
+      weaponEmpty: emptyCylinder,
       nextAttackId,
       nextAttack: atk,
       observed,
@@ -136,26 +196,7 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
       enemyName: cfg.enemy.name,
       canAct: phase === PHASE.PLAYER && !inputLocked,
       itemBlockedReason: null,
-      combatItems: [
-        {
-          id: COMBAT_ITEMS.CIGARETTE,
-          label: 'CIGARETTES',
-          qty: cigarettes,
-          disabled: cigarettes <= 0 || composure >= cfg.player.composureMax,
-          disabledReason: cigarettes <= 0
-            ? 'no-items'
-            : composure >= cfg.player.composureMax
-              ? 'full-composure'
-              : null,
-        },
-        {
-          id: COMBAT_ITEMS.FLARE,
-          label: 'EMERGENCY FLARE',
-          qty: flares,
-          disabled: flares <= 0,
-          disabledReason: flares <= 0 ? 'no-items' : null,
-        },
-      ],
+      combatItems: buildCombatItems(),
       isOver: phase === PHASE.VICTORY || phase === PHASE.DEFEAT,
     };
   }
@@ -205,6 +246,13 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
       return { ok: false, reason: 'unknown', state: snapshot() };
     }
 
+    const weapon = attackWeapon();
+
+    if (cmd === COMBAT_COMMANDS.ATTACK && weapon.usesAmmo && cylinderLoaded <= 0) {
+      setLog('Cylinder empty. Reload.');
+      return { ok: false, reason: 'empty-cylinder', state: snapshot() };
+    }
+
     if (cmd === COMBAT_COMMANDS.ITEM) {
       const itemId = opts.itemId;
       if (!itemId) {
@@ -219,10 +267,17 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
           setLog('Already steady. Save it for later.');
           return { ok: false, reason: 'full-composure', state: snapshot() };
         }
-      } else if (itemId === COMBAT_ITEMS.FLARE || itemId === FLARE_ITEM_ID) {
-        if (flares <= 0) {
-          setLog('No flares left.');
-          return { ok: false, reason: 'no-items', state: snapshot() };
+      } else if (itemId === COMBAT_ITEMS.RELOAD) {
+        if (!weapon.usesAmmo) {
+          return { ok: false, reason: 'unknown-item', state: snapshot() };
+        }
+        if (ammoReserve <= 0) {
+          setLog('No reserve ammunition.');
+          return { ok: false, reason: 'no-ammo', state: snapshot() };
+        }
+        if (cylinderLoaded >= cylinderCapacity) {
+          setLog('Cylinder is already full.');
+          return { ok: false, reason: 'cylinder-full', state: snapshot() };
         }
       } else {
         return { ok: false, reason: 'unknown-item', state: snapshot() };
@@ -238,23 +293,33 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
 
     if (cmd === COMBAT_COMMANDS.ATTACK) {
       attacksSinceObserve += 1;
-      const weapon = attackWeapon();
       let dmg = weapon.baseDamage;
       let usedOpening = false;
       if (openingActive) {
-        dmg += cfg.player.openingBonusDamage;
+        dmg += openingBonusFor(weapon);
         openingActive = false;
         usedOpening = true;
       }
+      if (weapon.usesAmmo) {
+        cylinderLoaded = Math.max(0, cylinderLoaded - 1);
+      }
       presence = clamp(presence - dmg, 0, cfg.enemy.presenceMax);
       lastDamageType = weapon.damageType;
+      const ammoNote = weapon.usesAmmo
+        ? ` · ${cylinderLoaded}/${cylinderCapacity}`
+        : '';
       detail = usedOpening
-        ? `You strike the Opening with ${weapon.label.toLowerCase()} (−${dmg} Presence).`
+        ? `You strike the Opening with ${weapon.label.toLowerCase()} (−${dmg} Presence)${ammoNote}.`
         : weapon.id
-          ? `You attack with the ${weapon.label.toLowerCase()} (−${dmg} Presence).`
+          ? `You attack with the ${weapon.label.toLowerCase()} (−${dmg} Presence)${ammoNote}.`
           : `You attack (−${dmg} Presence).`;
       setLog(detail);
-      fx = { type: 'attack', damageType: weapon.damageType, weaponId: weapon.id };
+      fx = {
+        type: 'attack',
+        damageType: weapon.damageType,
+        weaponId: weapon.id,
+        ballistic: Boolean(weapon.usesAmmo),
+      };
     } else if (cmd === COMBAT_COMMANDS.OBSERVE) {
       attacksSinceObserve = 0;
       openingActive = true;
@@ -279,15 +344,15 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
         detail = `You take a cigarette (+${gained} composure). ${cigarettes} left.`;
         setLog(detail);
         fx = { type: 'cigarette' };
-      } else {
-        const flareDef = getWeaponDef(FLARE_ITEM_ID);
-        const dmg = flareDef?.baseDamage ?? 31;
-        flares -= 1;
-        presence = clamp(presence - dmg, 0, cfg.enemy.presenceMax);
-        lastDamageType = flareDef?.damageType || 'fire';
-        detail = `You ignite the flare (−${dmg} Presence · fire). ${flares} left.`;
+      } else if (itemId === COMBAT_ITEMS.RELOAD) {
+        const result = reloadCylinder(cylinderLoaded, ammoReserve, cylinderCapacity);
+        cylinderLoaded = result.loaded;
+        ammoReserve = result.reserve;
+        detail = result.transferred > 0
+          ? `You reload (+${result.transferred}). ${cylinderLoaded}/${cylinderCapacity} · ${ammoReserve} reserve.`
+          : 'Nothing to chamber.';
         setLog(detail);
-        fx = { type: 'flare', damageType: 'fire' };
+        fx = { type: 'reload', transferred: result.transferred };
       }
     }
 
@@ -384,8 +449,9 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
     composure = cfg.player.composureStart;
     presence = cfg.enemy.presenceStart;
     cigarettes = initialLoadout.cigarettes;
-    flares = initialLoadout.flares;
     equippedWeaponId = initialLoadout.equippedWeaponId;
+    cylinderLoaded = initialLoadout.cylinderLoaded;
+    ammoReserve = initialLoadout.ammoReserve;
     patternIndex = 0;
     nextAttackId = cfg.enemy.pattern[0];
     observed = false;
@@ -415,4 +481,4 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
   };
 }
 
-export { PHASE as COMBAT_PHASE };
+export { PHASE as COMBAT_PHASE, REVOLVER_ITEM_ID };

@@ -48,10 +48,13 @@ export async function startInWorldCombat({
 
   const initialLoadout = {
     cigarettes: loadout?.cigarettes ?? config.player.cigaretteCount ?? 2,
-    flares: loadout?.flares ?? config.player.flareCount ?? 1,
     equippedWeaponId: loadout && 'equippedWeaponId' in loadout
       ? loadout.equippedWeaponId
-      : (config.player.startWithCrowbarEquipped ? CROWBAR_ITEM_ID : null),
+      : (config.player.startEquippedWeaponId
+        || (config.player.startWithCrowbarEquipped ? CROWBAR_ITEM_ID : null)),
+    cylinderLoaded: loadout?.cylinderLoaded ?? config.player.revolverCylinderLoaded,
+    ammoReserve: loadout?.ammoReserve ?? config.player.revolverAmmoReserve,
+    cylinderCapacity: loadout?.cylinderCapacity ?? config.player.revolverCylinderCapacity,
   };
 
   let machine = createCombatState(config, initialLoadout);
@@ -59,7 +62,7 @@ export async function startInWorldCombat({
   let disposed = false;
   let exitRequested = false;
   let continueResolver = null;
-  let flareLight = null;
+  let muzzleLight = null;
   let victoryPending = false;
 
   function sleep(ms) {
@@ -91,18 +94,18 @@ export async function startInWorldCombat({
 
   function playFx(fx) {
     if (!fx || reduced) return;
-    if (fx.type === 'flare') {
-      if (!flareLight) {
-        flareLight = new THREE.PointLight(0xff6a3a, 0, 12, 2);
-        flareLight.position.copy(enemy.root.position);
-        flareLight.position.y += 1.6;
-        flareLight.position.z += 0.6;
-        scene.add(flareLight);
+    if (fx.ballistic || fx.damageType === 'ballistic') {
+      if (!muzzleLight) {
+        muzzleLight = new THREE.PointLight(0xd8c49a, 0, 10, 2);
+        muzzleLight.position.copy(enemy.root.position);
+        muzzleLight.position.y += 1.4;
+        muzzleLight.position.z += 0.8;
+        scene.add(muzzleLight);
       }
-      flareLight.intensity = 2.2;
+      muzzleLight.intensity = 1.6;
       window.setTimeout(() => {
-        if (flareLight) flareLight.intensity = 0;
-      }, 420);
+        if (muzzleLight) muzzleLight.intensity = 0;
+      }, 90);
     }
   }
 
@@ -211,7 +214,7 @@ export async function startInWorldCombat({
 
     playFx(result.fx);
 
-    if (cmd === 'attack' || result.fx?.type === 'flare') {
+    if (cmd === 'attack') {
       enemy.setState(enemy.STATES.recoiling);
     } else if ((cmd === 'observe' || cmd === 'guard') && !result.state.telegraphActive) {
       enemy.setState(enemy.STATES.idle);
@@ -290,10 +293,10 @@ export async function startInWorldCombat({
     clearContinueWait();
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('wheel', blockWheel);
-    if (flareLight) {
-      scene.remove(flareLight);
-      flareLight.dispose?.();
-      flareLight = null;
+    if (muzzleLight) {
+      scene.remove(muzzleLight);
+      muzzleLight.dispose?.();
+      muzzleLight = null;
     }
     ui.dispose();
     if (!keepEnemy) enemy.dispose?.();

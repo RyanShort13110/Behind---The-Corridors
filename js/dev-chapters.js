@@ -160,6 +160,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
       <div class="dev-chapters__title">COMBAT</div>
       <div class="dev-chapters__row">
         <button type="button" data-combat-test>TEST COMBAT</button>
+        <button type="button" data-grant-weapons>+WEAPONS</button>
         <button type="button" data-threshold-combat>ENABLE THRESHOLD COMBAT</button>
         <button type="button" data-bent-jump>JUMP TO BENT</button>
       </div>
@@ -470,6 +471,10 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         combatStatus.textContent = ok ? 'Combat: arena prototype' : 'Combat: failed';
       }
     });
+  });
+  panel.querySelector('[data-grant-weapons]')?.addEventListener('click', () => {
+    camcorderApi?.grantWeapons?.();
+    if (combatStatus) combatStatus.textContent = 'Combat: weapons granted';
   });
   panel.querySelector('[data-threshold-combat]')?.addEventListener('click', () => {
     const next = !combatApi?.getThresholdCombatEnabled?.();

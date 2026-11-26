@@ -12,8 +12,13 @@ export const ITEM_CATEGORIES = Object.freeze({
   MEMENTOS: 'MEMENTOS',
 });
 
-/** Stable weapon / special item ids (Phase 2). */
+/** Stable weapon / ammo ids. */
 export const CROWBAR_ITEM_ID = 'crowbar';
+export const MACHETE_ITEM_ID = 'worn-machete';
+export const REVOLVER_ITEM_ID = 'old-revolver';
+export const REVOLVER_AMMO_ITEM_ID = 'revolver-ammo';
+
+/** @deprecated Retired — kept only so old saves/refs resolve safely to nullish handling. */
 export const FLARE_ITEM_ID = 'emergency-flare';
 
 /**
@@ -51,22 +56,41 @@ const DEFS = {
     label: 'RUSTED CROWBAR',
     category: ITEM_CATEGORIES.WEAPONS,
     description: 'Heavy iron. Flaking paint. Something someone left behind and never came back for.',
-    effect: 'Melee · Blunt',
+    effect: 'Melee · Blunt · ~23',
     actions: ['equip', 'inspect'],
     equipable: true,
     preview: 'crowbar',
   },
-  [FLARE_ITEM_ID]: {
-    id: FLARE_ITEM_ID,
-    label: 'EMERGENCY FLARE',
+  [MACHETE_ITEM_ID]: {
+    id: MACHETE_ITEM_ID,
+    label: 'WORN MACHETE',
+    category: ITEM_CATEGORIES.WEAPONS,
+    description: 'A long blade with a taped grip. The edge is uneven but still mean.',
+    effect: 'Melee · Slash · ~29',
+    actions: ['equip', 'inspect'],
+    equipable: true,
+    preview: 'machete',
+  },
+  [REVOLVER_ITEM_ID]: {
+    id: REVOLVER_ITEM_ID,
+    label: 'OLD REVOLVER',
+    category: ITEM_CATEGORIES.WEAPONS,
+    description: 'Six chambers. The finish is worn down to bare metal around the cylinder.',
+    effect: 'Ballistic · ~42 · Limited ammo',
+    actions: ['equip', 'inspect'],
+    equipable: true,
+    preview: 'revolver',
+  },
+  [REVOLVER_AMMO_ITEM_ID]: {
+    id: REVOLVER_AMMO_ITEM_ID,
+    label: 'REVOLVER ROUNDS',
     category: ITEM_CATEGORIES.CONSUMABLES,
-    description: 'Industrial flare. Capsule cracked but still sealed. Meant for tunnels, not hallways.',
-    effect: 'Single use · Fire',
+    description: 'Loose cartridges. Heavy for their size. Not meant to be wasted.',
+    effect: 'Reserve ammunition',
     actions: ['inspect'],
-    stackKey: FLARE_ITEM_ID,
-    consumable: true,
-    combatUse: true,
-    preview: 'flare',
+    stackKey: REVOLVER_AMMO_ITEM_ID,
+    consumable: false,
+    preview: 'revolver-ammo',
   },
   'key-fob': {
     id: 'key-fob',
@@ -141,6 +165,16 @@ const DEFS = {
  */
 export function resolveItemDef(itemId, meta = {}) {
   if (!itemId) return null;
+  if (itemId === FLARE_ITEM_ID) {
+    return {
+      id: FLARE_ITEM_ID,
+      label: 'EMERGENCY FLARE',
+      category: ITEM_CATEGORIES.CONSUMABLES,
+      description: 'Spent. The casing is cold.',
+      actions: ['inspect'],
+      preview: 'generic',
+    };
+  }
   if (String(itemId).startsWith('cigarette')) {
     return {
       ...DEFS.cigarette,
@@ -168,11 +202,21 @@ export function resolveItemDef(itemId, meta = {}) {
       preview: 'generic',
     };
   }
-  return {
+  const out = {
     ...base,
     label: meta.label || base.label,
     description: meta.tooltip || base.description,
   };
+  if (itemId === REVOLVER_ITEM_ID) {
+    const loaded = meta.cylinderLoaded ?? 0;
+    const cap = meta.cylinderCapacity ?? 6;
+    const reserve = meta.ammoReserve ?? 0;
+    out.effect = `Ballistic · ~42 · ${loaded}/${cap} loaded · ${reserve} reserve`;
+  }
+  if (itemId === REVOLVER_AMMO_ITEM_ID && meta.qty != null) {
+    out.effect = `Reserve · ×${meta.qty}`;
+  }
+  return out;
 }
 
 export function itemStackKey(itemId, meta = {}) {
@@ -185,5 +229,13 @@ export function itemStackKey(itemId, meta = {}) {
 export function listCatalog() {
   return Object.values(DEFS).map((d) => ({ ...d }));
 }
+
+/** Weapon ids that persist across chapter handoffs. */
+export const PERSISTENT_WEAPON_IDS = Object.freeze([
+  CROWBAR_ITEM_ID,
+  MACHETE_ITEM_ID,
+  REVOLVER_ITEM_ID,
+  REVOLVER_AMMO_ITEM_ID,
+]);
 
 export { DEFS as ITEM_DEFS };

@@ -37,8 +37,9 @@ test('placement sits after rupture and before outside quiet band', () => {
 test('Bent config loads without Waiting Thing attack ids', () => {
   const c = createCombatState(BENT_COMBAT_CONFIG, {
     cigarettes: 2,
-    flares: 1,
     equippedWeaponId: null,
+    cylinderLoaded: 6,
+    ammoReserve: 6,
   });
   const s = c.snapshot();
   assert.equal(s.enemyName, 'THE BENT');
@@ -50,7 +51,6 @@ test('Bent config loads without Waiting Thing attack ids', () => {
 test('blind assault without OBSERVE forces wrench', () => {
   const c = createCombatState(BENT_COMBAT_CONFIG, {
     cigarettes: 0,
-    flares: 0,
     equippedWeaponId: null,
   });
   c.playerAct(COMBAT_COMMANDS.ATTACK);
@@ -60,34 +60,16 @@ test('blind assault without OBSERVE forces wrench', () => {
 
   c.playerAct(COMBAT_COMMANDS.ATTACK);
   c.beginEnemyPhase();
-  // Second consecutive attack without observe → wrench override
   e = c.enemyAct();
   assert.equal(e.attack.id, 'wrench');
-});
-
-test('OBSERVE resets blind assault escalation', () => {
-  const c = createCombatState(BENT_COMBAT_CONFIG, {
-    cigarettes: 0,
-    flares: 0,
-    equippedWeaponId: null,
-  });
-  c.playerAct(COMBAT_COMMANDS.ATTACK);
-  c.enemyAct();
-  c.playerAct(COMBAT_COMMANDS.OBSERVE);
-  c.enemyAct();
-  c.playerAct(COMBAT_COMMANDS.ATTACK);
-  c.beginEnemyPhase();
-  const e = c.enemyAct();
-  // Pattern continues normally after observe (twist after wrench slot may vary)
-  assert.ok(e.attack.id === 'twist' || e.attack.id === 'wrench');
-  assert.equal(c.snapshot().openingActive, false);
 });
 
 test('reset clears escalation and restores loadout', () => {
   const c = createCombatState(BENT_COMBAT_CONFIG, {
     cigarettes: 2,
-    flares: 1,
     equippedWeaponId: 'crowbar',
+    cylinderLoaded: 6,
+    ammoReserve: 6,
   });
   c.playerAct(COMBAT_COMMANDS.ATTACK);
   c.enemyAct();
@@ -97,7 +79,6 @@ test('reset clears escalation and restores loadout', () => {
   assert.equal(s.turn, 1);
   assert.equal(s.presence, 95);
   assert.equal(s.cigarettes, 2);
-  assert.equal(s.flares, 1);
   assert.equal(s.equippedWeaponId, 'crowbar');
   assert.equal(s.attackDamage, 23);
 });

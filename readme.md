@@ -52,7 +52,9 @@ Append `?debug=1` for the chapter jump panel and performance HUD.
 | `?debug=1&level=memory-black` | Dev-only black dragon memory |
 | `&checkpoint=…` | Unseen / memory checkpoints when supported |
 
-**TEST COMBAT** (debug panel): isolated arena prototype with crowbar / cigarettes / flare. Does not consume story inventory. Exit restarts the prior chapter from its start.
+**TEST COMBAT** (debug panel): isolated arena prototype with crowbar / cigarettes / revolver ammo state. Does not consume story inventory. Exit restarts the prior chapter from its start.
+
+**+WEAPONS**: grants crowbar, machete, revolver (6/6 + reserve), and spare rounds for inventory testing.
 
 **ENABLE THRESHOLD COMBAT** / `?debug=1&level=threshold&combat=1`: experimental in-world fight vs **THE BENT** inside The Threshold (~69%). Keeps the chapter scene; not mandatory story content. **JUMP TO BENT** skips to the approach for faster testing.
 

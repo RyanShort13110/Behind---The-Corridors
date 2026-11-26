@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
-import { createCrowbarProp, disposeCrowbarProp, crowbarInteractable } from '../props/crowbar.js?v=wpn-1';
-import { createFlareProp, disposeFlareProp, flareInteractable } from '../props/flare.js?v=wpn-1';
+import { createCrowbarProp, disposeCrowbarProp, crowbarInteractable } from '../props/crowbar.js?v=wpn-2';
+import { createMacheteProp, disposeMacheteProp, macheteInteractable } from '../props/machete.js?v=wpn-2';
 
 /**
  * Behind. / Level 03 — The Records.
@@ -399,11 +399,11 @@ export function createRecords(scene) {
   crowbar.rotation.set(0.15, -0.4, 1.22);
   world.add(crowbar);
 
-  // Emergency flare on a left shelf deeper in — look left past the sorting station.
-  const flare = createFlareProp({ name: 'Records emergency flare' });
-  flare.position.set(-2.45, 1.28, -22.5);
-  flare.rotation.set(0.2, 0.55, 0.1);
-  world.add(flare);
+  // Worn machete on a left shelf deeper in — look left past the sorting station.
+  const machete = createMacheteProp({ name: 'Records worn machete' });
+  machete.position.set(-2.45, 1.28, -22.5);
+  machete.rotation.set(0.15, 0.55, -0.85);
+  world.add(machete);
 
   const interactables = [
     {
@@ -415,7 +415,7 @@ export function createRecords(scene) {
     },
     cigaretteInteractable('cigarette-records', cigarette),
     crowbarInteractable(crowbar),
-    flareInteractable(flare),
+    macheteInteractable(machete),
     {
       id: 'records-fob-reader',
       object: reader,
@@ -581,8 +581,8 @@ export function createRecords(scene) {
       cigarette.userData.taken = false;
       crowbar.visible = true;
       crowbar.userData.taken = false;
-      flare.visible = true;
-      flare.userData.taken = false;
+      machete.visible = true;
+      machete.userData.taken = false;
       anomalyBinder.visible = true;
       anomalyTrace.visible = false;
       dartPlaying = false;
@@ -603,7 +603,7 @@ export function createRecords(scene) {
       cube.dispose();
       disposeCigaretteProp(cigarette);
       disposeCrowbarProp(crowbar);
-      disposeFlareProp(flare);
+      disposeMacheteProp(machete);
       peekTex.dispose();
       peekMat.dispose();
       readerHit.geometry.dispose();

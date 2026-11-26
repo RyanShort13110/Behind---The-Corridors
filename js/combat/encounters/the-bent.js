@@ -27,8 +27,11 @@ export const BENT_COMBAT_CONFIG = Object.freeze({
     observeMitigation: 0.2,
     cigaretteRestore: 40,
     cigaretteCount: 2,
-    flareCount: 1,
     startWithCrowbarEquipped: true,
+    startEquippedWeaponId: 'crowbar',
+    revolverCylinderLoaded: 6,
+    revolverAmmoReserve: 6,
+    revolverCylinderCapacity: 6,
   }),
   enemy: Object.freeze({
     name: 'THE BENT',

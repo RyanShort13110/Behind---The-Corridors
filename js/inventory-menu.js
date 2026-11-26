@@ -3,7 +3,7 @@
  * Presentation only — ownership stays in createInventory().
  */
 
-import { resolveItemDef, itemStackKey } from './items/catalog.js?v=inv-1';
+import { resolveItemDef, itemStackKey, REVOLVER_ITEM_ID } from './items/catalog.js?v=wpn-2';
 
 /**
  * @param {object} opts
@@ -159,6 +159,15 @@ export function createInventoryMenu({
       const effectBits = [];
       if (def.effect) effectBits.push(def.effect);
       if (equipped) effectBits.push('EQUIPPED');
+      if (item.id === REVOLVER_ITEM_ID) {
+        const loaded = item.cylinderLoaded ?? 0;
+        const cap = item.cylinderCapacity ?? 6;
+        const reserve = item.ammoReserve ?? 0;
+        if (!def.effect?.includes('loaded')) {
+          effectBits.push(`${loaded}/${cap} loaded · ${reserve} reserve`);
+        }
+        if (loaded <= 0) effectBits.push('EMPTY · RELOAD');
+      }
       els.effect.hidden = effectBits.length === 0;
       els.effect.textContent = effectBits.join(' · ');
     }
@@ -254,10 +263,13 @@ export function createInventoryMenu({
       const qty = count > 1 ? `<span class="inventory-menu__qty">×${count}</span>` : '';
       const eq = isEq ? '<span class="inventory-menu__eq">EQ</span>' : '';
       btn.innerHTML = `
+        <canvas class="inventory-menu__thumb" width="72" height="48" aria-hidden="true"></canvas>
         <span class="inventory-menu__slot-cat">${def.category || ''}</span>
         <span class="inventory-menu__slot-label">${def.label}${qty}</span>
         ${eq}
       `;
+      const thumb = btn.querySelector('canvas');
+      if (thumb) drawPreview?.(thumb, item, def);
       btn.setAttribute('aria-label', count > 1 ? `${def.label}, ${count}` : def.label);
       els.grid.appendChild(btn);
     }

@@ -118,13 +118,15 @@ Full-screen inventory (`I`, on-screen **INVENTORY**, or touch control). Categori
 
 | Item | Where | Notes |
 |---|---|---|
-| Rusted crowbar | Records (maintenance aisle) | Permanent melee · blunt · equipable · ~23 Presence in debug combat |
-| Emergency flare | Records (shelf) | Single-use · fire · combat ITEM only · ~31 Presence |
+| Rusted crowbar | Records (maintenance aisle) | Permanent melee · blunt · ~23 · stagger-ready tags |
+| Worn machete | Records (shelf) | Permanent melee · slash · ~29 · anti-organic tags |
+| Old revolver | Debug only (not in story yet) | Ballistic · ~42 · 6-round cylinder + reserve |
+| Revolver rounds | Debug only | Reserve ammunition; no chapter placement yet |
 | Unarmed | — | Default ATTACK 18 when nothing equipped |
 
-Equipping / unequipping is free in exploration. Debug combat uses an **isolated** loadout (crowbar + 2 cigarettes + 1 flare) and must not overwrite story inventory. Exit from debug combat restores via chapter jump (restarts the previous chapter from its start — known limitation).
+Equipping / unequipping is free in exploration (mid-combat switching deferred). Debug combat uses an **isolated** loadout and must not overwrite story inventory. Exit from arena debug combat restores via chapter jump (known limitation).
 
-Combat commands remain ATTACK / OBSERVE / GUARD / ITEM. ITEM opens a selector (cancel costs no turn). OBSERVE Opening bonus is configurable (~+18).
+Combat commands remain ATTACK / OBSERVE / GUARD / ITEM. ITEM opens a selector (cigarettes; RELOAD when a firearm is equipped). Cancel costs no turn. OBSERVE Opening ~+18 for melee/unarmed; revolver uses a reduced +8 Opening bonus. Fire remains a reserved damage type for future use — the emergency flare was retired.
 
 ### Debug in-world Threshold combat (**EXPERIMENT** — not mandatory)
 

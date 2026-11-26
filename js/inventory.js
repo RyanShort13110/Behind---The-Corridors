@@ -23,6 +23,18 @@ export function createInventory({ onChange } = {}) {
     },
     has(id) { return items.has(id); },
     get(id) { return items.get(id) || null; },
+    /**
+     * Merge fields onto an owned item (ammo counts, etc.).
+     * @param {string} id
+     * @param {object} partial
+     */
+    patch(id, partial = {}) {
+      if (!items.has(id) || !partial || typeof partial !== 'object') return false;
+      const prev = items.get(id);
+      items.set(id, { ...prev, ...partial });
+      emit();
+      return true;
+    },
     remove(id) {
       const ok = items.delete(id);
       if (ok) {

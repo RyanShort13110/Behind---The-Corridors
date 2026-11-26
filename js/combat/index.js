@@ -10,7 +10,7 @@ import { CROWBAR_ITEM_ID } from '../items/catalog.js';
  * Debug-only turn-based combat prototype (v0.3).
  * Access: DEV TOOLS → TEST COMBAT (requires ?debug=1)
  *
- * Uses an isolated debug loadout (crowbar + cigarettes + flare).
+ * Uses an isolated debug loadout (crowbar + cigarettes + revolver ammo state).
  * Does not touch story composure, inventory, checkpoints, or chapter progress.
  * Exit restores via chapter jump (restarts the previous chapter from its start).
  */
@@ -88,14 +88,17 @@ export async function startCombatPrototype({
 
   let machine = createCombatState(COMBAT_CONFIG, {
     cigarettes: COMBAT_CONFIG.player.cigaretteCount,
-    flares: COMBAT_CONFIG.player.flareCount,
-    equippedWeaponId: COMBAT_CONFIG.player.startWithCrowbarEquipped ? CROWBAR_ITEM_ID : null,
+    equippedWeaponId: COMBAT_CONFIG.player.startEquippedWeaponId
+      || (COMBAT_CONFIG.player.startWithCrowbarEquipped ? CROWBAR_ITEM_ID : null),
+    cylinderLoaded: COMBAT_CONFIG.player.revolverCylinderLoaded,
+    ammoReserve: COMBAT_CONFIG.player.revolverAmmoReserve,
+    cylinderCapacity: COMBAT_CONFIG.player.revolverCylinderCapacity,
   });
   let busy = false;
   let disposed = false;
   let exitRequested = false;
   let continueResolver = null;
-  let flareLight = null;
+  let muzzleLight = null;
 
   function clearContinueWait() {
     if (continueResolver) {
@@ -121,16 +124,16 @@ export async function startCombatPrototype({
 
   function playFx(fx) {
     if (!fx || reduced) return;
-    if (fx.type === 'flare') {
-      if (!flareLight) {
-        flareLight = new THREE.PointLight(0xff6a3a, 0, 14, 2);
-        flareLight.position.set(0.4, 1.8, 1.2);
-        arena.world.add(flareLight);
+    if (fx.ballistic || fx.damageType === 'ballistic') {
+      if (!muzzleLight) {
+        muzzleLight = new THREE.PointLight(0xd8c49a, 0, 10, 2);
+        muzzleLight.position.set(0.3, 1.5, 2.2);
+        arena.world.add(muzzleLight);
       }
-      flareLight.intensity = 2.4;
+      muzzleLight.intensity = 1.8;
       window.setTimeout(() => {
-        if (flareLight) flareLight.intensity = 0;
-      }, 420);
+        if (muzzleLight) muzzleLight.intensity = 0;
+      }, 90);
     }
   }
 
@@ -238,7 +241,7 @@ export async function startCombatPrototype({
 
     playFx(result.fx);
 
-    if (cmd === 'attack' || result.fx?.type === 'flare') {
+    if (cmd === 'attack') {
       enemy.setState(enemy.STATES.recoiling);
     } else if (cmd === 'observe') {
       if (!result.state.telegraphActive) enemy.setState(enemy.STATES.idle);
@@ -305,7 +308,7 @@ export async function startCombatPrototype({
     ui.setItemPicker?.(false);
     machine.reset();
     enemy.reset(arena.enemyPosition);
-    if (flareLight) flareLight.intensity = 0;
+    if (muzzleLight) muzzleLight.intensity = 0;
     syncEnemyPoseToState(machine.snapshot());
     ui.render(machine.snapshot());
     busy = false;
@@ -326,10 +329,10 @@ export async function startCombatPrototype({
     clearContinueWait();
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('wheel', blockWheel);
-    if (flareLight) {
-      arena.world.remove(flareLight);
-      flareLight.dispose?.();
-      flareLight = null;
+    if (muzzleLight) {
+      arena.world.remove(muzzleLight);
+      muzzleLight.dispose?.();
+      muzzleLight = null;
     }
     ui.dispose();
     enemy.dispose();

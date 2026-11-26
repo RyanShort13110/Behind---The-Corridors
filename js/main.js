@@ -7,11 +7,14 @@ import { createAudioDirector } from './audio.js?v=stairs-void-10';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
-import { createInventory } from './inventory.js?v=wpn-1';
-import { createInventoryMenu } from './inventory-menu.js?v=wpn-1';
+import { createInventory } from './inventory.js?v=wpn-2';
+import { createInventoryMenu } from './inventory-menu.js?v=wpn-2';
 import {
-  resolveItemDef, itemStackKey, CROWBAR_ITEM_ID, FLARE_ITEM_ID,
-} from './items/catalog.js?v=wpn-1';
+  resolveItemDef, itemStackKey,
+  CROWBAR_ITEM_ID, MACHETE_ITEM_ID, REVOLVER_ITEM_ID, REVOLVER_AMMO_ITEM_ID,
+  PERSISTENT_WEAPON_IDS,
+} from './items/catalog.js?v=wpn-2';
+import { createRevolverInventoryMeta } from './items/weapons.js?v=wpn-2';
 import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import { drawVhsCCamcorderPreview } from './props/vhs-c-camcorder.js?v=cam-1';
@@ -711,7 +714,7 @@ async function startCombatPrototypeSession() {
       ? chapterId
       : 'corridor';
 
-    const { startCombatPrototype } = await import('./combat/index.js?v=wpn-1');
+    const { startCombatPrototype } = await import('./combat/index.js?v=wpn-2');
     combatSession = await startCombatPrototype({
       scene,
       camera,
@@ -817,11 +820,11 @@ async function startThresholdBentCombat() {
   keypad?.close?.();
 
   try {
-    const { startInWorldCombat } = await import('./combat/in-world.js?v=bent-1');
+    const { startInWorldCombat } = await import('./combat/in-world.js?v=wpn-2');
     const { BENT_COMBAT_CONFIG, BENT_RETRY_PROGRESS } = await import(
-      './combat/encounters/the-bent.js?v=bent-1'
+      './combat/encounters/the-bent.js?v=wpn-2'
     );
-    const { CROWBAR_ITEM_ID: crowbarId } = await import('./items/catalog.js?v=wpn-1');
+    const { CROWBAR_ITEM_ID: crowbarId } = await import('./items/catalog.js?v=wpn-2');
 
     const showTutorial = bentTutorialPending;
     bentTutorialPending = false;
@@ -833,8 +836,10 @@ async function startThresholdBentCombat() {
       config: BENT_COMBAT_CONFIG,
       loadout: {
         cigarettes: BENT_COMBAT_CONFIG.player.cigaretteCount,
-        flares: BENT_COMBAT_CONFIG.player.flareCount,
         equippedWeaponId: crowbarId,
+        cylinderLoaded: BENT_COMBAT_CONFIG.player.revolverCylinderLoaded,
+        ammoReserve: BENT_COMBAT_CONFIG.player.revolverAmmoReserve,
+        cylinderCapacity: BENT_COMBAT_CONFIG.player.revolverCylinderCapacity,
       },
       reduced,
       showTutorial,
@@ -1020,7 +1025,7 @@ async function endCamcorderPlayback() {
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=wpn-1');
+      const { createRecords } = await import('./levels/records.js?v=wpn-2');
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
@@ -1115,8 +1120,9 @@ function bindChapterInteractables() {
         }
         continue;
       }
-      // Permanent weapons / flares stay gone once collected.
-      if ((spec.itemId === CROWBAR_ITEM_ID || spec.itemId === FLARE_ITEM_ID)
+      // Permanent weapons stay gone once collected.
+      if ((spec.itemId === CROWBAR_ITEM_ID || spec.itemId === MACHETE_ITEM_ID
+          || spec.itemId === REVOLVER_ITEM_ID)
           && inventory?.has(spec.itemId)) {
         if (spec.object) {
           spec.object.visible = false;
@@ -1432,8 +1438,7 @@ function preserveCarryInventory() {
     String(item.id).startsWith('cigarette')
     || item.id === 'key-fob'
     || item.id === CAMCORDER_ITEM_ID
-    || item.id === CROWBAR_ITEM_ID
-    || item.id === FLARE_ITEM_ID
+    || PERSISTENT_WEAPON_IDS.includes(item.id)
     || isTapeItemId(item.id));
   inventory?.clear();
   for (const item of kept) {
@@ -1445,6 +1450,10 @@ function preserveCarryInventory() {
       previewColor: item.previewColor,
       kind: item.kind,
       recordingId: item.recordingId,
+      cylinderLoaded: item.cylinderLoaded,
+      cylinderCapacity: item.cylinderCapacity,
+      ammoReserve: item.ammoReserve,
+      qty: item.qty,
     });
   }
   if (equipped && inventory?.has(equipped)) inventory.equipWeapon(equipped);
@@ -1506,6 +1515,10 @@ function captureCheckpointSnapshot() {
       previewColor: item.previewColor ?? null,
       kind: item.kind ?? null,
       recordingId: item.recordingId ?? null,
+      cylinderLoaded: item.cylinderLoaded ?? null,
+      cylinderCapacity: item.cylinderCapacity ?? null,
+      ammoReserve: item.ammoReserve ?? null,
+      qty: item.qty ?? null,
     })),
     equippedWeaponId: inventory?.getEquippedWeaponId?.() || null,
     memory: {
@@ -1534,6 +1547,10 @@ function applyInventorySnapshot(items = [], equippedWeaponId = null) {
       previewColor: item.previewColor,
       kind: item.kind,
       recordingId: item.recordingId,
+      cylinderLoaded: item.cylinderLoaded,
+      cylinderCapacity: item.cylinderCapacity,
+      ammoReserve: item.ammoReserve,
+      qty: item.qty,
     });
   }
   if (equippedWeaponId && inventory?.has(equippedWeaponId)) {
@@ -1865,15 +1882,19 @@ function drawInventoryMenuPreview(canvas, item) {
     drawCigarettePreview(canvas);
   } else if (item.id === CROWBAR_ITEM_ID) {
     drawCrowbarPreview(canvas);
-  } else if (item.id === FLARE_ITEM_ID) {
-    drawFlarePreview(canvas);
+  } else if (item.id === MACHETE_ITEM_ID) {
+    drawMachetePreview(canvas);
+  } else if (item.id === REVOLVER_ITEM_ID) {
+    drawRevolverPreview(canvas);
+  } else if (item.id === REVOLVER_AMMO_ITEM_ID) {
+    drawRevolverAmmoPreview(canvas);
   } else {
     const ctx = canvas.getContext('2d');
     ctx?.clearRect(0, 0, canvas.width, canvas.height);
   }
 }
 
-/** Lightweight 2D crowbar icon for inventory (Phase 1/2 shared). */
+/** Lightweight 2D crowbar icon for inventory. */
 function drawCrowbarPreview(canvas) {
   const ctx = canvas?.getContext('2d');
   if (!ctx) return;
@@ -1892,20 +1913,71 @@ function drawCrowbarPreview(canvas) {
   ctx.restore();
 }
 
-function drawFlarePreview(canvas) {
+function drawMachetePreview(canvas) {
   const ctx = canvas?.getContext('2d');
   if (!ctx) return;
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-  const x = w * 0.42;
-  const y = h * 0.22;
-  ctx.fillStyle = '#8a2e28';
-  ctx.fillRect(x, y, 18, h * 0.48);
-  ctx.fillStyle = '#c45a3a';
-  ctx.fillRect(x + 2, y - 10, 14, 14);
-  ctx.fillStyle = '#d8c4a0';
-  ctx.fillRect(x + 5, y + h * 0.48, 8, 10);
+  ctx.save();
+  ctx.translate(w * 0.16, h * 0.58);
+  ctx.rotate(-0.4);
+  ctx.fillStyle = '#2a241c';
+  ctx.fillRect(0, -6, w * 0.22, 12);
+  ctx.fillStyle = '#4a4030';
+  ctx.fillRect(w * 0.14, -7, 10, 14);
+  ctx.fillStyle = '#6a6e72';
+  ctx.beginPath();
+  ctx.moveTo(w * 0.22, -8);
+  ctx.lineTo(w * 0.72, -4);
+  ctx.lineTo(w * 0.72, 6);
+  ctx.lineTo(w * 0.22, 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#9aa0a4';
+  ctx.fillRect(w * 0.68, -5, 14, 8);
+  ctx.restore();
+}
+
+function drawRevolverPreview(canvas) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#3a3834';
+  ctx.fillRect(w * 0.22, h * 0.42, w * 0.42, 14);
+  ctx.fillStyle = '#2a2824';
+  ctx.beginPath();
+  ctx.arc(w * 0.38, h * 0.48, 16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#4a4640';
+  ctx.beginPath();
+  ctx.arc(w * 0.38, h * 0.48, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2e2a24';
+  ctx.fillRect(w * 0.55, h * 0.38, w * 0.22, 10);
+  ctx.fillStyle = '#1e1c18';
+  ctx.fillRect(w * 0.18, h * 0.52, 18, 28);
+}
+
+function drawRevolverAmmoPreview(canvas) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const cx = w * 0.5;
+  const cy = h * 0.48;
+  for (let i = 0; i < 3; i += 1) {
+    const x = cx - 28 + i * 28;
+    ctx.fillStyle = '#8a7a48';
+    ctx.fillRect(x - 5, cy - 22, 10, 36);
+    ctx.fillStyle = '#c4b078';
+    ctx.beginPath();
+    ctx.arc(x, cy - 22, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function clearCamcorderTapePanel() {
@@ -2339,7 +2411,7 @@ async function enterRecords() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js?v=wpn-1');
+    const { createRecords } = await import('./levels/records.js?v=wpn-2');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
@@ -2654,7 +2726,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=wpn-1');
+      const { createRecords } = await import('./levels/records.js?v=wpn-2');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
@@ -2851,7 +2923,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=bent-1').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=wpn-2').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -2903,6 +2975,32 @@ if (DEBUG_MODE) {
               ? (hospitalReverseStory.state.reverseStarted ? 'RETREAT' : 'APPROACH')
               : isMemoryChapter() ? memoryStoryFor().state.phase?.toUpperCase() : '',
     }), {
+      grantWeapons() {
+        if (!inventory) return;
+        inventory.add(CROWBAR_ITEM_ID, {
+          label: 'RUSTED CROWBAR',
+          tooltip: 'Heavy iron. Flaking paint. Something someone left behind and never came back for.',
+          previewColor: 0x3a3f42,
+        });
+        inventory.add(MACHETE_ITEM_ID, {
+          label: 'WORN MACHETE',
+          tooltip: 'A long blade with a taped grip. The edge is uneven but still mean.',
+          previewColor: 0x6a6e72,
+        });
+        inventory.add(REVOLVER_ITEM_ID, createRevolverInventoryMeta({
+          cylinderLoaded: 6,
+          ammoReserve: 6,
+        }));
+        inventory.add(REVOLVER_AMMO_ITEM_ID, {
+          label: 'REVOLVER ROUNDS',
+          tooltip: 'Loose cartridges. Heavy for their size.',
+          qty: 6,
+          previewColor: 0x8a7a48,
+        });
+        if (!inventory.getEquippedWeaponId()) inventory.equipWeapon(CROWBAR_ITEM_ID);
+        renderInventory();
+        bindChapterInteractables();
+      },
       grantCamcorder() {
         if (!inventory) return;
         inventory.add(CAMCORDER_ITEM_ID, camcorderInventoryMeta());

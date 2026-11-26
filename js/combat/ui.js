@@ -73,7 +73,7 @@ export function createCombatUi({
         </button>
       `).join('')}
     </div>
-    <p class="combat-hud__item-status" data-items>CIGARETTES — 2 · FLARE — 1</p>
+    <p class="combat-hud__item-status" data-items>CIGARETTES — 2</p>
     <p class="combat-hud__weapon" data-weapon>WEAPON · UNARMED</p>
     <div class="combat-hud__item-picker" data-item-picker hidden>
       <p class="combat-hud__item-picker-title">SELECT ITEM</p>
@@ -174,6 +174,8 @@ export function createCombatUi({
       let label = `${item.label}${qty}`;
       if (item.disabledReason === 'full-composure') label += ' · FULL';
       else if (item.disabledReason === 'no-items') label += ' · NONE';
+      else if (item.disabledReason === 'no-ammo') label += ' · NO AMMO';
+      else if (item.disabledReason === 'cylinder-full') label += ' · FULL';
       btn.textContent = label;
       els.itemPickerList.appendChild(btn);
     }
@@ -192,14 +194,23 @@ export function createCombatUi({
     if (els.flags) els.flags.textContent = flagLine(state);
 
     if (els.items) {
-      els.items.textContent = `CIGARETTES — ${state.cigarettes} · FLARE — ${state.flares ?? 0}`;
+      els.items.textContent = `CIGARETTES — ${state.cigarettes}`;
     }
     if (els.weapon) {
       const w = state.equippedWeaponLabel || 'UNARMED';
-      els.weapon.textContent = `WEAPON · ${w} · ${state.attackDamage ?? 18}`;
+      let line = `WEAPON · ${w} · ${state.attackDamage ?? 18}`;
+      if (state.usesAmmo) {
+        const empty = state.weaponEmpty ? ' · EMPTY' : '';
+        line += ` · ${state.cylinderLoaded}/${state.cylinderCapacity}${empty} · +${state.ammoReserve} RES`;
+      }
+      els.weapon.textContent = line;
     }
 
     const over = state.phase === 'victory' || state.phase === 'defeat';
+    const attackBtn = root.querySelector('[data-cmd="attack"]');
+    if (attackBtn && !over && state.weaponEmpty) {
+      attackBtn.title = 'Cylinder empty. Use ITEM → RELOAD.';
+    }
     if (els.end) els.end.hidden = !over;
     if (over) {
       if (els.endTitle) {
