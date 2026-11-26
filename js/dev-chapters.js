@@ -160,6 +160,8 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
       <div class="dev-chapters__title">COMBAT</div>
       <div class="dev-chapters__row">
         <button type="button" data-combat-test>TEST COMBAT</button>
+        <button type="button" data-threshold-combat>ENABLE THRESHOLD COMBAT</button>
+        <button type="button" data-bent-jump>JUMP TO BENT</button>
       </div>
       <p class="dev-chapters__status" id="dev-combat-status" aria-live="polite">Combat: —</p>
     </div>
@@ -452,14 +454,40 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   });
 
   const combatStatus = panel.querySelector('#dev-combat-status');
+  const refreshCombatStatus = () => {
+    if (!combatStatus) return;
+    const on = Boolean(combatApi?.getThresholdCombatEnabled?.());
+    combatStatus.textContent = on
+      ? 'Combat: Threshold Bent ON'
+      : 'Combat: — (arena / Threshold off)';
+    const toggle = panel.querySelector('[data-threshold-combat]');
+    if (toggle) toggle.textContent = on ? 'DISABLE THRESHOLD COMBAT' : 'ENABLE THRESHOLD COMBAT';
+  };
   panel.querySelector('[data-combat-test]')?.addEventListener('click', () => {
     if (combatStatus) combatStatus.textContent = 'Combat: loading…';
     void Promise.resolve(combatApi?.launchPrototype?.()).then((ok) => {
       if (combatStatus) {
-        combatStatus.textContent = ok ? 'Combat: prototype' : 'Combat: failed';
+        combatStatus.textContent = ok ? 'Combat: arena prototype' : 'Combat: failed';
       }
     });
   });
+  panel.querySelector('[data-threshold-combat]')?.addEventListener('click', () => {
+    const next = !combatApi?.getThresholdCombatEnabled?.();
+    combatApi?.setThresholdCombatEnabled?.(next);
+    refreshCombatStatus();
+  });
+  panel.querySelector('[data-bent-jump]')?.addEventListener('click', () => {
+    if (combatStatus) combatStatus.textContent = 'Combat: jumping…';
+    void Promise.resolve(combatApi?.jumpToBentApproach?.()).then((ok) => {
+      if (combatStatus) {
+        combatStatus.textContent = ok
+          ? 'Combat: Threshold Bent · approach'
+          : 'Combat: jump failed';
+      }
+      refreshCombatStatus();
+    });
+  });
+  refreshCombatStatus();
 
   const refreshCryVol = () => {
     if (!cryStatus) return;

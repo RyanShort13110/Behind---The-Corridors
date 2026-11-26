@@ -78,9 +78,20 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
   let lastEnemyAction = null;
   let lastDamageType = null;
   let inputLocked = false;
+  /** Consecutive ATTACKS since last OBSERVE (optional blind-assault escalation). */
+  let attacksSinceObserve = 0;
 
   function nextAttack() {
     return cfg.enemy.attacks[nextAttackId];
+  }
+
+  function applyBlindAssaultEscalation() {
+    const threshold = cfg.enemy.blindAssaultThreshold;
+    const forceId = cfg.enemy.blindAssaultAttackId;
+    if (!threshold || !forceId || !cfg.enemy.attacks[forceId]) return;
+    if (attacksSinceObserve >= threshold) {
+      nextAttackId = forceId;
+    }
   }
 
   function telegraphActive() {
@@ -226,6 +237,7 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
     let fx = null;
 
     if (cmd === COMBAT_COMMANDS.ATTACK) {
+      attacksSinceObserve += 1;
       const weapon = attackWeapon();
       let dmg = weapon.baseDamage;
       let usedOpening = false;
@@ -244,6 +256,7 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
       setLog(detail);
       fx = { type: 'attack', damageType: weapon.damageType, weaponId: weapon.id };
     } else if (cmd === COMBAT_COMMANDS.OBSERVE) {
+      attacksSinceObserve = 0;
       openingActive = true;
       observeBrace = true;
       observed = true;
@@ -360,6 +373,7 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
 
   function beginEnemyPhase() {
     if (phase !== PHASE.RESOLVING) return snapshot();
+    applyBlindAssaultEscalation();
     phase = PHASE.ENEMY;
     return snapshot();
   }
@@ -383,6 +397,7 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
     lastEnemyAction = null;
     lastDamageType = null;
     inputLocked = false;
+    attacksSinceObserve = 0;
     return snapshot();
   }
 

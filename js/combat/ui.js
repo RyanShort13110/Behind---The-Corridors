@@ -17,9 +17,15 @@ const COMMANDS = [
  * @param {() => void} opts.onRetry
  * @param {() => void} opts.onExit
  * @param {() => void} [opts.onContinue]
+ * @param {string} [opts.eyebrow]
+ * @param {string} [opts.exitLabel]
+ * @param {boolean} [opts.showTutorial]
  */
 export function createCombatUi({
   onCommand, onItemSelect, onItemCancel, onRetry, onExit, onContinue,
+  eyebrow = 'COMBAT PROTOTYPE · DEBUG',
+  exitLabel = 'EXIT',
+  showTutorial = false,
 } = {}) {
   const root = document.createElement('div');
   root.id = 'combat-hud';
@@ -28,11 +34,21 @@ export function createCombatUi({
   root.innerHTML = `
     <div class="combat-hud__top">
       <div class="combat-hud__identity">
-        <p class="combat-hud__eyebrow">COMBAT PROTOTYPE · DEBUG</p>
+        <p class="combat-hud__eyebrow">${eyebrow}</p>
         <p class="combat-hud__enemy-name" data-enemy-name>THE WAITING THING</p>
         <p class="combat-hud__flags" data-flags aria-live="polite"></p>
       </div>
-      <button type="button" class="combat-hud__exit" data-exit title="Exit combat prototype">EXIT</button>
+      <button type="button" class="combat-hud__exit" data-exit title="Exit combat">${exitLabel}</button>
+    </div>
+    <div class="combat-hud__tutorial" data-tutorial ${showTutorial ? '' : 'hidden'}>
+      <p class="combat-hud__tutorial-title">FIRST ENCOUNTER</p>
+      <ul class="combat-hud__tutorial-list">
+        <li><strong>ATTACK</strong> — Strike the entity.</li>
+        <li><strong>OBSERVE</strong> — Study its behavior.</li>
+        <li><strong>GUARD</strong> — Reduce incoming damage.</li>
+        <li><strong>ITEM</strong> — Use carried supplies.</li>
+      </ul>
+      <button type="button" class="combat-cmd" data-tutorial-dismiss>GOT IT</button>
     </div>
     <div class="combat-hud__meters">
       <div class="combat-meter combat-meter--presence">
@@ -69,7 +85,7 @@ export function createCombatUi({
       <p class="combat-hud__end-copy" data-end-copy></p>
       <div class="combat-hud__end-actions">
         <button type="button" class="combat-cmd combat-cmd--primary" data-retry>RETRY</button>
-        <button type="button" class="combat-cmd" data-end-exit>EXIT</button>
+        <button type="button" class="combat-cmd" data-end-exit>EXIT TEST</button>
       </div>
     </div>
   `;
@@ -98,6 +114,16 @@ export function createCombatUi({
 
   let continueArmed = false;
   let itemPickerOpen = false;
+  let tutorialOpen = Boolean(showTutorial);
+
+  function dismissTutorial() {
+    tutorialOpen = false;
+    const el = root.querySelector('[data-tutorial]');
+    if (el) el.hidden = true;
+    root.classList.remove('is-tutorial');
+  }
+
+  if (tutorialOpen) root.classList.add('is-tutorial');
 
   function setVisible(on) {
     root.classList.toggle('is-active', on);
@@ -215,6 +241,10 @@ export function createCombatUi({
   }
 
   root.addEventListener('click', (event) => {
+    if (event.target.closest('[data-tutorial-dismiss]')) {
+      dismissTutorial();
+      return;
+    }
     if (continueArmed && event.target.closest('[data-continue], [data-log]')) {
       onContinue?.();
       return;

@@ -124,7 +124,11 @@ Full-screen inventory (`I`, on-screen **INVENTORY**, or touch control). Categori
 
 Equipping / unequipping is free in exploration. Debug combat uses an **isolated** loadout (crowbar + 2 cigarettes + 1 flare) and must not overwrite story inventory. Exit from debug combat restores via chapter jump (restarts the previous chapter from its start — known limitation).
 
-Combat commands remain ATTACK / OBSERVE / GUARD / ITEM. ITEM opens a selector (cancel costs no turn). OBSERVE Opening bonus is configurable (~+18). No story enemy encounters yet.
+Combat commands remain ATTACK / OBSERVE / GUARD / ITEM. ITEM opens a selector (cancel costs no turn). OBSERVE Opening bonus is configurable (~+18).
+
+### Debug in-world Threshold combat (**EXPERIMENT** — not mandatory)
+
+Optional debug encounter with **THE BENT** inside Chapter 06 (~69% progress), after the rupture STEADY and before the outside-world quiet line. Activation: `?debug=1&combat=1` or DEV TOOLS → **ENABLE THRESHOLD COMBAT** / **JUMP TO BENT**. Uses the live Threshold hallway and camera (no arena teleport). Isolated debug loadout. Victory resumes exploration in place; the figure does not respawn. **Not** part of normal story progression. The Unseen remains a retreat sequence with no conventional combat.
 
 ---
 
