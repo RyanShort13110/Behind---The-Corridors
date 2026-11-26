@@ -297,3 +297,9 @@ body.debug-performance .perf-hud{display:block}
   .tape-overlay__flicker,
   .tape-overlay__scanlines--fine{animation:none}
 }
+/* Outside-world dialogue: italic line only; same ink/size/placement as protagonist. */
+#line.is-outside{font-style:italic}
+.narrative.is-outside-voice{transition:opacity .75s ease}
+@media (prefers-reduced-motion:reduce){
+  .narrative.is-outside-voice{transition:opacity .35s ease}
+}

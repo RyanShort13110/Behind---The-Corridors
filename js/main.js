@@ -39,8 +39,8 @@ import {
 } from './levels/records-story.js?v=fob-reach-2';
 import { recordsCameraPose } from './levels/records-route.js';
 import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS } from './levels/night-story.js';
-import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js?v=steady-expand-1';
-import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js?v=steady-expand-1';
+import { createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z, THRESHOLD_END_PROGRESS } from './levels/threshold-story.js?v=ow-dlg-1';
+import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js?v=ow-dlg-1';
 import { unseenCameraPose } from './levels/unseen-route.js';
 import {
   createMemoryWhiteStory, createMemoryBlackStory,
@@ -68,6 +68,10 @@ import {
   STAIRWELLS_MARKS,
   STAIRWELLS_WALK_SPEED,
 } from './levels/stairwells-route.js?v=stairs-ch05-1';
+import {
+  createOutsideDialogue,
+  OUTSIDE_EVENTS,
+} from './outside-dialogue.js?v=ow-dlg-1';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -209,12 +213,69 @@ let briefChapter = '';
 let briefLine = '';
 let briefRemaining = 0;
 const briefSeen = new Set();
+const outsideDialogue = createOutsideDialogue();
 
 function resetBriefDialogue() {
   briefChapter = '';
   briefLine = '';
   briefRemaining = 0;
   briefSeen.clear();
+}
+
+function resetOutsideDialogue() {
+  outsideDialogue.reset();
+  el.line?.classList.remove('is-outside');
+  el.narrative?.classList.remove('is-outside-voice');
+}
+
+/**
+ * Arm one-shot outside conversations after "Please wake up." (Stairwells).
+ * Never before that beat. Safe quiet windows only — no STEADY / end-card overlap intent.
+ */
+function maybeArmOutsideDialogue(chapter, progress, state) {
+  if (!state || ended) return;
+  const p = progress;
+
+  if (chapter === 'stairwells') {
+    // After Floor 03 sign + void: quiet return landing before the last flight.
+    if (state.snapped && state.phase === 'return' && !state.onFinalFlight) {
+      outsideDialogue.arm(OUTSIDE_EVENTS.rain);
+    }
+    return;
+  }
+
+  if (chapter === 'threshold') {
+    // After the freestanding door, before organic / rupture.
+    if (state.crossedDoor
+        && state.direction === 'forward'
+        && p >= 0.33 && p < 0.52
+        && !state.ruptureArmed) {
+      outsideDialogue.arm(OUTSIDE_EVENTS.dog);
+    }
+    // After rupture settles; before the densest red-hall stretch.
+    if (state.ruptureArmed
+        && state.direction === 'forward'
+        && p >= 0.745 && p < 0.86
+        && !state.nightmareCleared) {
+      outsideDialogue.arm(OUTSIDE_EVENTS.quiet);
+    }
+    return;
+  }
+
+  if (chapter === 'unseen') {
+    // After primary threat subsides into silence — intimate almost-call.
+    if (state.silence && p <= 0.192 && p > 0.135) {
+      outsideDialogue.arm(OUTSIDE_EVENTS.almostCalled);
+    }
+    // Goodbye / promise after the final-click beat and once Event 04 has
+    // been armed — waits until that session ends so the two stay sequential.
+    if (state.silence
+        && state.finalClick
+        && p <= 0.145
+        && outsideDialogue.hasFired(OUTSIDE_EVENTS.almostCalled.id)) {
+      outsideDialogue.arm(OUTSIDE_EVENTS.comeBackTomorrow);
+    }
+  }
 }
 
 function showBriefDialogue(chapter, candidate, dt = 0) {
@@ -1317,6 +1378,7 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       progress = displayed = target === 'corridor' ? START_PROGRESS : 0;
     }
     resetBriefDialogue();
+    resetOutsideDialogue();
     composure.set(Math.max(1, snapshot.composure ?? COMPOSURE_CONFIG.start));
     look?.reset();
     window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
@@ -1376,6 +1438,7 @@ async function restartCurrentChapterFromStart() {
   }
   // Fallback: soft chapter rewind with current inventory cigarettes preserved.
   resetBriefDialogue();
+  resetOutsideDialogue();
   steady?.cancel(true);
   hideGameOver();
   gameOverActive = false;
@@ -1793,6 +1856,7 @@ function reset() {
   noteFogBase();
   hideEndCard();
   resetBriefDialogue();
+  resetOutsideDialogue();
   progress = displayed = START_PROGRESS;
   camera.position.set(0, 1.7, REAR_CABIN_CAMERA_Z - START_PROGRESS * CORRIDOR_METERS);
   camera.rotation.set(0, 0, 0);
@@ -1966,6 +2030,9 @@ async function enterStairwells() {
     director.activate('stairwells');
     chapterId = 'stairwells';
     stairwellsStory.reset();
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
     bindChapterInteractables();
     noteFogBase();
     syncComposureUi();
@@ -2020,6 +2087,9 @@ async function enterThreshold() {
     chapterId = 'threshold';
     stairwellsStory.reset();
     thresholdStory.reset();
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
     bindChapterInteractables();
     noteFogBase();
     syncComposureUi();
@@ -2072,6 +2142,9 @@ async function enterUnseen() {
     director.activate('unseen');
     chapterId = 'unseen';
     unseenStory.reset();
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
     bindChapterInteractables();
     noteFogBase();
     syncComposureUi();
@@ -2228,7 +2301,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     else if (target === 'stairwells') audio.enterStairwells?.();
 
     hideEndCard();
-      resetBriefDialogue();
+    resetBriefDialogue();
+    resetOutsideDialogue();
     el.location.innerHTML = DEV_CHAPTER_CONFIG[target].location;
     progress = displayed = target === 'unseen'
       ? unseenStory.seekCheckpoint(checkpoint) : DEV_CHAPTER_CONFIG[target].start;
@@ -2563,11 +2637,27 @@ function updateNarrative(p, dt = 0) {
             : inMemory ? memoryHomeNarrative(p, state)
               : inWard ? hospitalReverseNarrative(p, state)
                 : inStairs ? stairwellsNarrative(p, state) : unseenNarrative(p, state);
-  const displayedLine = (inCorridor || inOffice || inRecords || inNight)
-    ? showBriefDialogue(chapterId, narrative.line, dt)
-    : narrative.line;
+
+  outsideDialogue.setReducedMotion(reduced);
+  maybeArmOutsideDialogue(chapterId, p, state);
+  const outside = outsideDialogue.tick(dt);
+
+  let displayedLine;
+  let dialogueSource = narrative.source === 'outside' ? 'outside' : 'protagonist';
+  if (outside) {
+    displayedLine = outside.line;
+    dialogueSource = 'outside';
+  } else {
+    displayedLine = (inCorridor || inOffice || inRecords || inNight)
+      ? showBriefDialogue(chapterId, narrative.line, dt)
+      : narrative.line;
+    dialogueSource = 'protagonist';
+  }
+
   if (narrative.chapter !== el.chapter.textContent) el.chapter.textContent = narrative.chapter;
   if (el.line.textContent !== displayedLine) el.line.textContent = displayedLine;
+  el.line.classList.toggle('is-outside', dialogueSource === 'outside');
+  el.narrative.classList.toggle('is-outside-voice', dialogueSource === 'outside');
   let instruction = narrative.instruction;
   if (inCorridor && interaction?.nearest && !interaction.isOpen && !ended) {
     const near = interaction.nearest;

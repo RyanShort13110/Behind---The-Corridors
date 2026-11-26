@@ -206,23 +206,35 @@ Objects should appear ordinary until repetition gives them emotional weight.
 
 **ESTABLISHED CANON (presentation rules)**
 
-Occasionally, short messages appear inside the game environment that feel out of place — ordinary text in ordinary materials, in locations where they do not quite belong. Their language is compassionate and concerned: expressions of care, exhaustion, and hope — never threats, supernatural warnings, or instructions from the building. To the player they should remain ambiguous at first: easy to overlook, easy to rationalize, never explained by the protagonist.
+Occasionally, short messages appear inside the game environment that feel out of place — ordinary text in ordinary materials, in locations where they do not quite belong. Separately, fragments of another person's speech may reach the player as **narrative dialogue** (same `#line` UI). Their language is compassionate and concerned: expressions of care, exhaustion, and hope — never threats, supernatural warnings, or instructions from the building. To the player they should remain ambiguous at first: easy to overlook, easy to rationalize, never explained by the protagonist.
 
-**Intended recognition (without confirmation):** By the time a player reaches **“Please wake up.”** (Stairwells), they may suddenly reconsider earlier notes. That suspicion is welcome. **Do not confirm it** — no protagonist dialogue about the messages, no cinematic revelation, no explanatory subtitle, no forced recognition beat.
+### Two dialogue presentation styles (**IMPLEMENTED**)
+
+| Source | Typography | Behavior |
+|---|---|---|
+| **Protagonist** (default) | Existing roman narrative text | Unchanged colors, size, placement; brief one-shots in early chapters as before |
+| **Outside** | Same family / color / size / placement; **`font-style: italic`** on `#line` only | Timed one-shot conversations; slightly gentler fade; no speaker name, label, icon, portrait, or extra quotation marks |
+
+Unspecified dialogue defaults to **protagonist**. Do not italicize `#chapter` or the whole `#narrative` container. Never identify the outside speaker in player-facing UI.
+
+**Intended recognition (without confirmation):** By the time a player reaches **“Please wake up.”** (Stairwells), they may suddenly reconsider earlier notes. That suspicion is welcome. **Do not confirm it** — no protagonist dialogue about the messages, no cinematic revelation, no explanatory subtitle, no forced recognition beat. **No intelligible outside-world conversation dialogue before that environmental message.**
 
 **Rules**
 
-- **Every outside-world message must originate as a believable fragment of something someone might actually say to an unconscious loved one. The environmental placement comes afterward.**
-- Appear in mundane, inappropriate locations (a desk sticky, a break-room board, institutional wall writing, etc.).
+- **Every outside-world message / conversation must originate as a believable fragment of something someone might actually say to an unconscious loved one. The environmental placement (or dialogue timing) comes afterward.**
+- Environmental notes appear in mundane, inappropriate locations (a desk sticky, a break-room board, institutional wall writing, etc.).
+- Conversation fragments talk about ordinary life (weather, familiar animals, daily routines) before loneliness becomes harder to conceal.
+- Emotional progression for the conversation pass: **ordinary → familiar → quietly lonely → painfully intimate → a promise to return.**
+- Dialogue should become **more emotionally intimate without becoming more explanatory.**
 - Compassionate / concerned tone only — no threats, riddles, or building-as-speaker voice.
 - Meaning stays ambiguous in player-facing text; do not explicitly spell out a final explanation.
 - Low frequency — each discovery should feel significant. Avoid excessive repetition as the motif continues.
-- Later messages (when authorized) should grow **more emotionally personal**, not more overtly frightening.
-- The protagonist does not deliver explanatory dialogue about them.
-- Never required as puzzle clues or for progression.
+- Later lines (when authorized) should grow **more emotionally personal**, not more overtly frightening.
+- The protagonist does not deliver explanatory dialogue about them and does not answer them.
+- Never required as puzzle clues or for progression; no composure / STEADY / stingers tied to them.
 - Reinforce the grief / absence / fragile-connection narrative; do **not** replace it or the rest of the horror design.
 
-**IMPLEMENTED**
+**IMPLEMENTED — environmental writing**
 
 | Chapter | Placement | Text | Presentation |
 |---|---|---|---|
@@ -230,14 +242,27 @@ Occasionally, short messages appear inside the game environment that feel out of
 | 04 — Night Shift | Cork noticeboard in the kitchenette | “We're all here.” | Small handwritten paper note; no outline, inspect, sound, or composure effect |
 | 05 — Stairwells | Floor 03 landing wall, before the void | “Please wake up.” | Worn institutional signage / writing; no camera beat, outline, or gameplay trigger |
 
+**IMPLEMENTED — outside conversation dialogue (italic `#line`)**
+
+| Event | Chapter | When (approx.) | Text |
+|---|---|---|---|
+| 01 Ordinary | 05 Stairwells | After void snap; quiet return landing (post–“Please wake up.”) | “It rained again today. You would've hated the drive.” |
+| 02 Familiar | 06 Threshold | After door crossed; before rupture (~0.33–0.52) | “Oh, I almost forgot. I saw that dog again. The little one you like.” |
+| 03 Quiet | 06 Threshold | After rupture settles (~0.745–0.86) | “I don't really have anything new to tell you today. I just... wanted to be here.” |
+| 04 Forgotten call | 07 Unseen | After silence / threat subsided | “I almost called you on the way home yesterday.” → “I guess I just forgot for a second.” |
+| 05 Goodbye for now | 07 Unseen | Later quiet after final click | “Anyway. That's about all I've got for today.” → “I'll come back tomorrow.” |
+
+Technical: `js/outside-dialogue.js` + `updateNarrative()` in `main.js`. One-shot; does not re-fire on reverse scroll; holds long enough to read; suppresses overlapping protagonist line while active.
+
 **OPEN / PROVISIONAL (later beats — do not implement yet; not for Ch 01 or Ch 03)**
 
 - “We need you.”
-- “I know you can't hear me, but...” (especially significant; may later become speech intrusion — voice/audio not yet authorized)
+- **“I know you can't hear me, but...”** — reserved; especially significant
+- **“Please come back to me.”** — reserved; especially important late emotional peak; do not spend early
 - “I still tell you about my day.”
 - A message that addresses the protagonist personally (no name invented yet; do not use a developer name as a placeholder)
 
-Placement, timing, and presentation for reserved lines remain undecided. Chapters 01 and 03 remain restrained and free of these messages.
+Placement, timing, and presentation for reserved lines remain undecided. Everyday Foley under these conversations (chair, keys, cloth) is planned separately — **not** implemented with this dialogue pass. Chapters 01 and 03 remain restrained and free of outside conversation dialogue.
 
 ---
 
@@ -524,3 +549,4 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Outside-world intrusions (first pass):** Public bible rules + Night Shift cork note (“We're all here.”) + Stairwells Floor 03 sign (“Please wake up.”); later lines reserved; writer-only explanation stays gitignored. |
 | 2026-11 | **Outside-world — Office:** Sticky beside the ringing phone (“I came back today.”); writing-origin rule added (spoken fragment first, placement second). |
 | 2026-11 | **Narrative direction update (continuity):** Public bible reframes grief as separation/absence; formalizes player-discovery-before-protagonist; expands outside-world restraint and reserved later lines. Private revised backstory kept only in gitignored writer-only notes (superseded prior private outline marked there — not rewritten into historical public entries). |
+| 2026-11 | **Outside conversation dialogue:** Italic `#line` source vs roman protagonist; five ordinary→intimate one-shot conversations in Stairwells / Threshold / Unseen after “Please wake up.”; reserved “I know you can't hear me…” / “Please come back to me.”; no voice/Foley in this pass. |
