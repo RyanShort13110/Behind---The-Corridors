@@ -1,8 +1,12 @@
 /**
- * Tiny inventory for scroll-horror pickups. Few items, no RPG bloat.
+ * Tiny inventory for scroll-horror pickups.
+ * Owns item instances; catalog supplies presentation metadata.
  */
+
 export function createInventory({ onChange } = {}) {
   const items = new Map();
+  /** @type {string|null} */
+  let equippedWeaponId = null;
 
   function emit() { onChange?.(list()); }
 
@@ -21,13 +25,52 @@ export function createInventory({ onChange } = {}) {
     get(id) { return items.get(id) || null; },
     remove(id) {
       const ok = items.delete(id);
-      if (ok) emit();
+      if (ok) {
+        if (equippedWeaponId === id) equippedWeaponId = null;
+        emit();
+      }
       return ok;
     },
     list,
     clear() {
-      if (!items.size) return;
+      if (!items.size && !equippedWeaponId) return;
       items.clear();
+      equippedWeaponId = null;
+      emit();
+    },
+
+    /** Currently equipped weapon item id, or null. */
+    getEquippedWeaponId() { return equippedWeaponId; },
+
+    /**
+     * Equip a carried weapon. Pass null to unequip.
+     * @param {string|null} id
+     */
+    equipWeapon(id) {
+      if (id == null) {
+        if (equippedWeaponId == null) return false;
+        equippedWeaponId = null;
+        emit();
+        return true;
+      }
+      if (!items.has(id)) return false;
+      if (equippedWeaponId === id) return false;
+      equippedWeaponId = id;
+      emit();
+      return true;
+    },
+
+    isEquipped(id) {
+      return Boolean(id) && equippedWeaponId === id;
+    },
+
+    /** Snapshot helpers for checkpoints / debug combat copies. */
+    getEquipmentState() {
+      return { equippedWeaponId };
+    },
+    setEquipmentState(state = {}) {
+      const next = state?.equippedWeaponId ?? null;
+      equippedWeaponId = next && items.has(next) ? next : null;
       emit();
     },
   };

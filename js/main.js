@@ -7,7 +7,11 @@ import { createAudioDirector } from './audio.js?v=stairs-void-10';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
-import { createInventory } from './inventory.js';
+import { createInventory } from './inventory.js?v=inv-1';
+import { createInventoryMenu } from './inventory-menu.js?v=inv-1';
+import {
+  resolveItemDef, itemStackKey, CROWBAR_ITEM_ID, FLARE_ITEM_ID,
+} from './items/catalog.js?v=inv-1';
 import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import { drawVhsCCamcorderPreview } from './props/vhs-c-camcorder.js?v=cam-1';
@@ -165,6 +169,8 @@ let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let ended = false;
 let renderer, camera, scene, director, monitor, interaction, look, inventory, keypad;
+/** Full-screen inventory menu (null until init). */
+let inventoryMenu = null;
 let cigaretteFx = createCigaretteFx();
 let memoryEnterTimer = 0;
 let lastTime = performance.now();
@@ -394,7 +400,33 @@ try {
   director.add('elevator', createElevator(scene));
   director.activate('corridor');
   inventory = createInventory({
-    onChange: items => renderInventory(items),
+    onChange: items => {
+      renderInventory(items);
+      inventoryMenu?.refresh?.();
+    },
+  });
+  inventoryMenu = createInventoryMenu({
+    getInventory: () => inventory,
+    getStacks: () => inventoryStacks(inventory?.list() || []),
+    canOpen: () => canOpenInventoryMenu(),
+    drawPreview: drawInventoryMenuPreview,
+    getTapeActions: (item) => (item?.id === CAMCORDER_ITEM_ID ? tapesOnCamcorder() : []),
+    onLoadTape: (tape) => {
+      inventoryMenu?.close?.();
+      void playCamcorderTape(tape);
+    },
+    onUse: (itemId) => {
+      useInventoryItem(itemId);
+      inventoryMenu?.setComposureFull?.(composure.isFull);
+      inventoryMenu?.refresh?.();
+    },
+    onEquip: (itemId) => {
+      toggleEquipWeapon(itemId);
+      inventoryMenu?.refresh?.();
+    },
+    onClose: () => {
+      walkKeys.forward = walkKeys.back = false;
+    },
   });
   interaction = createInteractionSystem({
     camera,
@@ -547,7 +579,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     look?.setEnabled?.(false);
     interaction?.close?.();
     interaction?.clear?.();
-    closeItemDetail();
+    closeInventoryOverlays();
     steady?.cancel?.(true);
     keypad?.close?.();
     // Keep game SOUND state, but duck chapter ambience under the tape.
@@ -644,7 +676,7 @@ async function startCombatPrototypeSession() {
     look?.setEnabled?.(false);
     interaction?.close?.();
     interaction?.clear?.();
-    closeItemDetail();
+    closeInventoryOverlays();
     steady?.cancel?.(true);
     keypad?.close?.();
     hideGameOver();
@@ -728,7 +760,7 @@ async function startEndingPrototype(id) {
     look?.setEnabled?.(false);
     interaction?.close?.();
     interaction?.clear?.();
-    closeItemDetail();
+    closeInventoryOverlays();
     steady?.cancel?.(true);
     keypad?.close?.();
 
@@ -960,7 +992,7 @@ async function enterMemoryChapter() {
   if (transitioning) return;
   transitioning = true;
   interaction?.close();
-  closeItemDetail();
+  closeInventoryOverlays();
   el.veil.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 780));
   memoryStoryFor().enterMemory();
@@ -986,7 +1018,7 @@ async function exitMemoryChapter() {
   if (!memoryStoryFor().beginExit()) return;
   transitioning = true;
   interaction?.close();
-  closeItemDetail();
+  closeInventoryOverlays();
   el.veil.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 780));
   memoryStoryFor().finishExit();
@@ -1211,10 +1243,13 @@ function syncChapterComposureHits() {
 }
 
 function preserveCarryInventory() {
+  const equipped = inventory?.getEquippedWeaponId?.() || null;
   const kept = (inventory?.list() || []).filter(item =>
     String(item.id).startsWith('cigarette')
     || item.id === 'key-fob'
     || item.id === CAMCORDER_ITEM_ID
+    || item.id === CROWBAR_ITEM_ID
+    || item.id === FLARE_ITEM_ID
     || isTapeItemId(item.id));
   inventory?.clear();
   for (const item of kept) {
@@ -1228,6 +1263,7 @@ function preserveCarryInventory() {
       recordingId: item.recordingId,
     });
   }
+  if (equipped && inventory?.has(equipped)) inventory.equipWeapon(equipped);
   renderInventory();
 }
 
@@ -1287,6 +1323,7 @@ function captureCheckpointSnapshot() {
       kind: item.kind ?? null,
       recordingId: item.recordingId ?? null,
     })),
+    equippedWeaponId: inventory?.getEquippedWeaponId?.() || null,
     memory: {
       ...memory,
       chaptersCompleted: [...(memory.chaptersCompleted || [])],
@@ -1302,7 +1339,7 @@ function captureCheckpointSnapshot() {
   };
 }
 
-function applyInventorySnapshot(items = []) {
+function applyInventorySnapshot(items = [], equippedWeaponId = null) {
   inventory?.clear();
   for (const item of items) {
     inventory.add(item.id, {
@@ -1314,6 +1351,9 @@ function applyInventorySnapshot(items = []) {
       kind: item.kind,
       recordingId: item.recordingId,
     });
+  }
+  if (equippedWeaponId && inventory?.has(equippedWeaponId)) {
+    inventory.equipWeapon(equippedWeaponId);
   }
   renderInventory();
 }
@@ -1386,7 +1426,7 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
   steady?.cancel(true);
   hideGameOver();
   interaction?.close();
-  closeItemDetail();
+  closeInventoryOverlays();
   keypad?.close();
   el.veil?.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 520));
@@ -1432,7 +1472,8 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     }
     composureHits.clear();
     for (const id of snapshot.composureHits || []) composureHits.add(id);
-    applyInventorySnapshot(snapshot.inventory || []);
+    applyInventorySnapshot(snapshot.inventory || [], snapshot.equippedWeaponId || null);
+    inventoryMenu?.close?.();
     Object.assign(memory, snapshot.memory || {});
     if (Array.isArray(snapshot.memory?.chaptersCompleted)) {
       memory.chaptersCompleted = [...snapshot.memory.chaptersCompleted];
@@ -1495,7 +1536,7 @@ async function triggerGameOver() {
   gameOverBusy = true;
   steady?.cancel(true);
   interaction?.close();
-  closeItemDetail();
+  closeInventoryOverlays();
   keypad?.close();
   audio.fadeForGameOver?.();
   el.veil?.classList.add('is-active');
@@ -1582,6 +1623,102 @@ function closeItemDetail() {
     el.itemDetailUse.dataset.itemId = '';
     el.itemDetailUse.textContent = 'USE';
   }
+}
+
+/** Close inventory + item chip panel during chapter handoffs. */
+function closeInventoryOverlays() {
+  closeItemDetail();
+  inventoryMenu?.close?.();
+}
+
+function canOpenInventoryMenu() {
+  if (!started || transitioning || ended || gameOverActive) return false;
+  if (tapeSession || endingSession || combatSession) return false;
+  if (steady?.isActive) return false;
+  if (interaction?.isOpen || keypad?.isOpen) return false;
+  if (el.ending?.classList.contains('is-visible')) return false;
+  return true;
+}
+
+function toggleInventoryMenu() {
+  if (inventoryMenu?.isOpen?.()) {
+    inventoryMenu.close();
+    return;
+  }
+  closeItemDetail();
+  inventoryMenu?.open?.({ composureFull: composure.isFull });
+}
+
+function toggleEquipWeapon(itemId) {
+  if (!inventory || !itemId) return;
+  const def = resolveItemDef(itemId, inventory.get(itemId) || {});
+  if (!def?.equipable) return;
+  if (inventory.isEquipped(itemId)) inventory.equipWeapon(null);
+  else inventory.equipWeapon(itemId);
+  renderInventory();
+}
+
+function drawInventoryMenuPreview(canvas, item) {
+  if (!canvas || !item) return;
+  if (item.id === 'brass-key') drawBrassKeyPreview(canvas);
+  else if (item.id === 'sticky-note') {
+    drawStickyNotePreview(canvas, officeStory.state.keypadCode);
+  } else if (item.id === 'key-fob') drawKeyFobPreview(canvas);
+  else if (item.id === CAMCORDER_ITEM_ID) drawVhsCCamcorderPreview(canvas);
+  else if (isTapeItemId(item.id)) {
+    const tape = getTapeById(item.id);
+    drawVhsCCassettePreview(
+      canvas,
+      tape ? `#${(tape.previewColor >>> 0).toString(16).padStart(6, '0')}` : '#1e2226',
+    );
+  } else if (item.id === 'stuffed-dragon-white'
+      || String(item.id).startsWith('stuffed-dragon')) {
+    drawStuffedDragonPreview(canvas, item.previewColor ?? 0xf2f0ea);
+  } else if (String(item.id).startsWith('cigarette')) {
+    drawCigarettePreview(canvas);
+  } else if (item.id === CROWBAR_ITEM_ID) {
+    drawCrowbarPreview(canvas);
+  } else if (item.id === FLARE_ITEM_ID) {
+    drawFlarePreview(canvas);
+  } else {
+    const ctx = canvas.getContext('2d');
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+/** Lightweight 2D crowbar icon for inventory (Phase 1/2 shared). */
+function drawCrowbarPreview(canvas) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(w * 0.18, h * 0.62);
+  ctx.rotate(-0.55);
+  ctx.fillStyle = '#3a3f42';
+  ctx.fillRect(0, -5, w * 0.62, 10);
+  ctx.fillStyle = '#5a5050';
+  ctx.fillRect(w * 0.52, -14, 18, 28);
+  ctx.fillStyle = '#2a2e30';
+  ctx.fillRect(-8, -7, 14, 14);
+  ctx.restore();
+}
+
+function drawFlarePreview(canvas) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const x = w * 0.42;
+  const y = h * 0.22;
+  ctx.fillStyle = '#8a2e28';
+  ctx.fillRect(x, y, 18, h * 0.48);
+  ctx.fillStyle = '#c45a3a';
+  ctx.fillRect(x + 2, y - 10, 14, 14);
+  ctx.fillStyle = '#d8c4a0';
+  ctx.fillRect(x + 5, y + h * 0.48, 8, 10);
 }
 
 function clearCamcorderTapePanel() {
@@ -1710,8 +1847,7 @@ function drawCigarettePreview(canvas) {
 
 /** Stack key — cigarettes share one slot even with unique pickup ids. */
 function inventoryStackKey(item) {
-  if (String(item?.id || '').startsWith('cigarette')) return 'cigarette';
-  return item?.id || '';
+  return itemStackKey(item?.id, item);
 }
 
 function inventoryStacks(list) {
@@ -1721,7 +1857,7 @@ function inventoryStacks(list) {
     const key = inventoryStackKey(item);
     if (!key) continue;
     if (!map.has(key)) {
-      map.set(key, { key, items: [] });
+      map.set(key, { key, items: [], representative: item });
       order.push(key);
     }
     map.get(key).items.push(item);
@@ -1772,21 +1908,29 @@ function renderInventory(items) {
   if (!el.inventory) return;
   const list = items || inventory?.list() || [];
   const stacks = inventoryStacks(list);
-  el.inventory.innerHTML = stacks.map(stack => {
-    const item = stack.items[0];
-    const count = stack.items.length;
-    const label = item.label || item.id;
-    const qty = count > 1
-      ? `<span class="inventory__qty" aria-hidden="true">×${count}</span>`
+  const total = list.length;
+  const show = started && !ended && !tapeSession && !combatSession && !endingSession;
+  // Single launcher replaces the old per-item chip stack.
+  if (show) {
+    const qty = total > 0
+      ? `<span class="inventory__open-qty" aria-hidden="true">${total}</span>`
       : '';
-    const aria = count > 1 ? `${label}, ${count}` : label;
-    return `<button type="button" class="inventory__item" data-item-id="${item.id}" aria-label="${aria}">`
-      + `<span class="inventory__label">${label}</span>${qty}</button>`;
-  }).join('');
-  const show = list.length > 0 && started && !ended;
+    el.inventory.innerHTML = `<button type="button" class="inventory__open" data-inventory-open aria-label="Open inventory${total ? `, ${total} items` : ''}">`
+      + `<span class="inventory__open-label">INVENTORY</span>${qty}</button>`;
+  } else {
+    el.inventory.innerHTML = '';
+  }
   el.inventory.classList.toggle('is-visible', show);
   el.inventory.setAttribute('aria-hidden', String(!show));
-  if (!show) closeItemDetail();
+  if (!show) {
+    closeItemDetail();
+    inventoryMenu?.close?.();
+  } else {
+    inventoryMenu?.setComposureFull?.(composure.isFull);
+    inventoryMenu?.refresh?.();
+  }
+  // Keep stacks referenced for empty-state messaging inside the menu.
+  void stacks;
 }
 
 function start() {
@@ -1813,6 +1957,7 @@ function start() {
     });
     window.ScrollTrigger.refresh();
   }
+  renderInventory();
   console.info('[Behind.] 001.8 started · 5.5 m/s · sound 0.065 · return-pass narration');
 }
 
@@ -1909,7 +2054,7 @@ function reset() {
   look?.reset();
   inventory?.clear();
   renderInventory([]);
-  closeItemDetail();
+  closeInventoryOverlays();
   story.reset();
   officeStory.reset();
   recordsStory.reset();
@@ -2305,6 +2450,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     interaction?.clear();
     look?.reset();
     steady?.cancel(true);
+    closeInventoryOverlays();
     hideGameOver();
     gameOverActive = false;
     gameOverBusy = false;
@@ -2628,13 +2774,21 @@ el.itemDetailUse?.addEventListener('click', () => {
   if (id) useInventoryItem(id);
 });
 el.inventory?.addEventListener('click', event => {
+  if (event.target.closest('[data-inventory-open]')) {
+    toggleInventoryMenu();
+    return;
+  }
+  // Legacy chip path (if any remain)
   const btn = event.target.closest('[data-item-id]');
   if (!btn) return;
   const id = btn.dataset.itemId;
   const item = inventory?.get(id);
   if (item) openItemDetail({ id, ...item });
 });
-composure.subscribe(syncComposureUi);
+composure.subscribe((value) => {
+  syncComposureUi(value);
+  inventoryMenu?.setComposureFull?.(composure.isFull);
+});
 function onWalkKeyDown(event) {
   if (event.key === 'Escape') {
     if (tapeSession && camcorderResumeSnapshot) {
@@ -2642,10 +2796,24 @@ function onWalkKeyDown(event) {
       void endCamcorderPlayback();
       return;
     }
+    if (inventoryMenu?.isOpen?.()) {
+      event.preventDefault();
+      inventoryMenu.close();
+      return;
+    }
     closeItemDetail();
   }
-  if (!started || transitioning || ended) return;
   if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+  // I toggles inventory (blocked during STEADY / tapes / combat / etc.)
+  if (event.code === 'KeyI' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (started && !transitioning && !ended) {
+      event.preventDefault();
+      toggleInventoryMenu();
+    }
+    return;
+  }
+  if (!started || transitioning || ended) return;
+  if (inventoryMenu?.isOpen?.()) return;
   if (event.code === 'ArrowUp' || event.code === 'KeyW') {
     walkKeys.forward = true;
     event.preventDefault();
@@ -2875,14 +3043,21 @@ function frame(now) {
   if (started && !transitioning && !gameOverActive && !(ended && chapterId === 'office')) {
     const meters = chapterMeters();
     const walkSpeed = chapterWalkSpeed();
-    // Apply held walk keys before reading scroll so look keys can't cancel motion.
-    const walkDir = (walkKeys.forward ? 1 : 0) + (walkKeys.back ? -1 : 0);
-    if (walkDir !== 0 && !interaction?.isOpen && !keypad?.isOpen) {
-      const keyStep = walkSpeed * dt / meters;
-      const next = progress + walkDir * keyStep;
-      window.scrollTo({ top: scrollYFor(THREE.MathUtils.clamp(next, 0, 1)), behavior: 'instant' });
+    const inventoryOpen = Boolean(inventoryMenu?.isOpen?.());
+    if (inventoryOpen) {
+      // Freeze rail travel while the full-screen inventory is open.
+      walkKeys.forward = walkKeys.back = false;
+      window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
+    } else {
+      // Apply held walk keys before reading scroll so look keys can't cancel motion.
+      const walkDir = (walkKeys.forward ? 1 : 0) + (walkKeys.back ? -1 : 0);
+      if (walkDir !== 0 && !interaction?.isOpen && !keypad?.isOpen) {
+        const keyStep = walkSpeed * dt / meters;
+        const next = progress + walkDir * keyStep;
+        window.scrollTo({ top: scrollYFor(THREE.MathUtils.clamp(next, 0, 1)), behavior: 'instant' });
+      }
+      setProgress(nativeProgress());
     }
-    setProgress(nativeProgress());
     const previousDisplayed = displayed;
     const eased = (progress - displayed) * (reduced ? 1 : 1 - Math.exp(-dt * 5));
     const startZ = chapterId === 'corridor' ? REAR_CABIN_CAMERA_Z
@@ -3094,7 +3269,8 @@ function frame(now) {
     }
 
     const uiBlocking = interaction?.isOpen || keypad?.isOpen
-      || el.itemDetail?.classList.contains('is-open');
+      || el.itemDetail?.classList.contains('is-open')
+      || Boolean(inventoryMenu?.isOpen?.());
     if (uiBlocking || document.hidden) steady?.pause();
     else steady?.resume();
     steady?.update(dt);
