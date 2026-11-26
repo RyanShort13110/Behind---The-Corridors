@@ -14,8 +14,9 @@ const COMMANDS = [
  * @param {(cmd: string) => void} opts.onCommand
  * @param {() => void} opts.onRetry
  * @param {() => void} opts.onExit
+ * @param {() => void} [opts.onContinue]
  */
-export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
+export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) {
   const root = document.createElement('div');
   root.id = 'combat-hud';
   root.className = 'combat-hud';
@@ -42,6 +43,7 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
       </div>
     </div>
     <p class="combat-hud__log" data-log aria-live="polite">Something is waiting.</p>
+    <button type="button" class="combat-hud__continue" data-continue hidden>CLICK TO CONTINUE</button>
     <p class="combat-hud__turn" data-turn>YOUR TURN</p>
     <div class="combat-hud__commands" data-commands role="group" aria-label="Combat commands">
       ${COMMANDS.map((c) => `
@@ -72,6 +74,7 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
     composureFill: root.querySelector('[data-composure-fill]'),
     composureVal: root.querySelector('[data-composure-val]'),
     log: root.querySelector('[data-log]'),
+    continueBtn: root.querySelector('[data-continue]'),
     turn: root.querySelector('[data-turn]'),
     commands: root.querySelector('[data-commands]'),
     items: root.querySelector('[data-items]'),
@@ -79,6 +82,8 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
     endTitle: root.querySelector('[data-end-title]'),
     endCopy: root.querySelector('[data-end-copy]'),
   };
+
+  let continueArmed = false;
 
   function setVisible(on) {
     root.classList.toggle('is-active', on);
@@ -90,6 +95,16 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
       btn.disabled = !on;
     });
     els.commands?.classList.toggle('is-locked', !on);
+  }
+
+  /** Hold the log on screen until the player dismisses it (OBSERVE readout). */
+  function setContinuePrompt(on) {
+    continueArmed = Boolean(on);
+    root.classList.toggle('is-awaiting-continue', continueArmed);
+    if (els.continueBtn) {
+      els.continueBtn.hidden = !continueArmed;
+      els.continueBtn.disabled = !continueArmed;
+    }
   }
 
   function flagLine(state) {
@@ -133,7 +148,9 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
     } else {
       const enemyTurn = state.phase === 'enemy' || state.phase === 'resolving';
       if (els.turn) {
-        if (enemyTurn) {
+        if (continueArmed) {
+          els.turn.textContent = `TURN ${state.turn} · OBSERVATION`;
+        } else if (enemyTurn) {
           els.turn.textContent = `TURN ${state.turn} · IT ACTS`;
         } else if (state.telegraphActive) {
           els.turn.textContent = `TURN ${state.turn} · YOUR TURN · HEAVY INCOMING`;
@@ -163,6 +180,10 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
   }
 
   root.addEventListener('click', (event) => {
+    if (continueArmed && event.target.closest('[data-continue], [data-log]')) {
+      onContinue?.();
+      return;
+    }
     const cmdBtn = event.target.closest('[data-cmd]');
     if (cmdBtn && !cmdBtn.disabled) {
       onCommand?.(cmdBtn.dataset.cmd);
@@ -178,8 +199,9 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
   });
 
   function dispose() {
+    setContinuePrompt(false);
     root.remove();
   }
 
-  return { root, setVisible, render, setCommandsEnabled, dispose };
+  return { root, setVisible, render, setCommandsEnabled, setContinuePrompt, dispose };
 }

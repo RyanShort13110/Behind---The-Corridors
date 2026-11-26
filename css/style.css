@@ -324,6 +324,10 @@ body.debug-performance .perf-hud{display:block}
 .combat-hud.is-critical .combat-meter--composure .combat-meter__fill{background:#be7a72}
 .combat-meter__value{font:10px/1 'Courier New',monospace;letter-spacing:.08em;color:#9eb0aa;text-align:right}
 .combat-hud__log{margin:0 0 8px;max-width:520px;font:300 15px/1.45 Arial,Helvetica,sans-serif;color:#dce8e6;text-shadow:0 2px 16px #000;min-height:2.6em}
+.combat-hud.is-awaiting-continue .combat-hud__log{cursor:pointer}
+.combat-hud__continue{pointer-events:auto;display:inline-block;margin:0 0 12px;border:1px solid rgba(150,170,166,.4);background:rgba(8,16,18,.82);color:#dce8e6;font:10px/1 'Courier New',monospace;letter-spacing:.2em;padding:10px 14px;cursor:pointer}
+.combat-hud__continue:hover,.combat-hud__continue:focus-visible{border-color:#d2c39a;color:#f0e6c8}
+.combat-hud__continue[hidden]{display:none}
 .combat-hud__turn{margin:0 0 12px;font:10px/1 'Courier New',monospace;letter-spacing:.22em;color:#c98982}
 .combat-hud__commands{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
 .combat-hud__commands.is-locked{opacity:.55}

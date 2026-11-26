@@ -653,7 +653,7 @@ async function startCombatPrototypeSession() {
       ? chapterId
       : 'corridor';
 
-    const { startCombatPrototype } = await import('./combat/index.js?v=combat-3');
+    const { startCombatPrototype } = await import('./combat/index.js?v=combat-4');
     combatSession = await startCombatPrototype({
       scene,
       camera,

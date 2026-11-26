@@ -88,19 +88,59 @@ export async function startCombatPrototype({
   let busy = false;
   let disposed = false;
   let exitRequested = false;
+  let continueResolver = null;
+
+  function clearContinueWait() {
+    if (continueResolver) {
+      const resolve = continueResolver;
+      continueResolver = null;
+      resolve();
+    }
+    ui?.setContinuePrompt?.(false);
+  }
+
+  /** Pause until the player clicks CONTINUE / the log, or presses Space/Enter. */
+  function waitForContinue() {
+    clearContinueWait();
+    ui.setContinuePrompt(true);
+    ui.render(machine.snapshot());
+    return new Promise((resolve) => {
+      continueResolver = resolve;
+    }).then(() => {
+      ui.setContinuePrompt(false);
+      continueResolver = null;
+    });
+  }
 
   const ui = createCombatUi({
     onCommand: (cmd) => { void handleCommand(cmd); },
     onRetry: () => { void handleRetry(); },
     onExit: () => { void handleExit(); },
+    onContinue: () => { clearContinueWait(); },
   });
   ui.setVisible(true);
   syncEnemyPoseToState(machine.snapshot());
   ui.render(machine.snapshot());
 
   const onKey = (event) => {
-    if (disposed || busy || exitRequested) return;
+    if (disposed || exitRequested) return;
     if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+
+    // While holding an OBSERVE readout, only continue / exit keys apply.
+    if (continueResolver) {
+      if (event.code === 'Space' || event.code === 'Enter' || event.code === 'NumpadEnter') {
+        event.preventDefault();
+        clearContinueWait();
+        return;
+      }
+      if (event.code === 'Escape') {
+        event.preventDefault();
+        void handleExit();
+      }
+      return;
+    }
+
+    if (busy) return;
     const map = {
       Digit1: 'attack', Numpad1: 'attack',
       Digit2: 'observe', Numpad2: 'observe',
@@ -180,8 +220,15 @@ export async function startCombatPrototype({
       return;
     }
 
-    await sleep(COMBAT_CONFIG.timing.resolveMs, reduced);
-    if (disposed || exitRequested) return;
+    // OBSERVE readout stays until the player dismisses it — it carries the
+    // Opening / next-attack info and auto-advance was too fast to read.
+    if (cmd === 'observe') {
+      await waitForContinue();
+      if (disposed || exitRequested) return;
+    } else {
+      await sleep(COMBAT_CONFIG.timing.resolveMs, reduced);
+      if (disposed || exitRequested) return;
+    }
 
     // Brief wind-up only — heavy-attack warning was already shown on the
     // previous player turn when applicable.
@@ -216,6 +263,7 @@ export async function startCombatPrototype({
   async function handleRetry() {
     if (disposed || busy) return;
     busy = true;
+    clearContinueWait();
     machine.reset();
     enemy.reset(arena.enemyPosition);
     syncEnemyPoseToState(machine.snapshot());
@@ -227,6 +275,7 @@ export async function startCombatPrototype({
     if (disposed || exitRequested) return;
     exitRequested = true;
     busy = true;
+    clearContinueWait();
     disposeSession();
     await onExit?.();
   }
@@ -234,6 +283,7 @@ export async function startCombatPrototype({
   function disposeSession() {
     if (disposed) return;
     disposed = true;
+    clearContinueWait();
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('wheel', blockWheel);
     ui.dispose();
