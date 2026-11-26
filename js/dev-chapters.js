@@ -20,7 +20,7 @@ const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 const WARD_CHAPTERS = new Set(['hospital-reverse']);
 const STORAGE_KEY = 'behind.devPanelCollapsed';
 
-export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null, camcorderApi = null, finaleApi = null) {
+export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null, camcorderApi = null, finaleApi = null, combatApi = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
   panel.setAttribute('aria-label', 'Developer tools');
@@ -155,6 +155,13 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         <button type="button" data-finale-proto>PROTOTYPE</button>
       </div>
       <p class="dev-chapters__status" id="dev-finale-status" aria-live="polite">Ending: —</p>
+    </div>
+    <div class="dev-chapters__composure" id="dev-combat-row">
+      <div class="dev-chapters__title">COMBAT</div>
+      <div class="dev-chapters__row">
+        <button type="button" data-combat-test>TEST COMBAT</button>
+      </div>
+      <p class="dev-chapters__status" id="dev-combat-status" aria-live="polite">Combat: —</p>
     </div>
     <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
     </div>
@@ -440,6 +447,16 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     void Promise.resolve(finaleApi?.launchPrototype?.()).then((ok) => {
       if (finaleStatus) {
         finaleStatus.textContent = ok ? 'Ending: prototype' : 'Ending: failed';
+      }
+    });
+  });
+
+  const combatStatus = panel.querySelector('#dev-combat-status');
+  panel.querySelector('[data-combat-test]')?.addEventListener('click', () => {
+    if (combatStatus) combatStatus.textContent = 'Combat: loading…';
+    void Promise.resolve(combatApi?.launchPrototype?.()).then((ok) => {
+      if (combatStatus) {
+        combatStatus.textContent = ok ? 'Combat: prototype' : 'Combat: failed';
       }
     });
   });

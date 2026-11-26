@@ -151,6 +151,11 @@ let started = false;
 let tapeSession = null;
 /** Debug-only ending prototype session (null during normal play). */
 let endingSession = null;
+/** Debug-only turn-based combat prototype (null during normal play). */
+let combatSession = null;
+/** Chapter id to restore when exiting the combat prototype. */
+let combatResumeChapter = 'corridor';
+let combatExiting = false;
 /** Checkpoint snapshot to restore after camcorder LCD playback ends. */
 let camcorderResumeSnapshot = null;
 let camcorderReturning = false;
@@ -549,7 +554,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     audio?.setLevelBedMuted?.(true);
 
     if (id === 'office-01') {
-      const { createOffice } = await import('./levels/office.js?v=ow-office-1');
+      const { createOffice } = await import('./levels/office.js?v=ow-office-3');
       const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-9');
       tapeSession = await startOfficeTape01({
         scene,
@@ -622,8 +627,89 @@ async function bootDebugEnding(id) {
  * Standalone ending prototype. Suspends normal chapter gameplay.
  * Staging / debug only — never part of the published chapter chain yet.
  */
+/**
+ * Debug-only turn-based combat prototype. Suspends chapter gameplay.
+ * Launch via DEV TOOLS → TEST COMBAT (?debug=1).
+ */
+async function startCombatPrototypeSession() {
+  if (!DEBUG_MODE || !renderer || !scene || !camera) return false;
+  if (combatSession || tapeSession || endingSession || transitioning) return false;
+  transitioning = true;
+  try {
+    // Same boot path as chapter jumps so exit can restore scroll/controls.
+    if (!started) start();
+    el.begin.disabled = true;
+    el.intro?.classList.add('is-hidden');
+    el.veil?.classList.add('is-active');
+    look?.setEnabled?.(false);
+    interaction?.close?.();
+    interaction?.clear?.();
+    closeItemDetail();
+    steady?.cancel?.(true);
+    keypad?.close?.();
+    hideGameOver();
+
+    combatResumeChapter = (chapterId && DEV_CHAPTER_CONFIG[chapterId])
+      ? chapterId
+      : 'corridor';
+
+    const { startCombatPrototype } = await import('./combat/index.js?v=combat-2');
+    combatSession = await startCombatPrototype({
+      scene,
+      camera,
+      director,
+      createSceneDirector,
+      reduced,
+      onExit: () => endCombatPrototype(),
+    });
+    director = null;
+    started = true;
+    chapterId = 'combat-prototype';
+    el.experience?.classList.add('is-playing');
+    console.info('[Behind. COMBAT] Prototype running. Normal gameplay is suspended.');
+    return true;
+  } catch (error) {
+    console.error('[Behind. COMBAT] Boot failed:', error);
+    combatSession = null;
+    return false;
+  } finally {
+    transitioning = false;
+    el.veil?.classList.remove('is-active');
+  }
+}
+
+/** Leave combat and restore a chapter world. Does not keep combat outcomes. */
+async function endCombatPrototype() {
+  if (combatExiting) return;
+  combatExiting = true;
+  try {
+    combatSession?.dispose?.();
+    combatSession = null;
+    look?.setEnabled?.(true);
+    el.bottom?.classList.add('active');
+    el.composure?.classList.add('is-active');
+    el.composure?.setAttribute('aria-hidden', 'false');
+    el.inventory?.setAttribute('aria-hidden', 'false');
+    if (!director) director = createSceneDirector();
+    const resume = (combatResumeChapter && DEV_CHAPTER_CONFIG[combatResumeChapter])
+      ? combatResumeChapter
+      : 'corridor';
+    const ok = await debugJumpToChapter(resume, 'start');
+    if (!ok) {
+      console.warn('[Behind. COMBAT] Exit restore failed; falling back to corridor.');
+      if (!director) director = createSceneDirector();
+      await debugJumpToChapter('corridor', 'start');
+    }
+    console.info('[Behind. COMBAT] Exited prototype. Chapter gameplay restored.');
+  } catch (error) {
+    console.error('[Behind. COMBAT] Exit failed:', error);
+  } finally {
+    combatExiting = false;
+  }
+}
+
 async function startEndingPrototype(id) {
-  if (!renderer || !scene || !camera || tapeSession || endingSession || transitioning) {
+  if (!renderer || !scene || !camera || tapeSession || endingSession || combatSession || transitioning) {
     return false;
   }
   if (!director) {
@@ -723,7 +809,7 @@ async function endCamcorderPlayback() {
       director.add('elevator', createElevator(scene));
       el.location.innerHTML = ORIGINAL_LOCATION_HTML;
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=ow-office-1');
+      const { createOffice } = await import('./levels/office.js?v=ow-office-3');
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
@@ -1872,7 +1958,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=ow-office-1');
+    const { createOffice } = await import('./levels/office.js?v=ow-office-3');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -2196,7 +2282,13 @@ const DEV_CHAPTER_CONFIG = {
 };
 
 async function debugJumpToChapter(target, checkpoint = 'start') {
-  if (!DEBUG_MODE || transitioning || !renderer || !director || !DEV_CHAPTER_CONFIG[target]) return false;
+  if (!DEBUG_MODE || transitioning || !renderer || !DEV_CHAPTER_CONFIG[target]) return false;
+  // Combat/ending prototypes dispose the chapter director; recreate an empty one.
+  if (combatSession) {
+    combatSession.dispose();
+    combatSession = null;
+  }
+  if (!director) director = createSceneDirector();
   transitioning = true;
   const previousBackground = scene.background;
   const previousFog = scene.fog;
@@ -2223,7 +2315,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=ow-office-1');
+      const { createOffice } = await import('./levels/office.js?v=ow-office-3');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
@@ -2423,7 +2515,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=stairs-ch05-1').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=combat-2').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -2515,6 +2607,11 @@ if (DEBUG_MODE) {
         url.searchParams.delete('tape');
         location.href = url.toString();
         return true;
+      },
+    }, {
+      launchPrototype() {
+        if (combatSession) return true;
+        return startCombatPrototypeSession();
       },
     });
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
@@ -2760,6 +2857,15 @@ function frame(now) {
   // Debug ending prototype: owns corridor walk + scripted reveal.
   if (endingSession) {
     endingSession.update(dt);
+    cigaretteFx?.update(dt);
+    renderer.render(scene, camera);
+    monitor?.update(dt, true, !document.hidden);
+    return;
+  }
+
+  // Debug turn-based combat prototype: fixed camera, no scroll travel.
+  if (combatSession) {
+    combatSession.update(dt);
     cigaretteFx?.update(dt);
     renderer.render(scene, camera);
     monitor?.update(dt, true, !document.hidden);
@@ -3117,6 +3223,10 @@ window.addEventListener('pagehide', () => {
   cigaretteFx?.dispose();
   interaction?.dispose();
   look?.dispose();
+  combatSession?.dispose?.();
+  combatSession = null;
+  endingSession?.dispose?.();
+  tapeSession?.dispose?.();
   director?.dispose();
   renderer?.dispose();
 }, { once: true });
