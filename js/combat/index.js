@@ -4,11 +4,13 @@ import { createCombatState } from './state.js';
 import { createCombatEnemy } from './enemy.js';
 import { createCombatArena } from './arena.js';
 import { createCombatUi } from './ui.js';
+import { CROWBAR_ITEM_ID } from '../items/catalog.js';
 
 /**
- * Debug-only turn-based combat prototype (v0.2).
+ * Debug-only turn-based combat prototype (v0.3).
  * Access: DEV TOOLS → TEST COMBAT (requires ?debug=1)
  *
+ * Uses an isolated debug loadout (crowbar + cigarettes + flare).
  * Does not touch story composure, inventory, checkpoints, or chapter progress.
  * Exit restores via chapter jump (restarts the previous chapter from its start).
  */
@@ -84,11 +86,16 @@ export async function startCombatPrototype({
   camera.far = 40;
   camera.updateProjectionMatrix();
 
-  let machine = createCombatState(COMBAT_CONFIG);
+  let machine = createCombatState(COMBAT_CONFIG, {
+    cigarettes: COMBAT_CONFIG.player.cigaretteCount,
+    flares: COMBAT_CONFIG.player.flareCount,
+    equippedWeaponId: COMBAT_CONFIG.player.startWithCrowbarEquipped ? CROWBAR_ITEM_ID : null,
+  });
   let busy = false;
   let disposed = false;
   let exitRequested = false;
   let continueResolver = null;
+  let flareLight = null;
 
   function clearContinueWait() {
     if (continueResolver) {
@@ -112,8 +119,27 @@ export async function startCombatPrototype({
     });
   }
 
+  function playFx(fx) {
+    if (!fx || reduced) return;
+    if (fx.type === 'flare') {
+      if (!flareLight) {
+        flareLight = new THREE.PointLight(0xff6a3a, 0, 14, 2);
+        flareLight.position.set(0.4, 1.8, 1.2);
+        arena.world.add(flareLight);
+      }
+      flareLight.intensity = 2.4;
+      window.setTimeout(() => {
+        if (flareLight) flareLight.intensity = 0;
+      }, 420);
+    }
+  }
+
   const ui = createCombatUi({
     onCommand: (cmd) => { void handleCommand(cmd); },
+    onItemSelect: (itemId) => { void handleCommand('item', { itemId }); },
+    onItemCancel: () => {
+      ui.render(machine.snapshot());
+    },
     onRetry: () => { void handleRetry(); },
     onExit: () => { void handleExit(); },
     onContinue: () => { clearContinueWait(); },
@@ -136,6 +162,15 @@ export async function startCombatPrototype({
       if (event.code === 'Escape') {
         event.preventDefault();
         void handleExit();
+      }
+      return;
+    }
+
+    if (ui.isItemPickerOpen?.()) {
+      if (event.code === 'Escape') {
+        event.preventDefault();
+        ui.setItemPicker(false);
+        ui.render(machine.snapshot());
       }
       return;
     }
@@ -178,23 +213,21 @@ export async function startCombatPrototype({
     }
   }
 
-  async function handleCommand(cmd) {
+  async function handleCommand(cmd, opts = {}) {
     if (disposed || busy || exitRequested) return;
     const snap = machine.snapshot();
     if (!snap.canAct) return;
 
-    // Soft rejects — communicate, do not spend the turn.
-    if (cmd === 'item' && snap.itemBlockedReason) {
-      const msg = snap.itemBlockedReason === 'full-composure'
-        ? 'Already steady. Save it for later.'
-        : 'No cigarettes left.';
-      ui.render({ ...snap, lastLog: msg });
+    // ITEM opens a selector — canceling costs no turn.
+    if (cmd === 'item' && !opts.itemId) {
+      ui.setItemPicker(true, snap);
+      ui.render(snap);
       return;
     }
 
     busy = true;
     ui.setCommandsEnabled(false);
-    const result = machine.playerAct(cmd);
+    const result = machine.playerAct(cmd, opts);
     ui.render(result.state);
 
     if (!result.ok) {
@@ -203,10 +236,11 @@ export async function startCombatPrototype({
       return;
     }
 
-    if (cmd === 'attack') {
+    playFx(result.fx);
+
+    if (cmd === 'attack' || result.fx?.type === 'flare') {
       enemy.setState(enemy.STATES.recoiling);
     } else if (cmd === 'observe') {
-      // Watching — figure stays mostly still
       if (!result.state.telegraphActive) enemy.setState(enemy.STATES.idle);
     } else if (cmd === 'guard') {
       if (!result.state.telegraphActive) enemy.setState(enemy.STATES.idle);
@@ -255,6 +289,10 @@ export async function startCombatPrototype({
       return;
     }
 
+    // Return from attack pose before the next player decision.
+    if (enemy.state === enemy.STATES.attacking || enemy.state === enemy.STATES.preparing) {
+      enemy.setState(enemy.STATES.idle);
+    }
     syncEnemyPoseToState(enemyResult.state);
     busy = false;
     ui.render(machine.snapshot());
@@ -264,8 +302,10 @@ export async function startCombatPrototype({
     if (disposed || busy) return;
     busy = true;
     clearContinueWait();
+    ui.setItemPicker?.(false);
     machine.reset();
     enemy.reset(arena.enemyPosition);
+    if (flareLight) flareLight.intensity = 0;
     syncEnemyPoseToState(machine.snapshot());
     ui.render(machine.snapshot());
     busy = false;
@@ -286,6 +326,11 @@ export async function startCombatPrototype({
     clearContinueWait();
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('wheel', blockWheel);
+    if (flareLight) {
+      arena.world.remove(flareLight);
+      flareLight.dispose?.();
+      flareLight = null;
+    }
     ui.dispose();
     enemy.dispose();
     arena.dispose();

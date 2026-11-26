@@ -2,25 +2,29 @@
  * Combat prototype balance — edit here during playtests.
  * Isolated from story composure / cigarette systems.
  *
- * v0.2 notes:
- * - ATTACK 18; OBSERVE Opening +24 → Observe→Attack = 42 / 2 turns vs Attack×2 = 36
- * - GUARD blocks ~68% of the next hit (story STEADY QTE untouched)
- * - OBSERVE also soft-braces the following hit (~20%) if GUARD is not up
+ * v0.3 notes:
+ * - Unarmed ATTACK 18; crowbar blunt 23; flare fire 31 (consumable)
+ * - OBSERVE Opening +18 (down from +24) — still beats Attack×2 when unarmed
+ * - GUARD ~68%; OBSERVE soft-brace ~20% if no GUARD
  */
 
 export const COMBAT_CONFIG = Object.freeze({
   player: Object.freeze({
     composureMax: 100,
     composureStart: 100,
+    /** Unarmed ATTACK Presence damage. */
     attackDamage: 18,
     /** Bonus Presence damage when ATTACK consumes an Opening. */
-    openingBonusDamage: 24,
+    openingBonusDamage: 18,
     /** Fraction of damage blocked by GUARD. */
     guardMitigation: 0.68,
     /** Soft brace from OBSERVE on the immediate next hit (ignored if GUARD is up). */
     observeMitigation: 0.2,
     cigaretteRestore: 40,
+    /** Debug loadout defaults (story inventory untouched). */
     cigaretteCount: 2,
+    flareCount: 1,
+    startWithCrowbarEquipped: true,
   }),
   enemy: Object.freeze({
     name: 'THE WAITING THING',
@@ -59,4 +63,10 @@ export const COMBAT_COMMANDS = Object.freeze({
   OBSERVE: 'observe',
   GUARD: 'guard',
   ITEM: 'item',
+});
+
+/** Combat item ids used by the ITEM selector (isolated loadout). */
+export const COMBAT_ITEMS = Object.freeze({
+  CIGARETTE: 'cigarette',
+  FLARE: 'emergency-flare',
 });

@@ -57,7 +57,7 @@ The specific number of floors and chapter names can change if pacing requires it
 
 Composure is a **survival resource**, not combat HP and not a purely atmospheric meter. Reaching zero is a definitive **gameplay failure** (game over). The story does **not** state whether the protagonist died, collapsed, or experienced something supernatural — only that they lost control.
 
-There is no combat, no free walking, and no automatic drain from time, ordinary movement, inspecting collectibles, solving puzzles, or re-crossing the same trigger.
+Ordinary story chapters have **no story combat encounters**, no free walking, and no automatic drain from time, ordinary movement, inspecting collectibles, solving puzzles, or re-crossing the same trigger. A **debug-only** turn-based combat prototype exists for systems testing (`?debug=1` → TEST COMBAT); it does not advance or rewrite story progress.
 
 | Rule | Value |
 |---|---|
@@ -106,9 +106,25 @@ Chapter-start snapshot + one safe mid-chapter snapshot before major STEADY threa
 
 **IMPLEMENTED:** Pack props in Corridor (left baseboard), Office (aisle chair), Records (receiving counter); also Night / Stairwells / Threshold / Unseen placements from earlier pass. Inventory label **CIGARETTES**. Temporary coping only.
 
-Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game over, retry checkpoint. Chapter jumps seed completed hit IDs.
+Debug (`?debug=1`): presets 100/50/25/10, hit, +cig, test STEADY, force game over, retry checkpoint, **TEST COMBAT**. Chapter jumps seed completed hit IDs.
 
 **OPEN / PROVISIONAL:** Exact magnitudes and STEADY windows remain tunable after playtests. Writer-only backstory untouched.
+
+### Inventory interface (**IMPLEMENTED** v0.3)
+
+Full-screen inventory (`I`, on-screen **INVENTORY**, or touch control). Categories: WEAPONS · CONSUMABLES · EQUIPMENT · KEY ITEMS · MEMENTOS. Opens as a modal over exploration (movement / interact paused); blocked during STEADY, VHS playback, game-over, combat, and other modals. Shared item catalog in `js/items/catalog.js`. No inventory capacity limit yet.
+
+### Weapons & equipment (**IMPLEMENTED** foundation)
+
+| Item | Where | Notes |
+|---|---|---|
+| Rusted crowbar | Records (maintenance aisle) | Permanent melee · blunt · equipable · ~23 Presence in debug combat |
+| Emergency flare | Records (shelf) | Single-use · fire · combat ITEM only · ~31 Presence |
+| Unarmed | — | Default ATTACK 18 when nothing equipped |
+
+Equipping / unequipping is free in exploration. Debug combat uses an **isolated** loadout (crowbar + 2 cigarettes + 1 flare) and must not overwrite story inventory. Exit from debug combat restores via chapter jump (restarts the previous chapter from its start — known limitation).
+
+Combat commands remain ATTACK / OBSERVE / GUARD / ITEM. ITEM opens a selector (cancel costs no turn). OBSERVE Opening bonus is configurable (~+18). No story enemy encounters yet.
 
 ---
 

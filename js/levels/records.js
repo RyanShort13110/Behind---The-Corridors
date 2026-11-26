@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
+import { createCrowbarProp, disposeCrowbarProp, crowbarInteractable } from '../props/crowbar.js?v=wpn-1';
+import { createFlareProp, disposeFlareProp, flareInteractable } from '../props/flare.js?v=wpn-1';
 
 /**
  * Behind. / Level 03 — The Records.
@@ -391,6 +393,18 @@ export function createRecords(scene) {
   cigarette.rotation.set(0, 0.4, 0.08);
   world.add(cigarette);
 
+  // Crowbar leaning by the right cabinets — mid aisle, look right.
+  const crowbar = createCrowbarProp({ name: 'Records crowbar' });
+  crowbar.position.set(2.35, 0.72, -14.2);
+  crowbar.rotation.set(0.15, -0.4, 1.22);
+  world.add(crowbar);
+
+  // Emergency flare on a left shelf deeper in — look left past the sorting station.
+  const flare = createFlareProp({ name: 'Records emergency flare' });
+  flare.position.set(-2.45, 1.28, -22.5);
+  flare.rotation.set(0.2, 0.55, 0.1);
+  world.add(flare);
+
   const interactables = [
     {
       id: 'records-polaroid',
@@ -400,6 +414,8 @@ export function createRecords(scene) {
       body: 'No.',
     },
     cigaretteInteractable('cigarette-records', cigarette),
+    crowbarInteractable(crowbar),
+    flareInteractable(flare),
     {
       id: 'records-fob-reader',
       object: reader,
@@ -563,6 +579,10 @@ export function createRecords(scene) {
       if (readerLed) readerLed.material = mat.readerLedOff;
       cigarette.visible = true;
       cigarette.userData.taken = false;
+      crowbar.visible = true;
+      crowbar.userData.taken = false;
+      flare.visible = true;
+      flare.userData.taken = false;
       anomalyBinder.visible = true;
       anomalyTrace.visible = false;
       dartPlaying = false;
@@ -582,6 +602,8 @@ export function createRecords(scene) {
       // Independent photo/drawer meshes also share that cube geometry.
       cube.dispose();
       disposeCigaretteProp(cigarette);
+      disposeCrowbarProp(crowbar);
+      disposeFlareProp(flare);
       peekTex.dispose();
       peekMat.dispose();
       readerHit.geometry.dispose();

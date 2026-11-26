@@ -7,11 +7,11 @@ import { createAudioDirector } from './audio.js?v=stairs-void-10';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
-import { createInventory } from './inventory.js?v=inv-1';
-import { createInventoryMenu } from './inventory-menu.js?v=inv-1';
+import { createInventory } from './inventory.js?v=wpn-1';
+import { createInventoryMenu } from './inventory-menu.js?v=wpn-1';
 import {
   resolveItemDef, itemStackKey, CROWBAR_ITEM_ID, FLARE_ITEM_ID,
-} from './items/catalog.js?v=inv-1';
+} from './items/catalog.js?v=wpn-1';
 import { createKeypad } from './keypad.js';
 import { drawStuffedDragonPreview } from './props/stuffed-dragon.js';
 import { drawVhsCCamcorderPreview } from './props/vhs-c-camcorder.js?v=cam-1';
@@ -685,7 +685,7 @@ async function startCombatPrototypeSession() {
       ? chapterId
       : 'corridor';
 
-    const { startCombatPrototype } = await import('./combat/index.js?v=combat-4');
+    const { startCombatPrototype } = await import('./combat/index.js?v=wpn-1');
     combatSession = await startCombatPrototype({
       scene,
       camera,
@@ -845,7 +845,7 @@ async function endCamcorderPlayback() {
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=anom-1');
+      const { createRecords } = await import('./levels/records.js?v=wpn-1');
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
@@ -934,6 +934,15 @@ function bindChapterInteractables() {
       }
       if (spec.itemId && isTapeItemId(spec.itemId)
           && (inventory?.has(spec.itemId) || hasDiscoveredTape(spec.itemId))) {
+        if (spec.object) {
+          spec.object.visible = false;
+          spec.object.userData.taken = true;
+        }
+        continue;
+      }
+      // Permanent weapons / flares stay gone once collected.
+      if ((spec.itemId === CROWBAR_ITEM_ID || spec.itemId === FLARE_ITEM_ID)
+          && inventory?.has(spec.itemId)) {
         if (spec.object) {
           spec.object.visible = false;
           spec.object.userData.taken = true;
@@ -2151,7 +2160,7 @@ async function enterRecords() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js?v=anom-1');
+    const { createRecords } = await import('./levels/records.js?v=wpn-1');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
@@ -2465,7 +2474,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=anom-1');
+      const { createRecords } = await import('./levels/records.js?v=wpn-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');

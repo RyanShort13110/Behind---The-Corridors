@@ -20,6 +20,7 @@ Controls:
 - **Scroll down** — retreat / return
 - **A / D** (or swipe sideways) — look left / right
 - **Click** — inspect objects; take items into inventory when allowed
+- **I** / **INVENTORY** — full-screen inventory (Esc or I closes)
 - **QUALITY / MOTION / SOUND** — bottom bar toggles
 
 Headphones recommended when sound is on.
@@ -50,6 +51,8 @@ Append `?debug=1` for the chapter jump panel and performance HUD.
 | `?debug=1&level=memory-white` | Dev-only white dragon memory |
 | `?debug=1&level=memory-black` | Dev-only black dragon memory |
 | `&checkpoint=…` | Unseen / memory checkpoints when supported |
+
+**TEST COMBAT** (debug panel): isolated turn-based prototype with crowbar / cigarettes / flare. Does not consume story inventory. Exit restarts the prior chapter from its start.
 
 Memory chapters share a scroll-rail living room (`js/levels/memory-home.js`). They are **not** in ordinary L01–L06 progression.
 

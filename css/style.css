@@ -393,7 +393,13 @@ body.inventory-open{overflow:hidden}
 .combat-hud.is-guard .combat-cmd[data-cmd="guard"]{border-color:rgba(150,170,166,.7)}
 .combat-hud.is-telegraph .combat-hud__turn{color:#d4b56a}
 .combat-hud.is-telegraph .combat-hud__flags{color:#d4b56a}
-.combat-hud__item-status{margin:0;font:10px/1 'Courier New',monospace;letter-spacing:.16em;color:#8a9e99}
+.combat-hud__item-status,.combat-hud__weapon{margin:0;font:10px/1 'Courier New',monospace;letter-spacing:.16em;color:#8a9e99}
+.combat-hud__weapon{margin-top:6px;color:#9aada8}
+.combat-hud__item-picker{pointer-events:auto;margin:10px 0 0;max-width:360px;padding:14px 12px;background:rgba(4,9,11,.92);border:1px solid rgba(150,170,166,.28)}
+.combat-hud__item-picker[hidden]{display:none}
+.combat-hud__item-picker-title{margin:0 0 10px;font:10px/1 'Courier New',monospace;letter-spacing:.2em;color:#b8c9c4}
+.combat-hud__item-picker-list{display:flex;flex-direction:column;gap:8px;margin:0 0 10px}
+.combat-hud.is-item-picker .combat-hud__commands{opacity:.45}
 .combat-hud__end{margin-top:18px;max-width:420px;padding:18px 16px;background:rgba(4,9,11,.88);border:1px solid rgba(150,170,166,.28)}
 .combat-hud__end-title{margin:0;font:700 12px/1.3 'Courier New',monospace;letter-spacing:.24em;color:#dce8e6}
 .combat-hud__end-copy{margin:10px 0 0;font:300 14px/1.45 Arial,Helvetica,sans-serif;color:#9aada8}

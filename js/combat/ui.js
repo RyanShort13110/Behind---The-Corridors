@@ -6,17 +6,21 @@ const COMMANDS = [
   { id: 'attack', label: 'ATTACK', hint: '1', desc: 'Strike. Reduce its Presence. Consumes an Opening.' },
   { id: 'observe', label: 'OBSERVE', hint: '2', desc: 'Study it. Expose an Opening and learn what comes next.' },
   { id: 'guard', label: 'GUARD', hint: '3', desc: 'Brace. Soften the next hit.' },
-  { id: 'item', label: 'ITEM', hint: '4', desc: 'Cigarette. Restore composure.' },
+  { id: 'item', label: 'ITEM', hint: '4', desc: 'Open combat items.' },
 ];
 
 /**
  * @param {object} opts
  * @param {(cmd: string) => void} opts.onCommand
+ * @param {(itemId: string) => void} [opts.onItemSelect]
+ * @param {() => void} [opts.onItemCancel]
  * @param {() => void} opts.onRetry
  * @param {() => void} opts.onExit
  * @param {() => void} [opts.onContinue]
  */
-export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) {
+export function createCombatUi({
+  onCommand, onItemSelect, onItemCancel, onRetry, onExit, onContinue,
+} = {}) {
   const root = document.createElement('div');
   root.id = 'combat-hud';
   root.className = 'combat-hud';
@@ -53,7 +57,13 @@ export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) 
         </button>
       `).join('')}
     </div>
-    <p class="combat-hud__item-status" data-items>CIGARETTES — 2</p>
+    <p class="combat-hud__item-status" data-items>CIGARETTES — 2 · FLARE — 1</p>
+    <p class="combat-hud__weapon" data-weapon>WEAPON · UNARMED</p>
+    <div class="combat-hud__item-picker" data-item-picker hidden>
+      <p class="combat-hud__item-picker-title">SELECT ITEM</p>
+      <div class="combat-hud__item-picker-list" data-item-picker-list></div>
+      <button type="button" class="combat-cmd" data-item-cancel>CANCEL</button>
+    </div>
     <div class="combat-hud__end" data-end hidden>
       <p class="combat-hud__end-title" data-end-title></p>
       <p class="combat-hud__end-copy" data-end-copy></p>
@@ -78,12 +88,16 @@ export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) 
     turn: root.querySelector('[data-turn]'),
     commands: root.querySelector('[data-commands]'),
     items: root.querySelector('[data-items]'),
+    weapon: root.querySelector('[data-weapon]'),
+    itemPicker: root.querySelector('[data-item-picker]'),
+    itemPickerList: root.querySelector('[data-item-picker-list]'),
     end: root.querySelector('[data-end]'),
     endTitle: root.querySelector('[data-end-title]'),
     endCopy: root.querySelector('[data-end-copy]'),
   };
 
   let continueArmed = false;
+  let itemPickerOpen = false;
 
   function setVisible(on) {
     root.classList.toggle('is-active', on);
@@ -115,6 +129,30 @@ export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) 
     return bits.length ? bits.join(' · ') : '';
   }
 
+  function setItemPicker(on, state = null) {
+    itemPickerOpen = Boolean(on);
+    if (els.itemPicker) els.itemPicker.hidden = !itemPickerOpen;
+    root.classList.toggle('is-item-picker', itemPickerOpen);
+    if (!itemPickerOpen || !els.itemPickerList) {
+      if (els.itemPickerList) els.itemPickerList.replaceChildren();
+      return;
+    }
+    els.itemPickerList.replaceChildren();
+    for (const item of state?.combatItems || []) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'combat-cmd';
+      btn.dataset.combatItem = item.id;
+      btn.disabled = Boolean(item.disabled);
+      const qty = item.qty > 1 ? ` ×${item.qty}` : item.qty === 1 ? '' : ' ×0';
+      let label = `${item.label}${qty}`;
+      if (item.disabledReason === 'full-composure') label += ' · FULL';
+      else if (item.disabledReason === 'no-items') label += ' · NONE';
+      btn.textContent = label;
+      els.itemPickerList.appendChild(btn);
+    }
+  }
+
   function render(state) {
     if (!state) return;
     if (els.enemyName) els.enemyName.textContent = state.enemyName;
@@ -127,10 +165,13 @@ export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) 
     if (els.log) els.log.textContent = state.lastLog;
     if (els.flags) els.flags.textContent = flagLine(state);
 
-    let itemLine = `CIGARETTES — ${state.cigarettes}`;
-    if (state.itemBlockedReason === 'no-items') itemLine += ' · NONE LEFT';
-    else if (state.itemBlockedReason === 'full-composure') itemLine += ' · ALREADY STEADY';
-    if (els.items) els.items.textContent = itemLine;
+    if (els.items) {
+      els.items.textContent = `CIGARETTES — ${state.cigarettes} · FLARE — ${state.flares ?? 0}`;
+    }
+    if (els.weapon) {
+      const w = state.equippedWeaponLabel || 'UNARMED';
+      els.weapon.textContent = `WEAPON · ${w} · ${state.attackDamage ?? 18}`;
+    }
 
     const over = state.phase === 'victory' || state.phase === 'defeat';
     if (els.end) els.end.hidden = !over;
@@ -158,18 +199,12 @@ export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) 
           els.turn.textContent = `TURN ${state.turn} · YOUR TURN`;
         }
       }
-      setCommandsEnabled(state.canAct);
+      setCommandsEnabled(state.canAct && !itemPickerOpen);
       const itemBtn = root.querySelector('[data-cmd="item"]');
       if (itemBtn) {
-        const itemOk = state.canAct && !state.itemBlockedReason;
-        itemBtn.disabled = !itemOk;
-        if (state.itemBlockedReason === 'full-composure') {
-          itemBtn.title = 'Already at full composure.';
-        } else if (state.itemBlockedReason === 'no-items') {
-          itemBtn.title = 'No cigarettes left.';
-        } else {
-          itemBtn.title = 'Cigarette. Restore composure.';
-        }
+        const anyItem = (state.combatItems || []).some((i) => !i.disabled);
+        itemBtn.disabled = !state.canAct || itemPickerOpen || !anyItem;
+        itemBtn.title = 'Open combat items.';
       }
     }
 
@@ -182,6 +217,18 @@ export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) 
   root.addEventListener('click', (event) => {
     if (continueArmed && event.target.closest('[data-continue], [data-log]')) {
       onContinue?.();
+      return;
+    }
+    if (event.target.closest('[data-item-cancel]')) {
+      setItemPicker(false);
+      onItemCancel?.();
+      return;
+    }
+    const pick = event.target.closest('[data-combat-item]');
+    if (pick && !pick.disabled) {
+      const id = pick.dataset.combatItem;
+      setItemPicker(false);
+      onItemSelect?.(id);
       return;
     }
     const cmdBtn = event.target.closest('[data-cmd]');
@@ -200,8 +247,18 @@ export function createCombatUi({ onCommand, onRetry, onExit, onContinue } = {}) 
 
   function dispose() {
     setContinuePrompt(false);
+    setItemPicker(false);
     root.remove();
   }
 
-  return { root, setVisible, render, setCommandsEnabled, setContinuePrompt, dispose };
+  return {
+    root,
+    setVisible,
+    render,
+    setCommandsEnabled,
+    setContinuePrompt,
+    setItemPicker,
+    isItemPickerOpen: () => itemPickerOpen,
+    dispose,
+  };
 }
