@@ -6,10 +6,11 @@ import { createCombatArena } from './arena.js';
 import { createCombatUi } from './ui.js';
 
 /**
- * Debug-only turn-based combat prototype.
+ * Debug-only turn-based combat prototype (v0.2).
  * Access: DEV TOOLS → TEST COMBAT (requires ?debug=1)
  *
  * Does not touch story composure, inventory, checkpoints, or chapter progress.
+ * Exit restores via chapter jump (restarts the previous chapter from its start).
  */
 
 export const COMBAT_PROTOTYPE_ID = 'combat-prototype';
@@ -70,8 +71,10 @@ export async function startCombatPrototype({
   const arena = createCombatArena();
   scene.add(arena.world);
 
-  const enemy = createCombatEnemy({ reduced });
-  enemy.root.position.copy(arena.enemyPosition);
+  const enemy = createCombatEnemy({
+    reduced,
+    homePosition: arena.enemyPosition,
+  });
   arena.world.add(enemy.root);
 
   const pose = arena.cameraPose;
@@ -92,15 +95,16 @@ export async function startCombatPrototype({
     onExit: () => { void handleExit(); },
   });
   ui.setVisible(true);
+  syncEnemyPoseToState(machine.snapshot());
   ui.render(machine.snapshot());
 
   const onKey = (event) => {
     if (disposed || busy || exitRequested) return;
     if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
     const map = {
-      Digit1: 'confront', Numpad1: 'confront',
+      Digit1: 'attack', Numpad1: 'attack',
       Digit2: 'observe', Numpad2: 'observe',
-      Digit3: 'steady', Numpad3: 'steady',
+      Digit3: 'guard', Numpad3: 'guard',
       Digit4: 'item', Numpad4: 'item',
       Escape: '__exit',
     };
@@ -121,12 +125,30 @@ export async function startCombatPrototype({
   };
   window.addEventListener('wheel', blockWheel, { passive: false });
 
+  function syncEnemyPoseToState(snap) {
+    if (!snap || snap.isOver) return;
+    // Show preparing posture when a heavy attack is already telegraphed
+    // on the player's turn — before they commit a command.
+    if (snap.phase === 'player' && snap.telegraphActive) {
+      if (enemy.state !== enemy.STATES.preparing) {
+        enemy.setState(enemy.STATES.preparing);
+      }
+    } else if (snap.phase === 'player' && enemy.state === enemy.STATES.preparing) {
+      enemy.setState(enemy.STATES.idle);
+    }
+  }
+
   async function handleCommand(cmd) {
     if (disposed || busy || exitRequested) return;
     const snap = machine.snapshot();
     if (!snap.canAct) return;
-    if (cmd === 'item' && snap.cigarettes <= 0) {
-      ui.render({ ...snap, lastLog: 'No cigarettes left.' });
+
+    // Soft rejects — communicate, do not spend the turn.
+    if (cmd === 'item' && snap.itemBlockedReason) {
+      const msg = snap.itemBlockedReason === 'full-composure'
+        ? 'Already steady. Save it for later.'
+        : 'No cigarettes left.';
+      ui.render({ ...snap, lastLog: msg });
       return;
     }
 
@@ -135,19 +157,19 @@ export async function startCombatPrototype({
     const result = machine.playerAct(cmd);
     ui.render(result.state);
 
-    if (cmd === 'confront' && result.ok) {
-      enemy.setState(enemy.STATES.recoiling);
-    } else if (cmd === 'observe' && result.ok) {
-      enemy.setState(enemy.STATES.preparing);
-    } else if (cmd === 'steady' && result.ok) {
-      // Player braces — enemy stays mostly idle
-      enemy.setState(enemy.STATES.idle);
-    }
-
     if (!result.ok) {
       busy = false;
       ui.render(machine.snapshot());
       return;
+    }
+
+    if (cmd === 'attack') {
+      enemy.setState(enemy.STATES.recoiling);
+    } else if (cmd === 'observe') {
+      // Watching — figure stays mostly still
+      if (!result.state.telegraphActive) enemy.setState(enemy.STATES.idle);
+    } else if (cmd === 'guard') {
+      if (!result.state.telegraphActive) enemy.setState(enemy.STATES.idle);
     }
 
     if (result.ended) {
@@ -161,23 +183,18 @@ export async function startCombatPrototype({
     await sleep(COMBAT_CONFIG.timing.resolveMs, reduced);
     if (disposed || exitRequested) return;
 
-    // nextAttackId is still the attack about to fire
-    const aboutTo = machine.snapshot().nextAttackId;
-    const atk = COMBAT_CONFIG.enemy.attacks[aboutTo];
-    if (atk?.telegraph) {
-      enemy.setState(enemy.STATES.preparing);
-      machine.beginEnemyPhase();
-      ui.render({
-        ...machine.snapshot(),
-        lastLog: atk.telegraphLabel,
-      });
-      await sleep(COMBAT_CONFIG.timing.enemyTelegraphMs, reduced);
-      if (disposed || exitRequested) return;
-    } else {
-      enemy.setState(enemy.STATES.preparing);
-      await sleep(Math.min(280, COMBAT_CONFIG.timing.enemyTelegraphMs), reduced);
-      if (disposed || exitRequested) return;
-    }
+    // Brief wind-up only — heavy-attack warning was already shown on the
+    // previous player turn when applicable.
+    machine.beginEnemyPhase();
+    enemy.setState(enemy.STATES.preparing);
+    ui.render(machine.snapshot());
+    await sleep(
+      result.state.telegraphActive || machine.snapshot().nextAttack?.telegraph
+        ? COMBAT_CONFIG.timing.enemyTelegraphMs
+        : Math.min(280, COMBAT_CONFIG.timing.enemyTelegraphMs),
+      reduced,
+    );
+    if (disposed || exitRequested) return;
 
     enemy.setState(enemy.STATES.attacking);
     const enemyResult = machine.enemyAct();
@@ -186,16 +203,12 @@ export async function startCombatPrototype({
     if (disposed || exitRequested) return;
 
     if (enemyResult.ended) {
-      if (enemyResult.state.phase === 'defeat') {
-        // Stay in attacking-ish pose; player lost hold
-        enemy.setState(enemy.STATES.idle);
-      }
       busy = false;
       ui.render(machine.snapshot());
       return;
     }
 
-    enemy.setState(enemy.STATES.idle);
+    syncEnemyPoseToState(enemyResult.state);
     busy = false;
     ui.render(machine.snapshot());
   }
@@ -204,10 +217,8 @@ export async function startCombatPrototype({
     if (disposed || busy) return;
     busy = true;
     machine.reset();
-    enemy.setState(enemy.STATES.idle);
-    enemy.root.position.copy(arena.enemyPosition);
-    enemy.root.rotation.set(0, 0, 0);
-    enemy.root.scale.setScalar(1);
+    enemy.reset(arena.enemyPosition);
+    syncEnemyPoseToState(machine.snapshot());
     ui.render(machine.snapshot());
     busy = false;
   }

@@ -653,7 +653,7 @@ async function startCombatPrototypeSession() {
       ? chapterId
       : 'corridor';
 
-    const { startCombatPrototype } = await import('./combat/index.js?v=combat-2');
+    const { startCombatPrototype } = await import('./combat/index.js?v=combat-3');
     combatSession = await startCombatPrototype({
       scene,
       camera,
@@ -2515,7 +2515,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=combat-2').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=combat-3').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {

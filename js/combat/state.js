@@ -1,5 +1,5 @@
 /**
- * Pure turn-based combat state machine.
+ * Pure turn-based combat state machine (v0.2).
  * No DOM / Three.js — safe to unit-test in Node.
  */
 
@@ -32,6 +32,12 @@ function cloneConfig(cfg = COMBAT_CONFIG) {
   };
 }
 
+function openingStartLog(cfg) {
+  const first = cfg.enemy.attacks[cfg.enemy.pattern[0]];
+  if (first?.telegraph) return first.telegraphLabel;
+  return 'Something is waiting.';
+}
+
 /**
  * @param {typeof COMBAT_CONFIG} [config]
  */
@@ -45,18 +51,29 @@ export function createCombatState(config = COMBAT_CONFIG) {
   let patternIndex = 0;
   /** Next enemy attack id (always known to the machine). */
   let nextAttackId = cfg.enemy.pattern[0];
-  /** Player has observed the upcoming attack. */
+  /** Precise read from OBSERVE (cleared when that attack resolves). */
   let observed = false;
-  /** Next Confront deals bonus damage. */
-  let observeAdvantage = false;
-  /** Next enemy hit is mitigated. */
-  let steadyActive = false;
-  let lastLog = 'Something is waiting.';
+  /** Opening: next ATTACK deals bonus damage. Not consumed by ITEM/GUARD. */
+  let openingActive = false;
+  /** GUARD: strong mitigation on next hit. */
+  let guardActive = false;
+  /** Soft brace from OBSERVE on the immediate next hit. */
+  let observeBrace = false;
+  let lastLog = openingStartLog(cfg);
   let lastPlayerAction = null;
   let lastEnemyAction = null;
   let inputLocked = false;
 
+  function nextAttack() {
+    return cfg.enemy.attacks[nextAttackId];
+  }
+
+  function telegraphActive() {
+    return Boolean(nextAttack()?.telegraph);
+  }
+
   function snapshot() {
+    const atk = nextAttack();
     return {
       turn,
       phase,
@@ -66,16 +83,28 @@ export function createCombatState(config = COMBAT_CONFIG) {
       presenceMax: cfg.enemy.presenceMax,
       cigarettes,
       nextAttackId,
-      nextAttack: cfg.enemy.attacks[nextAttackId],
+      nextAttack: atk,
       observed,
-      observeAdvantage,
-      steadyActive,
+      openingActive,
+      /** @deprecated alias — UI/tests may still read observeAdvantage */
+      observeAdvantage: openingActive,
+      guardActive,
+      /** @deprecated alias */
+      steadyActive: guardActive,
+      observeBrace,
+      telegraphActive: telegraphActive(),
+      telegraphLabel: atk?.telegraph ? atk.telegraphLabel : null,
       lastLog,
       lastPlayerAction,
       lastEnemyAction,
       inputLocked,
       enemyName: cfg.enemy.name,
       canAct: phase === PHASE.PLAYER && !inputLocked,
+      itemBlockedReason: cigarettes <= 0
+        ? 'no-items'
+        : composure >= cfg.player.composureMax
+          ? 'full-composure'
+          : null,
       isOver: phase === PHASE.VICTORY || phase === PHASE.DEFEAT,
     };
   }
@@ -87,6 +116,12 @@ export function createCombatState(config = COMBAT_CONFIG) {
   function advancePattern() {
     patternIndex = (patternIndex + 1) % cfg.enemy.pattern.length;
     nextAttackId = cfg.enemy.pattern[patternIndex];
+  }
+
+  /** Player-turn log after an enemy hit: attack result + upcoming telegraph. */
+  function composePlayerTurnLog(attackLine, telegraph) {
+    if (telegraph) return `${attackLine} ${telegraph}`;
+    return attackLine;
   }
 
   function checkEnd() {
@@ -108,7 +143,8 @@ export function createCombatState(config = COMBAT_CONFIG) {
   }
 
   /**
-   * Attempt a player command. Returns result object or null if rejected.
+   * Attempt a player command.
+   * Rejected actions (locked / no items / full composure) do not spend the turn.
    * @param {string} command
    */
   function playerAct(command) {
@@ -120,51 +156,59 @@ export function createCombatState(config = COMBAT_CONFIG) {
       return { ok: false, reason: 'unknown', state: snapshot() };
     }
 
+    // Soft rejects — never lock input or advance phase.
+    if (cmd === COMBAT_COMMANDS.ITEM) {
+      if (cigarettes <= 0) {
+        setLog('No cigarettes left.');
+        return { ok: false, reason: 'no-items', state: snapshot() };
+      }
+      if (composure >= cfg.player.composureMax) {
+        setLog('Already steady. Save it for later.');
+        return { ok: false, reason: 'full-composure', state: snapshot() };
+      }
+    }
+
     inputLocked = true;
     phase = PHASE.RESOLVING;
     lastPlayerAction = cmd;
     let detail = '';
 
-    if (cmd === COMBAT_COMMANDS.CONFRONT) {
-      let dmg = cfg.player.confrontDamage;
-      let bonus = false;
-      if (observeAdvantage) {
-        dmg += cfg.player.observeBonusDamage;
-        observeAdvantage = false;
-        bonus = true;
+    if (cmd === COMBAT_COMMANDS.ATTACK) {
+      let dmg = cfg.player.attackDamage;
+      let usedOpening = false;
+      if (openingActive) {
+        dmg += cfg.player.openingBonusDamage;
+        openingActive = false;
+        usedOpening = true;
       }
       presence = clamp(presence - dmg, 0, cfg.enemy.presenceMax);
-      detail = bonus
-        ? `You push back with what you learned (−${dmg} Presence).`
-        : `You confront it (−${dmg} Presence).`;
+      detail = usedOpening
+        ? `You strike the Opening (−${dmg} Presence).`
+        : `You attack (−${dmg} Presence).`;
       setLog(detail);
     } else if (cmd === COMBAT_COMMANDS.OBSERVE) {
+      // Fresh Opening each Observe — no stacking beyond one.
+      openingActive = true;
+      observeBrace = true;
       observed = true;
-      observeAdvantage = true;
-      const atk = cfg.enemy.attacks[nextAttackId];
-      if (atk.telegraph) {
-        detail = atk.telegraphLabel;
-      } else {
-        detail = `You watch. Next: a probing lean (${atk.damage} composure if undefended).`;
-      }
+      const atk = nextAttack();
+      detail = atk.observeLabel
+        ? `Opening exposed. ${atk.observeLabel}`
+        : 'Opening exposed. You see what comes next.';
       setLog(detail);
-    } else if (cmd === COMBAT_COMMANDS.STEADY) {
-      steadyActive = true;
-      detail = 'You brace. The next hit will land softer.';
+    } else if (cmd === COMBAT_COMMANDS.GUARD) {
+      guardActive = true;
+      // Opening is preserved.
+      detail = 'You guard. The next hit will land softer.';
       setLog(detail);
     } else if (cmd === COMBAT_COMMANDS.ITEM) {
-      if (cigarettes <= 0) {
-        inputLocked = false;
-        phase = PHASE.PLAYER;
-        lastPlayerAction = null;
-        return { ok: false, reason: 'no-items', state: snapshot() };
-      }
       cigarettes -= 1;
       const before = composure;
       composure = clamp(composure + cfg.player.cigaretteRestore, 0, cfg.player.composureMax);
       const gained = composure - before;
       detail = `You take a cigarette (+${gained} composure). ${cigarettes} left.`;
       setLog(detail);
+      // Opening is preserved.
     }
 
     if (checkEnd()) {
@@ -176,7 +220,8 @@ export function createCombatState(config = COMBAT_CONFIG) {
 
   /**
    * Run the enemy turn once after player resolution.
-   * Returns attack result; phase becomes PLAYER (or end).
+   * After resolving, if the *next* attack is telegraphed, that warning is part
+   * of the player-turn log — before they choose their next command.
    */
   function enemyAct() {
     if (phase === PHASE.VICTORY || phase === PHASE.DEFEAT) {
@@ -191,33 +236,43 @@ export function createCombatState(config = COMBAT_CONFIG) {
     const atk = cfg.enemy.attacks[attackId];
     let damage = atk.damage;
     let mitigated = false;
-    if (steadyActive) {
-      damage = Math.round(damage * (1 - cfg.player.steadyMitigation));
-      steadyActive = false;
+    let mitigationSource = null;
+
+    if (guardActive) {
+      damage = Math.round(damage * (1 - cfg.player.guardMitigation));
+      guardActive = false;
+      observeBrace = false; // spent the window
       mitigated = true;
+      mitigationSource = 'guard';
+    } else if (observeBrace) {
+      damage = Math.round(damage * (1 - cfg.player.observeMitigation));
+      observeBrace = false;
+      mitigated = true;
+      mitigationSource = 'observe';
     }
+
     composure = clamp(composure - damage, 0, cfg.player.composureMax);
     lastEnemyAction = {
       id: attackId,
       damage,
       mitigated,
+      mitigationSource,
       label: atk.label,
     };
-    const mitNote = mitigated ? ' (steadied)' : '';
-    setLog(`${atk.label} −${damage} composure${mitNote}.`);
 
-    // Clear observation of the attack that just happened; reveal next if needed.
+    let mitNote = '';
+    if (mitigated && mitigationSource === 'guard') mitNote = ' (guarded)';
+    else if (mitigated && mitigationSource === 'observe') mitNote = ' (watched)';
+    const attackLine = `${atk.label} −${damage} composure${mitNote}.`;
+
     observed = false;
     advancePattern();
 
-    // Soft telegraph for the upcoming pressure attack even without Observe.
-    const upcoming = cfg.enemy.attacks[nextAttackId];
-    let telegraph = null;
-    if (upcoming?.telegraph) {
-      telegraph = upcoming.telegraphLabel;
-    }
+    const upcoming = nextAttack();
+    const telegraph = upcoming?.telegraph ? upcoming.telegraphLabel : null;
 
     if (checkEnd()) {
+      setLog(attackLine);
       return {
         ok: true,
         attack: lastEnemyAction,
@@ -230,9 +285,7 @@ export function createCombatState(config = COMBAT_CONFIG) {
     turn += 1;
     phase = PHASE.PLAYER;
     inputLocked = false;
-    if (telegraph) {
-      setLog(`${lastLog} ${telegraph}`);
-    }
+    setLog(composePlayerTurnLog(attackLine, telegraph));
 
     return {
       ok: true,
@@ -259,9 +312,10 @@ export function createCombatState(config = COMBAT_CONFIG) {
     patternIndex = 0;
     nextAttackId = cfg.enemy.pattern[0];
     observed = false;
-    observeAdvantage = false;
-    steadyActive = false;
-    lastLog = 'Something is waiting.';
+    openingActive = false;
+    guardActive = false;
+    observeBrace = false;
+    lastLog = openingStartLog(cfg);
     lastPlayerAction = null;
     lastEnemyAction = null;
     inputLocked = false;

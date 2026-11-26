@@ -1,11 +1,11 @@
 /**
- * Combat HUD — restrained Behind. visual language.
+ * Combat HUD — restrained Behind. visual language (v0.2).
  */
 
 const COMMANDS = [
-  { id: 'confront', label: 'CONFRONT', hint: '1', desc: 'Resist. Reduce its Presence.' },
-  { id: 'observe', label: 'OBSERVE', hint: '2', desc: 'Study it. Learn what comes next.' },
-  { id: 'steady', label: 'STEADY', hint: '3', desc: 'Brace. Soften the next hit.' },
+  { id: 'attack', label: 'ATTACK', hint: '1', desc: 'Strike. Reduce its Presence. Consumes an Opening.' },
+  { id: 'observe', label: 'OBSERVE', hint: '2', desc: 'Study it. Expose an Opening and learn what comes next.' },
+  { id: 'guard', label: 'GUARD', hint: '3', desc: 'Brace. Soften the next hit.' },
   { id: 'item', label: 'ITEM', hint: '4', desc: 'Cigarette. Restore composure.' },
 ];
 
@@ -25,6 +25,7 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
       <div class="combat-hud__identity">
         <p class="combat-hud__eyebrow">COMBAT PROTOTYPE · DEBUG</p>
         <p class="combat-hud__enemy-name" data-enemy-name>THE WAITING THING</p>
+        <p class="combat-hud__flags" data-flags aria-live="polite"></p>
       </div>
       <button type="button" class="combat-hud__exit" data-exit title="Exit combat prototype">EXIT</button>
     </div>
@@ -65,6 +66,7 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
 
   const els = {
     enemyName: root.querySelector('[data-enemy-name]'),
+    flags: root.querySelector('[data-flags]'),
     presenceFill: root.querySelector('[data-presence-fill]'),
     presenceVal: root.querySelector('[data-presence-val]'),
     composureFill: root.querySelector('[data-composure-fill]'),
@@ -90,6 +92,14 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
     els.commands?.classList.toggle('is-locked', !on);
   }
 
+  function flagLine(state) {
+    const bits = [];
+    if (state.openingActive) bits.push('OPENING');
+    if (state.guardActive) bits.push('GUARD');
+    if (state.telegraphActive && state.phase === 'player') bits.push('HEAVY INCOMING');
+    return bits.length ? bits.join(' · ') : '';
+  }
+
   function render(state) {
     if (!state) return;
     if (els.enemyName) els.enemyName.textContent = state.enemyName;
@@ -100,7 +110,12 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
     if (els.presenceVal) els.presenceVal.textContent = String(Math.round(state.presence));
     if (els.composureVal) els.composureVal.textContent = String(Math.round(state.composure));
     if (els.log) els.log.textContent = state.lastLog;
-    if (els.items) els.items.textContent = `CIGARETTES — ${state.cigarettes}`;
+    if (els.flags) els.flags.textContent = flagLine(state);
+
+    let itemLine = `CIGARETTES — ${state.cigarettes}`;
+    if (state.itemBlockedReason === 'no-items') itemLine += ' · NONE LEFT';
+    else if (state.itemBlockedReason === 'full-composure') itemLine += ' · ALREADY STEADY';
+    if (els.items) els.items.textContent = itemLine;
 
     const over = state.phase === 'victory' || state.phase === 'defeat';
     if (els.end) els.end.hidden = !over;
@@ -118,19 +133,33 @@ export function createCombatUi({ onCommand, onRetry, onExit } = {}) {
     } else {
       const enemyTurn = state.phase === 'enemy' || state.phase === 'resolving';
       if (els.turn) {
-        els.turn.textContent = enemyTurn
-          ? `TURN ${state.turn} · IT ACTS`
-          : `TURN ${state.turn} · YOUR TURN`;
+        if (enemyTurn) {
+          els.turn.textContent = `TURN ${state.turn} · IT ACTS`;
+        } else if (state.telegraphActive) {
+          els.turn.textContent = `TURN ${state.turn} · YOUR TURN · HEAVY INCOMING`;
+        } else {
+          els.turn.textContent = `TURN ${state.turn} · YOUR TURN`;
+        }
       }
       setCommandsEnabled(state.canAct);
-      // Dim item when empty
       const itemBtn = root.querySelector('[data-cmd="item"]');
-      if (itemBtn) itemBtn.disabled = !state.canAct || state.cigarettes <= 0;
+      if (itemBtn) {
+        const itemOk = state.canAct && !state.itemBlockedReason;
+        itemBtn.disabled = !itemOk;
+        if (state.itemBlockedReason === 'full-composure') {
+          itemBtn.title = 'Already at full composure.';
+        } else if (state.itemBlockedReason === 'no-items') {
+          itemBtn.title = 'No cigarettes left.';
+        } else {
+          itemBtn.title = 'Cigarette. Restore composure.';
+        }
+      }
     }
 
     root.classList.toggle('is-critical', state.composure <= 21 && !over);
-    root.classList.toggle('is-observed', Boolean(state.observed || state.observeAdvantage));
-    root.classList.toggle('is-steady', Boolean(state.steadyActive));
+    root.classList.toggle('is-opening', Boolean(state.openingActive));
+    root.classList.toggle('is-guard', Boolean(state.guardActive));
+    root.classList.toggle('is-telegraph', Boolean(state.telegraphActive && state.phase === 'player'));
   }
 
   root.addEventListener('click', (event) => {
