@@ -61,10 +61,14 @@ export function createMaintenance(scene) {
     return null;
   };
 
-  const addCyl = (r, h, x, y, z, material, rotZ = 0, parent = world) => {
+  // CylinderGeometry is Y-up. rotX = PI/2 → length along Z (corridor).
+  const addCyl = (r, h, x, y, z, material, {
+    rotX = 0, rotZ = 0, parent = world,
+  } = {}) => {
     const mesh = new THREE.Mesh(cyl, material);
     mesh.scale.set(r * 2, h, r * 2);
     mesh.position.set(x, y, z);
+    mesh.rotation.x = rotX;
     mesh.rotation.z = rotZ;
     parent.add(mesh);
     return mesh;
@@ -85,13 +89,12 @@ export function createMaintenance(scene) {
   add(0.12, 2.6, 0.16, 1.2, 1.3, 3.55, mat.metal);
   add(2.5, 0.14, 0.16, 0, 2.65, 3.55, mat.metal);
 
-  // Ceiling pipes running the length.
+  // Ceiling pipes running the corridor length (local Y → world Z).
   for (const [x, matPipe] of [[-1.1, mat.pipe], [1.35, mat.pipeCool], [-0.15, mat.rust]]) {
-    addCyl(0.07, 42, x, 2.72, -16.5, matPipe, Math.PI / 2);
+    addCyl(0.07, 42, x, 2.72, -16.5, matPipe, { rotX: Math.PI / 2 });
   }
-  // Vertical drops + hangers.
+  // Hanger straps only — no vertical pipe drops.
   for (const z of [-2, -10, -18, -26, -33]) {
-    addCyl(0.055, 0.9, -1.1, 2.2, z, mat.pipe);
     add(0.08, 0.06, 0.18, -1.1, 2.72, z, mat.darkMetal);
     add(0.08, 0.06, 0.18, 1.35, 2.72, z, mat.darkMetal);
   }
@@ -137,7 +140,7 @@ export function createMaintenance(scene) {
   add(0.8, 0.55, 0.5, 0, 0.4, 0, mat.darkMetal, cart);
   add(0.82, 0.04, 0.52, 0, 0.95, 0, mat.metal, cart);
   for (const [x, z] of [[-0.32, -0.18], [0.32, -0.18], [-0.32, 0.18], [0.32, 0.18]]) {
-    addCyl(0.07, 0.12, x, 0.08, z, mat.darkMetal, 0, cart);
+    addCyl(0.07, 0.12, x, 0.08, z, mat.darkMetal, { parent: cart });
   }
   // Tools on the cart top.
   add(0.35, 0.05, 0.08, 0.1, 1.0, 0.05, mat.metal, cart);
