@@ -566,11 +566,19 @@ export function createApartment(scene, {
     tvScreen.material = objectState.tvOn ? materials.screenOn : materials.screenOff;
     curtainL.visible = true;
     curtainR.visible = true;
-    // Drawn curtains close the glass; open leaves them at the jambs.
-    curtainL.position.z = objectState.curtainsOpen ? WIN_Z + 0.55 : WIN_Z + 0.18;
-    curtainR.position.z = objectState.curtainsOpen ? WIN_Z - 0.55 : WIN_Z - 0.18;
-    curtainL.scale.z = objectState.curtainsOpen ? 1 : 2.2;
-    curtainR.scale.z = objectState.curtainsOpen ? 1 : 2.2;
+    // Drawn curtains close the glass; open parks them past the jambs
+    // so the opening stays clear (no opaque slabs over the view).
+    if (objectState.curtainsOpen) {
+      curtainL.position.z = WIN_NEAR + 0.16;
+      curtainR.position.z = WIN_FAR - 0.16;
+      curtainL.scale.z = 0.7;
+      curtainR.scale.z = 0.7;
+    } else {
+      curtainL.position.z = WIN_Z + 0.18;
+      curtainR.position.z = WIN_Z - 0.18;
+      curtainL.scale.z = 2.2;
+      curtainR.scale.z = 2.2;
+    }
     doorHinge.rotation.y = objectState.bedroomDoorAjar ? -0.55 : 0;
     bedGlow.intensity = bedroomGlowIntensity();
     // Entrance opens inward (toward -Z / living). Closed = 0.

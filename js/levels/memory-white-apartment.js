@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { createStuffedDragon } from '../props/stuffed-dragon.js';
-import { createApartment } from './apartment.js?v=apt-8';
+import { createApartment } from './apartment.js?v=apt-12';
 import { APARTMENT_METERS, APARTMENT_START_Z } from './apartment-story.js?v=apt-8';
 
 const HIT_MAT = () => new THREE.MeshBasicMaterial({ visible: false });
@@ -257,6 +257,12 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
     },
   );
 
+  function clearWindowCurtains() {
+    // Opaque curtain boxes cover the glass; memory needs a clear opening.
+    if (apt.props?.curtainL) apt.props.curtainL.visible = false;
+    if (apt.props?.curtainR) apt.props.curtainR.visible = false;
+  }
+
   function applyMemoryLook() {
     apt.setPreset?.('memory-white');
     apt.setObjectState?.({
@@ -267,10 +273,7 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
       bedroomDoorAjar: true,
       entranceDoorAjar: false,
     });
-    // Hide present-visit dragon if the shell still carries one.
-    if (apt.props && mode === 'adopt') {
-      /* dragon handled via apartment update dragonTaken */
-    }
+    clearWindowCurtains();
   }
 
   applyMemoryLook();
@@ -311,6 +314,7 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
         },
         dragonTaken: mode === 'adopt' || Boolean(state?.dragonTaken),
       });
+      clearWindowCurtains();
     },
     update(progress, state, dt, reduced) {
       this.syncPhase(state);
@@ -326,6 +330,8 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
         },
         dragonTaken: true,
       });
+      // apt.update re-shows curtains — clear again after.
+      clearWindowCurtains();
       if (state?.phase === 'memory' || mode === 'adopt') {
         const target = state?.remoteMoved ? remoteAway : remoteHome;
         remote.position.set(target.x, target.y, target.z);
