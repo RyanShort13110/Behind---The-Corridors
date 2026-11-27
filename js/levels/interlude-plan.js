@@ -1,64 +1,24 @@
 /**
- * The In-Between — seeded layout plan (story chapter after The Stairwells).
- * Target length 90–140 m (hard max 150). Uses Behind. procgen RNG only.
+ * The In-Between — seeded layout plan (theme-aware).
+ * Maintenance assembly is unchanged for seed compatibility.
  */
 
+import {
+  getInterludeTheme,
+  normalizeInterludeThemeId,
+  DEFAULT_INTERLUDE_THEME_ID,
+} from './interlude-themes/index.js';
+
+/** @deprecated Prefer theme.length — kept for older imports/tests. */
 export const INTERLUDE_MIN_METERS = 90;
 export const INTERLUDE_MAX_METERS = 150;
 export const INTERLUDE_SOFT_MAX_METERS = 140;
 
-export const INTERLUDE_SECTION_TYPES = Object.freeze([
-  Object.freeze({
-    id: 'pipe',
-    name: 'PIPE RUN',
-    description: 'Condensation along the ceiling. No visible source.',
-  }),
-  Object.freeze({
-    id: 'files',
-    name: 'FILE AISLE',
-    description: 'Cabinets with no names left on their drawers.',
-  }),
-  Object.freeze({
-    id: 'service',
-    name: 'SERVICE BAY',
-    description: 'Someone left the maintenance lights running.',
-  }),
-  Object.freeze({
-    id: 'shelves',
-    name: 'SHELVING',
-    description: 'A narrow aisle between things no one collected.',
-  }),
-  Object.freeze({
-    id: 'lockers',
-    name: 'LOCKER ROW',
-    description: 'Different lockers. The same smell of old metal.',
-  }),
-  Object.freeze({
-    id: 'empty',
-    name: 'EMPTY PASSAGE',
-    description: 'Too much space for a service corridor.',
-  }),
-]);
+/** @deprecated Prefer theme.sectionTypes */
+export { MAINTENANCE_SECTION_TYPES as INTERLUDE_SECTION_TYPES } from './interlude-themes/maintenance.js';
 
-const TYPE_IDS = Object.freeze(INTERLUDE_SECTION_TYPES.map((t) => t.id));
-const TYPE_BY_ID = Object.freeze(
-  Object.fromEntries(INTERLUDE_SECTION_TYPES.map((t) => [t.id, t])),
-);
-
-/** Known-good linear layout (115 m) used when generation / validation fails. */
-const FALLBACK_SEQUENCE = Object.freeze([
-  ['empty', 14],
-  ['pipe', 16],
-  ['files', 15],
-  ['service', 14],
-  ['shelves', 16],
-  ['lockers', 15],
-  ['empty', 14],
-  ['pipe', 11],
-]);
-
-function pieceFromType(i, typeId, start, len, featureSeed) {
-  const meta = TYPE_BY_ID[typeId] || TYPE_BY_ID.empty;
+function pieceFromType(theme, i, typeId, start, len, featureSeed) {
+  const meta = theme.sectionTypes.find((t) => t.id === typeId) || theme.sectionTypes[0];
   return {
     i,
     type: meta.id,
@@ -68,53 +28,60 @@ function pieceFromType(i, typeId, start, len, featureSeed) {
     len,
     end: start + len,
     featureSeed: featureSeed >>> 0,
-    roomId: `room:interlude:${meta.id}:${i}`,
+    roomId: `room:interlude:${theme.id}:${meta.id}:${i}`,
   };
 }
 
 /**
  * @param {ReturnType<import('../procgen/rng.js').createSeededRng>} rng
+ * @param {string | object} [themeOrId]
  */
-export function assembleInterludePlan(rng) {
+export function assembleInterludePlan(rng, themeOrId = DEFAULT_INTERLUDE_THEME_ID) {
   if (!rng) throw new Error('assembleInterludePlan requires a seeded rng');
+  const theme = typeof themeOrId === 'string' || themeOrId == null
+    ? getInterludeTheme(themeOrId)
+    : themeOrId;
+  const budget = theme.length;
+  const types = theme.sectionTypes;
 
-  // 6–9 sections budgeted toward 90–140 m.
-  const count = 6 + rng.nextInt(0, 4);
+  const count = budget.sectionCountMin + rng.nextInt(0, budget.sectionCountSpan);
   const pieces = [];
   let last = -1;
   let offset = 0;
 
   for (let i = 0; i < count; i++) {
-    let index = rng.nextInt(0, INTERLUDE_SECTION_TYPES.length);
+    let index = rng.nextInt(0, types.length);
     if (index === last) {
-      index = (index + 1 + rng.nextInt(0, INTERLUDE_SECTION_TYPES.length - 1))
-        % INTERLUDE_SECTION_TYPES.length;
+      index = (index + 1 + rng.nextInt(0, types.length - 1)) % types.length;
     }
     last = index;
-    let len = Math.round(rng.nextFloat(12, 18) * 2) / 2;
+    let len = Math.round(rng.nextFloat(budget.pieceMin, budget.pieceMax) * 2) / 2;
     const remainingSlots = count - i - 1;
-    const maxForThis = INTERLUDE_SOFT_MAX_METERS - offset - remainingSlots * 12;
+    const maxForThis = budget.softMaxMeters - offset - remainingSlots * budget.pieceMin;
     const minForThis = Math.max(
-      12,
-      INTERLUDE_MIN_METERS - offset - remainingSlots * 18,
+      budget.pieceMin,
+      budget.minMeters - offset - remainingSlots * budget.pieceMax,
     );
-    if (Number.isFinite(maxForThis) && maxForThis >= 12) {
+    if (Number.isFinite(maxForThis) && maxForThis >= budget.pieceMin) {
       len = Math.min(len, Math.round(maxForThis * 2) / 2);
     }
     if (Number.isFinite(minForThis) && minForThis > len) {
       len = Math.round(minForThis * 2) / 2;
     }
-    len = Math.max(12, Math.min(18, len));
-    const typeId = INTERLUDE_SECTION_TYPES[index].id;
-    pieces.push(pieceFromType(i, typeId, offset, len, rng.nextU32()));
+    len = Math.max(budget.pieceMin, Math.min(budget.pieceMax, len));
+    const typeId = types[index].id;
+    pieces.push(pieceFromType(theme, i, typeId, offset, len, rng.nextU32()));
     offset += len;
   }
 
-  if (offset > INTERLUDE_MAX_METERS) {
-    const scale = INTERLUDE_SOFT_MAX_METERS / offset;
+  if (offset > budget.hardMaxMeters) {
+    const scale = budget.softMaxMeters / offset;
     let cursor = 0;
     for (let i = 0; i < pieces.length; i++) {
-      const nextLen = Math.max(12, Math.round(pieces[i].len * scale * 2) / 2);
+      const nextLen = Math.max(
+        budget.pieceMin,
+        Math.round(pieces[i].len * scale * 2) / 2,
+      );
       pieces[i].start = cursor;
       pieces[i].len = nextLen;
       pieces[i].end = cursor + nextLen;
@@ -124,7 +91,8 @@ export function assembleInterludePlan(rng) {
   }
 
   return {
-    version: 3,
+    version: 4,
+    theme: theme.id,
     seed: rng.seed,
     pieces,
     len: offset,
@@ -132,21 +100,35 @@ export function assembleInterludePlan(rng) {
       kind: 'straight',
       reversible: true,
       meters: offset,
-      startZ: 3.95,
+      startZ: theme.dims.startZ,
     },
   };
 }
 
-/** Deterministic authored fallback — always validates. */
-export function createFallbackInterludePlan(seed = 48271) {
+/** Deterministic authored fallback — always validates for the theme. */
+export function createFallbackInterludePlan(
+  seed = 48271,
+  themeOrId = DEFAULT_INTERLUDE_THEME_ID,
+) {
+  const theme = typeof themeOrId === 'string' || themeOrId == null
+    ? getInterludeTheme(themeOrId)
+    : themeOrId;
   const pieces = [];
   let offset = 0;
-  FALLBACK_SEQUENCE.forEach(([typeId, len], i) => {
-    pieces.push(pieceFromType(i, typeId, offset, len, (seed + i * 9973) >>> 0));
+  theme.fallbackSequence.forEach(([typeId, len], i) => {
+    pieces.push(pieceFromType(
+      theme,
+      i,
+      typeId,
+      offset,
+      len,
+      (seed + i * 9973) >>> 0,
+    ));
     offset += len;
   });
   return {
-    version: 3,
+    version: 4,
+    theme: theme.id,
     seed: seed >>> 0,
     pieces,
     len: offset,
@@ -155,34 +137,45 @@ export function createFallbackInterludePlan(seed = 48271) {
       kind: 'straight',
       reversible: true,
       meters: offset,
-      startZ: 3.95,
+      startZ: theme.dims.startZ,
     },
   };
 }
 
 /** Validate guarantees used by runtime + tests. */
-export function validateInterludePlan(plan) {
+export function validateInterludePlan(plan, themeOrId = null) {
   if (!plan?.pieces?.length) return { ok: false, reason: 'empty' };
   if (plan.path?.kind !== 'straight') return { ok: false, reason: 'path' };
   if (!(plan.len > 0) || plan.len !== plan.pieces[plan.pieces.length - 1]?.end) {
     return { ok: false, reason: 'length' };
   }
-  if (plan.pieces.length < 6 || plan.pieces.length > 10) {
+  const theme = getInterludeTheme(themeOrId || plan.theme || DEFAULT_INTERLUDE_THEME_ID);
+  if (plan.theme && normalizeInterludeThemeId(plan.theme) !== theme.id) {
+    return { ok: false, reason: 'theme-mismatch' };
+  }
+  const budget = theme.length;
+  const typeIds = new Set(theme.sectionTypes.map((t) => t.id));
+  if (
+    plan.pieces.length < budget.sectionCountValidateMin
+    || plan.pieces.length > budget.sectionCountValidateMax
+  ) {
     return { ok: false, reason: 'count' };
   }
-  if (!(plan.len >= INTERLUDE_MIN_METERS && plan.len <= INTERLUDE_MAX_METERS)) {
+  if (!(plan.len >= budget.minMeters && plan.len <= budget.hardMaxMeters)) {
     return { ok: false, reason: 'meters-range' };
   }
   let cursor = 0;
   for (let i = 0; i < plan.pieces.length; i++) {
     const p = plan.pieces[i];
-    if (!TYPE_IDS.includes(p.type)) return { ok: false, reason: `type:${p.type}` };
+    if (!typeIds.has(p.type)) return { ok: false, reason: `type:${p.type}` };
     if (p.start !== cursor) return { ok: false, reason: 'gap' };
-    if (!(p.len >= 11 && p.len <= 20)) return { ok: false, reason: 'piece-len' };
+    if (!(p.len >= budget.pieceValidateMin && p.len <= budget.pieceValidateMax)) {
+      return { ok: false, reason: 'piece-len' };
+    }
     if (p.end !== p.start + p.len) return { ok: false, reason: 'end' };
     cursor = p.end;
   }
   return { ok: true };
 }
 
-export { TYPE_IDS, TYPE_BY_ID };
+export { normalizeInterludeThemeId, getInterludeTheme, DEFAULT_INTERLUDE_THEME_ID };

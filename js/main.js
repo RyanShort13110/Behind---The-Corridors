@@ -51,8 +51,8 @@ import {
 import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-7';
 import {
   createInterludeStory, interludeNarrative, INTERLUDE_METERS, INTERLUDE_START_Z,
-} from './levels/interlude-story.js?v=ib-3';
-import { interludeCameraPose } from './levels/interlude-route.js?v=ib-3';
+} from './levels/interlude-story.js?v=ib-4';
+import { interludeCameraPose } from './levels/interlude-route.js?v=ib-4';
 import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
@@ -96,7 +96,7 @@ import {
 import {
   readProcgenBootConfig,
   createProcgenSession,
-} from './procgen/index.js?v=proc-3';
+} from './procgen/index.js?v=proc-4';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -129,9 +129,13 @@ const PROCGEN_BOOT = readProcgenBootConfig(urlParams, { debug: DEBUG_MODE });
 const procgenSession = createProcgenSession({
   enabled: PROCGEN_BOOT.enabled,
   seed: PROCGEN_BOOT.seed ?? (Date.now() >>> 0),
+  theme: PROCGEN_BOOT.theme ?? 'maintenance',
 });
 if (procgenSession.enabled) {
-  console.info(`[Behind. PROCGEN] enabled · seed=${procgenSession.seed}`);
+  console.info(
+    `[Behind. PROCGEN] enabled · seed=${procgenSession.seed}`
+    + ` · theme=${procgenSession.theme}`,
+  );
 }
 /**
  * Story chapter: Stairwells → The In-Between → Threshold.
@@ -149,7 +153,7 @@ function rollPlaythroughSeed() {
   } else {
     procgenSession.setSeed((Date.now() ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0);
   }
-  void import('./levels/interlude.js?v=ib-3')
+  void import('./levels/interlude.js?v=ib-4')
     .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
     .catch(() => {});
 }
@@ -1176,7 +1180,7 @@ async function endCamcorderPlayback() {
       bindMaintenanceLayout(maintenanceModule);
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-3');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-4');
       const interludeModule = createInterlude(scene, { procgen: procgenSession });
       director.add('interlude', interludeModule);
       bindInterludeLayout(interludeModule);
@@ -2644,7 +2648,7 @@ async function enterInterlude() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createInterlude } = await import('./levels/interlude.js?v=ib-3');
+    const { createInterlude } = await import('./levels/interlude.js?v=ib-4');
     module = createInterlude(scene, { procgen: procgenSession });
     preserveCarryInventory();
     interaction?.clear();
@@ -2679,7 +2683,8 @@ async function enterInterlude() {
     saveChapterStartCheckpoint();
     renderer.render(scene, camera);
     console.info(
-      `[Behind.] Level 05B entered · In-Between · seed=${procgenSession.seed}`
+      `[Behind.] Level 05B entered · In-Between · theme=${procgenSession.theme}`
+      + ` · seed=${procgenSession.seed}`
       + ` · ${module.rail?.meters?.toFixed?.(1) ?? '?'} m`,
     );
   } catch (error) {
@@ -3079,7 +3084,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-3');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-4');
       interludeStory.reset();
       const interludeModule = createInterlude(scene, { procgen: procgenSession });
       next.add('interlude', interludeModule);
@@ -3310,7 +3315,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=ib-3').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=ib-4').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3464,6 +3469,14 @@ if (DEBUG_MODE) {
     }, {
       get enabled() { return procgenSession.enabled; },
       get seed() { return procgenSession.seed; },
+      get theme() { return procgenSession.theme; },
+      setTheme(next) {
+        procgenSession.setTheme(next);
+        void import('./levels/interlude.js?v=ib-4')
+          .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
+          .catch(() => {});
+        return procgenSession.theme;
+      },
       get skipInterlude() { return interludeSkip; },
       setSkipInterlude(on) {
         interludeSkip = Boolean(on);
@@ -3475,10 +3488,11 @@ if (DEBUG_MODE) {
       },
       getStatus() {
         const skip = interludeSkip ? ' · story interlude SKIPPED' : '';
+        const theme = ` · theme=${procgenSession.theme}`;
         if (!procgenSession.enabled) {
-          return `Procgen debug: off · seed=${procgenSession.seed}${skip}`;
+          return `Procgen debug: off · seed=${procgenSession.seed}${theme}${skip}`;
         }
-        return `Procgen: ON · seed=${procgenSession.seed}${skip}`;
+        return `Procgen: ON · seed=${procgenSession.seed}${theme}${skip}`;
       },
     });
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));

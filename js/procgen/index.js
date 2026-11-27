@@ -12,4 +12,5 @@ export {
 export {
   readProcgenBootConfig,
   createProcgenSession,
+  normalizeProcgenTheme,
 } from './session.js';

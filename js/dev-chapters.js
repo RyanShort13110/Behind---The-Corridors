@@ -170,7 +170,12 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     </div>
     <p class="dev-chapters__status" id="dev-procgen-status" aria-live="polite">Procgen: off</p>
     <div class="dev-chapters__row" id="dev-interlude-row">
-      <button type="button" id="dev-skip-interlude" title="Skip Corridor→Office procedural passage">SKIP INTERLUDE</button>
+      <button type="button" id="dev-skip-interlude" title="Skip Stairwells→Threshold procedural passage">SKIP INTERLUDE</button>
+      <label for="dev-interlude-theme" class="dev-chapters__inline-label">THEME</label>
+      <select id="dev-interlude-theme" title="In-Between architectural theme">
+        <option value="maintenance">maintenance</option>
+        <option value="residential">residential</option>
+      </select>
     </div>
     <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
     </div>
@@ -507,12 +512,13 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
 
   const procgenStatus = panel.querySelector('#dev-procgen-status');
   const skipInterludeBtn = panel.querySelector('#dev-skip-interlude');
+  const themePicker = panel.querySelector('#dev-interlude-theme');
   const refreshProcgenStatus = () => {
     if (!procgenStatus) return;
     const status = procgenApi?.getStatus?.();
     procgenStatus.textContent = status
       || (procgenApi?.enabled
-        ? `Procgen: ON · seed=${procgenApi.seed}`
+        ? `Procgen: ON · seed=${procgenApi.seed} · theme=${procgenApi.theme || 'maintenance'}`
         : 'Procgen: off');
     if (skipInterludeBtn) {
       const skipping = Boolean(procgenApi?.skipInterlude);
@@ -521,9 +527,16 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         ? 'Stairwells will continue into The In-Between'
         : 'Skip The In-Between (Stairwells → Threshold)';
     }
+    if (themePicker && procgenApi?.theme) {
+      themePicker.value = procgenApi.theme;
+    }
   };
   skipInterludeBtn?.addEventListener('click', () => {
     procgenApi?.toggleSkipInterlude?.();
+    refreshProcgenStatus();
+  });
+  themePicker?.addEventListener('change', () => {
+    procgenApi?.setTheme?.(themePicker.value);
     refreshProcgenStatus();
   });
   refreshProcgenStatus();

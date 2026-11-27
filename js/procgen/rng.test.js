@@ -80,7 +80,7 @@ test('hashStringToSeed is stable', () => {
 test('boot config stays disabled without debug or procgen', () => {
   assert.deepEqual(
     readProcgenBootConfig('procgen=1&seed=12345', { debug: false }),
-    { enabled: false, seed: 12345 },
+    { enabled: false, seed: 12345, theme: 'maintenance' },
   );
   assert.equal(
     readProcgenBootConfig('debug=1&level=maintenance', { debug: true }).enabled,
@@ -95,16 +95,40 @@ test('boot config enables with debug + procgen=1', () => {
   );
   assert.equal(cfg.enabled, true);
   assert.equal(cfg.seed, 12345);
+  assert.equal(cfg.theme, 'maintenance');
 });
 
-test('session snapshot / restore preserves seed across retries', () => {
-  const session = createProcgenSession({ enabled: true, seed: 12345 });
+test('boot config reads theme=residential', () => {
+  const cfg = readProcgenBootConfig(
+    'debug=1&level=interlude&procgen=1&theme=residential&seed=48271',
+    { debug: true },
+  );
+  assert.equal(cfg.enabled, true);
+  assert.equal(cfg.seed, 48271);
+  assert.equal(cfg.theme, 'residential');
+});
+
+test('boot config defaults unknown theme to maintenance', () => {
+  const cfg = readProcgenBootConfig('procgen=1&theme=spaceport', { debug: true });
+  assert.equal(cfg.theme, 'maintenance');
+});
+
+test('session snapshot / restore preserves seed and theme across retries', () => {
+  const session = createProcgenSession({
+    enabled: true,
+    seed: 12345,
+    theme: 'residential',
+  });
   const snap = session.snapshot();
+  assert.equal(snap.theme, 'residential');
   session.setSeed(999);
+  session.setTheme('maintenance');
   assert.equal(session.seed, 999);
+  assert.equal(session.theme, 'maintenance');
   session.restore(snap);
   assert.equal(session.seed, 12345);
   assert.equal(session.enabled, true);
+  assert.equal(session.theme, 'residential');
 
   const before = Array.from({ length: 5 }, () => session.rng('props').next());
   session.restore(snap);
@@ -113,11 +137,19 @@ test('session snapshot / restore preserves seed across retries', () => {
 });
 
 test('restore ignores missing payload (backwards compatible)', () => {
-  const session = createProcgenSession({ enabled: false, seed: 50 });
+  const session = createProcgenSession({ enabled: false, seed: 50, theme: 'residential' });
   session.restore(null);
   session.restore(undefined);
   session.restore({});
   assert.equal(session.seed, 50);
+  assert.equal(session.theme, 'residential');
+});
+
+test('restore without theme field leaves current theme', () => {
+  const session = createProcgenSession({ enabled: true, seed: 1, theme: 'residential' });
+  session.restore({ seed: 2, enabled: true });
+  assert.equal(session.seed, 2);
+  assert.equal(session.theme, 'residential');
 });
 
 console.log('all procgen rng tests passed');
