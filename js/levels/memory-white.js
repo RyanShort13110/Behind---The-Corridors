@@ -4,7 +4,10 @@
  * Fallback: legacy `memory-home` via `?legacyMemory=1`.
  */
 import { createMemoryHome } from './memory-home.js';
-import { createMemoryWhiteApartment } from './memory-white-apartment.js?v=mem-apt-1';
+import {
+  createMemoryWhiteApartment,
+  adoptApartmentAsWhiteMemory,
+} from './memory-white-apartment.js?v=mem-apt-2';
 
 /** Prefer the shared apartment unless explicitly opted out. */
 export function memoryWhiteUsesApartment() {
@@ -25,4 +28,4 @@ export function createMemoryWhite(scene) {
   return createMemoryHome(scene, { variant: 'white' });
 }
 
-export { createMemoryHome };
+export { createMemoryHome, adoptApartmentAsWhiteMemory, createMemoryWhiteApartment };

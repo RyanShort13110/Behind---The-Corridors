@@ -1738,20 +1738,105 @@ export function createAudioDirector() {
   let memoryRainSource = null;
   let memoryRainGain = null;
   let memoryRainFilter = null;
+  // White memory: soft outdoor bed (wind through leaves + sparse birds).
+  let memoryOutdoorWind = null;
+  let memoryOutdoorWindGain = null;
+  let memoryOutdoorWindFilter = null;
+  let memoryOutdoorLeaves = null;
+  let memoryOutdoorLeavesGain = null;
+  let memoryOutdoorLeavesFilter = null;
+  let memoryBirdNext = 0;
 
   function stopMemoryRain(seconds = 0.4) {
     if (!memoryRainGain) return;
     setGain(memoryRainGain, 0, seconds);
   }
 
+  function stopMemoryOutdoor(seconds = 0.5) {
+    if (memoryOutdoorWindGain) setGain(memoryOutdoorWindGain, 0, seconds);
+    if (memoryOutdoorLeavesGain) setGain(memoryOutdoorLeavesGain, 0, seconds);
+  }
+
+  function ensureMemoryOutdoor() {
+    if (!ctx || memoryOutdoorWind) return;
+    const windBuf = makeBrownNoiseBuffer(4.2);
+    memoryOutdoorWind = ctx.createBufferSource();
+    memoryOutdoorWind.buffer = windBuf;
+    memoryOutdoorWind.loop = true;
+    memoryOutdoorWindFilter = ctx.createBiquadFilter();
+    memoryOutdoorWindFilter.type = 'bandpass';
+    memoryOutdoorWindFilter.frequency.value = 420;
+    memoryOutdoorWindFilter.Q.value = 0.55;
+    memoryOutdoorWindGain = ctx.createGain();
+    memoryOutdoorWindGain.gain.value = 0;
+    memoryOutdoorWind.connect(memoryOutdoorWindFilter);
+    memoryOutdoorWindFilter.connect(memoryOutdoorWindGain);
+    memoryOutdoorWindGain.connect(ctx.destination);
+    try { memoryOutdoorWind.start(); } catch (_) { /* already started */ }
+
+    const leafBuf = makeBrownNoiseBuffer(2.8);
+    memoryOutdoorLeaves = ctx.createBufferSource();
+    memoryOutdoorLeaves.buffer = leafBuf;
+    memoryOutdoorLeaves.loop = true;
+    memoryOutdoorLeavesFilter = ctx.createBiquadFilter();
+    memoryOutdoorLeavesFilter.type = 'bandpass';
+    memoryOutdoorLeavesFilter.frequency.value = 2400;
+    memoryOutdoorLeavesFilter.Q.value = 0.7;
+    memoryOutdoorLeavesGain = ctx.createGain();
+    memoryOutdoorLeavesGain.gain.value = 0;
+    memoryOutdoorLeaves.connect(memoryOutdoorLeavesFilter);
+    memoryOutdoorLeavesFilter.connect(memoryOutdoorLeavesGain);
+    memoryOutdoorLeavesGain.connect(ctx.destination);
+    try { memoryOutdoorLeaves.start(); } catch (_) { /* already started */ }
+    memoryBirdNext = ctx.currentTime + 2.4;
+  }
+
+  function maybeChirpMemoryBird(now) {
+    if (!enabled || levelBedMuted || !ctx || !memoryOutdoorWindGain) return;
+    if (now < memoryBirdNext) return;
+    memoryBirdNext = now + 3.8 + Math.random() * 5.5;
+    // Two short soft chirps — distant, never melodic.
+    const freqs = [1850 + Math.random() * 400, 2100 + Math.random() * 350];
+    freqs.forEach((freq, i) => {
+      const t0 = now + i * 0.12;
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, t0);
+      o.frequency.exponentialRampToValueAtTime(freq * 0.86, t0 + 0.09);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.007, t0 + 0.018);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.11);
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = freq;
+      f.Q.value = 4;
+      o.connect(f);
+      f.connect(g);
+      g.connect(ctx.destination);
+      try {
+        o.start(t0);
+        o.stop(t0 + 0.14);
+      } catch (_) { /* ignore */ }
+    });
+  }
+
   function dispose() {
     stopUnseenRoars();
     stopBreathing();
     stopMemoryRain(0.02);
+    stopMemoryOutdoor(0.02);
     try { memoryRainSource?.stop(); } catch (_) { /* already stopped */ }
     memoryRainSource = null;
     memoryRainGain = null;
     memoryRainFilter = null;
+    try { memoryOutdoorWind?.stop(); memoryOutdoorLeaves?.stop(); } catch (_) { /* already stopped */ }
+    memoryOutdoorWind = null;
+    memoryOutdoorWindGain = null;
+    memoryOutdoorWindFilter = null;
+    memoryOutdoorLeaves = null;
+    memoryOutdoorLeavesGain = null;
+    memoryOutdoorLeavesFilter = null;
     silenceHorrorScore(0.02);
     try { scoreAirSource?.stop(); scorePadLow?.stop(); scorePadHigh?.stop(); } catch (_) { /* already stopped */ }
     try { scoreTension?.stop(); scoreAnxiety?.stop(); } catch (_) { /* already stopped */ }
@@ -1806,6 +1891,10 @@ export function createAudioDirector() {
     setGain(musicGain, 0.22, 1.6);
     setGain(musicDryGain, 0.55, 0.01);
     setGain(musicWetGain, 0.5, 0.01);
+    ensureMemoryOutdoor();
+    setGain(memoryOutdoorWindGain, 0.028, 2.2);
+    setGain(memoryOutdoorLeavesGain, 0.012, 2.4);
+    if (ctx) memoryBirdNext = ctx.currentTime + 1.8;
   }
 
   function enterMemoryBlack() {
@@ -1834,13 +1923,19 @@ export function createAudioDirector() {
       if (black) {
         ensureMemoryRain();
         setGain(memoryRainGain, 0.05, 0.8);
+        stopMemoryOutdoor(0.5);
       } else {
         stopMemoryRain(0.6);
+        ensureMemoryOutdoor();
+        setGain(memoryOutdoorWindGain, 0.03, 0.8);
+        setGain(memoryOutdoorLeavesGain, 0.013, 0.8);
+        maybeChirpMemoryBird(ctx.currentTime);
       }
     } else {
       setGain(humGain, 0.004, 0.4);
       setGain(musicGain, 0.06, 0.5);
       stopMemoryRain(0.5);
+      stopMemoryOutdoor(0.5);
     }
   }
 
@@ -1854,6 +1949,7 @@ export function createAudioDirector() {
 
   function exitMemoryWhite() {
     stopMemoryRain(0.5);
+    stopMemoryOutdoor(0.7);
     silenceHorrorScore(0.45);
     setGain(musicDryGain, MUSIC_REVERB_DRY, 0.01);
     setGain(musicWetGain, MUSIC_REVERB_WET, 0.01);

@@ -1663,7 +1663,7 @@ async function endCamcorderPlayback() {
       director.add('unseen', createUnseen(scene));
       el.location.textContent = 'SERVICE LEVEL / MAINTENANCE';
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-1');
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-2');
       director.add('memory-white', createMemoryWhite(scene));
     } else if (target === 'memory-black') {
       const { createMemoryBlack } = await import('./levels/memory-black.js');
@@ -1810,10 +1810,12 @@ async function enterMemoryChapter() {
   bindChapterInteractables();
   director.get(chapterId)?.syncPhase(memoryStoryFor().state);
   if (memoryUsesApartment()) {
+    setMemoryWhiteScreen(true);
     const pose = apartmentCameraPose(0);
     camera.position.set(pose.x, 1.65, pose.z);
     camera.rotation.set(pose.pitch, pose.yaw, 0);
   } else {
+    setMemoryWhiteScreen(false);
     const pose = memoryHomeCameraPose(0, 'memory');
     camera.position.set(pose.x, 1.55, pose.z);
     camera.rotation.set(pose.pitch, pose.yaw, 0);
@@ -1840,6 +1842,7 @@ async function exitMemoryChapter() {
   look?.reset();
   if (chapterId === 'memory-black') audio.exitMemoryBlack();
   else audio.exitMemoryWhite();
+  setMemoryWhiteScreen(false);
 
   // Story path: memory closes into the next chapter handoff (end card).
   const storyExit = memory.storyMemoryExitTo;
@@ -1873,15 +1876,119 @@ async function exitMemoryChapter() {
   el.veil.classList.remove('is-active');
 }
 
+function setMemoryWhiteScreen(on) {
+  el.experience?.classList.toggle('is-memory-white', Boolean(on));
+}
+
+function keepDragonInventory() {
+  const dragonsKept = (inventory?.list() || []).filter(item =>
+    item.id === 'stuffed-dragon-white' || item.id === 'stuffed-dragon-black');
+  preserveCarryInventory();
+  for (const item of dragonsKept) {
+    if (!inventory?.has(item.id)) {
+      inventory.add(item.id, {
+        label: item.label,
+        tooltip: item.tooltip,
+        previewColor: item.previewColor,
+      });
+    }
+  }
+  renderInventory();
+}
+
+/**
+ * Morph the live apartment into white memory without resetting the rail.
+ * Soft cream veil + dressing / day light / outdoor bed make the shift land in place.
+ */
+async function enterWhiteMemoryInPlace(visit) {
+  const apt = director.get('apartment');
+  if (!apt) return false;
+  const keepProgress = THREE.MathUtils.clamp(progress, 0, 1);
+  const keepDisplayed = THREE.MathUtils.clamp(displayed, 0, 1);
+  transitioning = true;
+  interaction?.close();
+  closeInventoryOverlays();
+  el.veil.classList.add('memory-veil', 'is-active');
+  setMemoryWhiteScreen(true);
+  await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 920));
+  let module = null;
+  try {
+    const mod = await import('./levels/memory-white.js?v=mem-apt-2');
+    if (!mod.memoryWhiteUsesApartment?.()) {
+      setMemoryWhiteScreen(false);
+      el.veil.classList.remove('is-active', 'memory-veil');
+      return false;
+    }
+    keepDragonInventory();
+    interaction?.clear();
+    look?.setMaxYaw(1.25);
+    module = mod.adoptApartmentAsWhiteMemory(scene, apt);
+    // Transfer ownership of the shared shell — do not dispose the apartment world.
+    director.release('apartment');
+    const memStory = memoryStoryFor('memory-white');
+    memStory.reset();
+    memStory.takeDragon();
+    memStory.enterMemory();
+    memStory.state.environment = 'apartment';
+    director.add('memory-white', module);
+    director.activate('memory-white');
+    director.get('memory-white')?.syncPhase(memStory.state);
+    chapterId = 'memory-white';
+    apartmentStory.reset();
+    memory.storyMemoryExitTo = visit === 'return' ? 'end' : 'threshold';
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
+    audio.enterMemoryWhite();
+    hideEndCard();
+    el.location.textContent = 'MEMORY / WHITE DRAGON';
+    progress = keepProgress;
+    displayed = keepDisplayed;
+    const pose = apartmentCameraPose(displayed);
+    camera.position.set(pose.x, 1.65, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+    camera.far = 65;
+    camera.updateProjectionMatrix();
+    camera.rotation.order = 'XYZ';
+    window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
+    scrollTrigger?.update();
+    lastTime = performance.now();
+    renderer.render(scene, camera);
+    console.info('[Behind.] White memory morph · in-place apartment shell');
+    return true;
+  } catch (error) {
+    module?.dispose?.();
+    setMemoryWhiteScreen(false);
+    console.error('[Behind.] In-place white memory failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `Memory could not be loaded: ${error.message}`;
+    return false;
+  } finally {
+    transitioning = false;
+    el.veil.classList.remove('is-active');
+    window.setTimeout(() => el.veil.classList.remove('memory-veil'), reduced ? 0 : 900);
+  }
+}
+
 /**
  * Apartment story visit → white/black remembered-home memory.
- * Skips the staging foyer; the dragon was already taken in the apartment.
+ * White (apartment-backed): morphs in place. Black / legacy: chapter swap.
  */
 async function enterMemoryFromApartment() {
   if (!isApartment() || transitioning) return;
   const visit = apartmentStory.state.visit;
   if (visit !== 'first' && visit !== 'return') return;
   const target = visit === 'return' ? 'memory-black' : 'memory-white';
+
+  if (target === 'memory-white') {
+    const ok = await enterWhiteMemoryInPlace(visit);
+    if (ok) return;
+    // Fall through to rebuild path if adopt is unavailable.
+  }
+
   transitioning = true;
   interaction?.close();
   closeInventoryOverlays();
@@ -1891,23 +1998,10 @@ async function enterMemoryFromApartment() {
   try {
     const mod = target === 'memory-black'
       ? await import('./levels/memory-black.js')
-      : await import('./levels/memory-white.js?v=mem-apt-1');
+      : await import('./levels/memory-white.js?v=mem-apt-2');
     const create = target === 'memory-black' ? mod.createMemoryBlack : mod.createMemoryWhite;
     module = create(scene);
-    // Keep the dragon the player just took — preserveCarryInventory otherwise drops it.
-    const dragonsKept = (inventory?.list() || []).filter(item =>
-      item.id === 'stuffed-dragon-white' || item.id === 'stuffed-dragon-black');
-    preserveCarryInventory();
-    for (const item of dragonsKept) {
-      if (!inventory?.has(item.id)) {
-        inventory.add(item.id, {
-          label: item.label,
-          tooltip: item.tooltip,
-          previewColor: item.previewColor,
-        });
-      }
-    }
-    renderInventory();
+    keepDragonInventory();
     interaction?.clear();
     look?.reset();
     director.dispose();
@@ -1938,10 +2032,12 @@ async function enterMemoryFromApartment() {
     progress = displayed = 0;
     if (target === 'memory-white' && module.environment === 'apartment') {
       memStory.state.environment = 'apartment';
+      setMemoryWhiteScreen(true);
       const pose = apartmentCameraPose(0);
       camera.position.set(pose.x, 1.65, pose.z);
       camera.rotation.set(pose.pitch, pose.yaw, 0);
     } else {
+      setMemoryWhiteScreen(false);
       const pose = memoryHomeCameraPose(0, 'memory');
       camera.position.set(pose.x, 1.55, pose.z);
       camera.rotation.set(pose.pitch, pose.yaw, 0);
@@ -3861,7 +3957,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createThreshold } = await import('./levels/threshold.js?v=night-bent-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-1');
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-2');
       memoryWhiteStory.reset();
       next.add('memory-white', createMemoryWhite(scene));
     } else if (target === 'memory-black') {
@@ -4014,6 +4110,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
         renderInventory();
       }
     }
+    setMemoryWhiteScreen(target === 'memory-white' && memoryUsesApartment(target));
     if (isMemoryChapter(target)) {
       const mem = memoryStoryFor(target);
       const seek = mem.seekCheckpoint(checkpoint);
@@ -4023,6 +4120,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       if (seek.phase === 'memory') {
         look?.setMaxYaw(1.25); // wide enough to face the side window
         if (aptMem) {
+          setMemoryWhiteScreen(true);
           const pose = apartmentCameraPose(progress);
           camera.position.set(pose.x, 1.65, pose.z);
           camera.rotation.set(pose.pitch, pose.yaw, 0);

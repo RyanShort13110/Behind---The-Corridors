@@ -17,6 +17,19 @@ body.debug-performance .perf-hud{display:block}
   pointer-events:none;
   transition:opacity .55s ease;
 }
+/* Apartment → white memory: cream wash instead of a black cut. */
+#chapter-veil.memory-veil{
+  background:radial-gradient(ellipse at 50% 42%,rgba(255,250,240,.55) 0%,rgba(242,232,214,.82) 55%,rgba(232,220,200,.92) 100%);
+  transition:opacity .95s ease;
+}
+#chapter-veil.memory-veil.is-active{opacity:.78}
+/* Soft white dream rim — memory state only; keep the center readable. */
+#experience.is-memory-white .vignette{
+  background:radial-gradient(ellipse at center,transparent 46%,rgba(255,252,245,.14) 72%,rgba(245,236,220,.42) 100%);
+  opacity:1;
+  transition:background .9s ease,opacity .9s ease;
+}
+#experience.is-memory-white .grain{opacity:.08}
 .ending-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 .ending-actions .primary{margin-top:24px}
 .ending-actions [hidden]{display:none}

@@ -29,6 +29,13 @@ export function createSceneDirector() {
       for (const module of modules.values()) module.reset?.();
       currentName = 'corridor';
     },
+    /**
+     * Unregister a module without disposing it (ownership transfers elsewhere).
+     * Used for in-place apartment → white-memory morphs.
+     */
+    release(name) {
+      modules.delete(name);
+    },
     dispose() {
       for (const module of modules.values()) module.dispose?.();
       modules.clear();
