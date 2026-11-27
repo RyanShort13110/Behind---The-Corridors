@@ -8,7 +8,7 @@ import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
 import { createInventory } from './inventory.js?v=wpn-2';
-import { createInventoryMenu } from './inventory-menu.js?v=inv-mobile-1';
+import { createInventoryMenu } from './inventory-menu.js?v=inv-clip-1';
 import {
   resolveItemDef, itemStackKey,
   CROWBAR_ITEM_ID, MACHETE_ITEM_ID, REVOLVER_ITEM_ID, REVOLVER_AMMO_ITEM_ID,

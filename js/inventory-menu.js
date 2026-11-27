@@ -51,18 +51,20 @@ export function createInventoryMenu({
           <div class="inventory-menu__grid" data-inv-grid role="listbox" aria-label="Carried items"></div>
         </div>
         <aside class="inventory-menu__detail" data-inv-detail aria-live="polite">
-          <canvas class="inventory-menu__canvas" data-inv-canvas width="280" height="180" aria-hidden="true"></canvas>
-          <p class="inventory-menu__category" data-inv-category></p>
-          <h3 class="inventory-menu__name" data-inv-name></h3>
-          <p class="inventory-menu__copy" data-inv-copy></p>
-          <p class="inventory-menu__effect" data-inv-effect hidden></p>
-          <div class="inventory-menu__tapes" data-inv-tapes hidden>
-            <p class="inventory-menu__tapes-label">LCD · CASSETTES</p>
-            <ul class="inventory-menu__tape-list" data-inv-tape-list></ul>
-            <p class="inventory-menu__tape-empty" data-inv-tape-empty hidden>NO CASSETTE</p>
-            <p class="inventory-menu__tape-note" data-inv-tape-note hidden></p>
+          <div class="inventory-menu__detail-scroll">
+            <canvas class="inventory-menu__canvas" data-inv-canvas width="280" height="180" aria-hidden="true"></canvas>
+            <p class="inventory-menu__category" data-inv-category></p>
+            <h3 class="inventory-menu__name" data-inv-name></h3>
+            <p class="inventory-menu__copy" data-inv-copy></p>
+            <p class="inventory-menu__effect" data-inv-effect hidden></p>
+            <div class="inventory-menu__tapes" data-inv-tapes hidden>
+              <p class="inventory-menu__tapes-label">LCD · CASSETTES</p>
+              <ul class="inventory-menu__tape-list" data-inv-tape-list></ul>
+              <p class="inventory-menu__tape-empty" data-inv-tape-empty hidden>NO CASSETTE</p>
+              <p class="inventory-menu__tape-note" data-inv-tape-note hidden></p>
+            </div>
+            <p class="inventory-menu__hint" data-inv-hint>SELECT AN ITEM</p>
           </div>
-          <p class="inventory-menu__hint" data-inv-hint>SELECT AN ITEM</p>
           <div class="inventory-menu__actions" data-inv-actions></div>
         </aside>
       </div>
@@ -222,12 +224,6 @@ export function createInventoryMenu({
           btn.textContent = String(action).toUpperCase();
         }
         els.actions.appendChild(btn);
-      }
-      // On phones the grid can push EQUIP below the fold — pull it into view.
-      if (els.actions.childElementCount > 0 && open && window.matchMedia('(max-width: 720px)').matches) {
-        requestAnimationFrame(() => {
-          els.actions.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-        });
       }
     }
   }
