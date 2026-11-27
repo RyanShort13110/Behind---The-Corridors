@@ -974,7 +974,8 @@ function maybeStartThresholdBentCombat() {
   const s = thresholdStory.state;
   if (!s.bentEnabled || s.bentDefeated || s.bentSkipped || s.bentCombatStarted) return;
   if (s.direction !== 'forward') return;
-  if (displayed < THRESHOLD_COMBAT_TRIGGER) return;
+  // Float easing can asymptote just under the rail max (e.g. 0.689999 < 0.69).
+  if (displayed + 1e-4 < THRESHOLD_COMBAT_TRIGGER) return;
   if (!s.ruptureArmed) return;
   if (steady?.isActive) return;
   // Wait until rupture STEADY has resolved (or was never needed).
@@ -3491,6 +3492,9 @@ function frame(now) {
     displayed = clamp(displayed + THREE.MathUtils.clamp(eased, -step, step));
     const bounds = progressBounds();
     displayed = THREE.MathUtils.clamp(displayed, bounds.min, bounds.max);
+    // Snap to rail ends so float asymptotes cannot softlock triggers (e.g. Bent @ 0.69).
+    if (bounds.max < 1 && displayed > bounds.max - 1e-4) displayed = bounds.max;
+    if (bounds.min > 0 && displayed < bounds.min + 1e-4) displayed = bounds.min;
     const p = displayed;
     if (chapterId === 'corridor') story.observe(previousDisplayed, p);
     else if (chapterId === 'office') {
