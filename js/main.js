@@ -74,8 +74,8 @@ import {
   apartmentNarrative,
   APARTMENT_METERS,
   APARTMENT_START_Z,
-} from './levels/apartment-story.js?v=apt-5';
-import { apartmentCameraPose } from './levels/apartment-route.js?v=apt-5';
+} from './levels/apartment-story.js?v=apt-7';
+import { apartmentCameraPose } from './levels/apartment-route.js?v=apt-7';
 import {
   createHospitalReverseStory,
   hospitalReverseNarrative,
@@ -315,6 +315,11 @@ const memory = {
   keyPassed: false,
   /** Cassette ids found in the world — stay on the camcorder after inventory consume. */
   discoveredTapes: [],
+  /**
+   * After a story memory exits: 'threshold' | 'end' | null.
+   * null keeps the debug prototype return-to-staging behavior.
+   */
+  storyMemoryExitTo: null,
 };
 
 function discoverTape(tapeId) {
@@ -683,6 +688,11 @@ try {
         // Soft recollection beat, then fade into the living room.
         window.clearTimeout(memoryEnterTimer);
         memoryEnterTimer = window.setTimeout(() => { void enterMemoryChapter(); }, 2100);
+      }
+      if (entryId === 'apartment-white-dragon' || entryId === 'apartment-black-dragon') {
+        apartmentStory.takeDragon();
+        window.clearTimeout(memoryEnterTimer);
+        memoryEnterTimer = window.setTimeout(() => { void enterMemoryFromApartment(); }, 2100);
       }
     },
     onUse: (_itemId, targetId) => {
@@ -1733,6 +1743,15 @@ function bindChapterInteractables() {
           // Keep inspectable; exit is via window once ready.
         }
       }
+      if (isApartment() && (spec.id === 'apartment-white-dragon' || spec.id === 'apartment-black-dragon')) {
+        if (apartmentStory.state.dragonTaken || inventory?.has(spec.itemId)) {
+          if (spec.object) {
+            spec.object.visible = false;
+            spec.object.userData.taken = true;
+          }
+          continue;
+        }
+      }
       const entry = interaction.register({ ...spec, sceneRoot: scene });
       if (spec.id === 'locked-doorknob' && corridor?.isLockedDoorOpen?.()) {
         entry.unlocked = true;
@@ -1806,6 +1825,23 @@ async function exitMemoryChapter() {
   memoryStoryFor().finishExit();
   look?.setMaxYaw();
   look?.reset();
+  if (chapterId === 'memory-black') audio.exitMemoryBlack();
+  else audio.exitMemoryWhite();
+
+  // Story path: memory closes into the next chapter handoff (end card).
+  const storyExit = memory.storyMemoryExitTo;
+  memory.storyMemoryExitTo = null;
+  if (storyExit === 'threshold' || storyExit === 'end') {
+    director.get(chapterId)?.syncPhase(memoryStoryFor().state);
+    bindChapterInteractables();
+    renderer.render(scene, camera);
+    transitioning = false;
+    el.veil.classList.remove('is-active');
+    showEndCard(storyExit === 'end' ? 'apartment-return' : 'apartment-first');
+    return;
+  }
+
+  // Debug prototypes: return to the staging foyer.
   bindChapterInteractables();
   director.get(chapterId)?.syncPhase(memoryStoryFor().state);
   progress = displayed = 0.62;
@@ -1813,11 +1849,81 @@ async function exitMemoryChapter() {
   camera.rotation.set(0, 0, 0);
   window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
   scrollTrigger?.update();
-  if (chapterId === 'memory-black') audio.exitMemoryBlack();
-  else audio.exitMemoryWhite();
   renderer.render(scene, camera);
   transitioning = false;
   el.veil.classList.remove('is-active');
+}
+
+/**
+ * Apartment story visit → white/black remembered-home memory.
+ * Skips the staging foyer; the dragon was already taken in the apartment.
+ */
+async function enterMemoryFromApartment() {
+  if (!isApartment() || transitioning) return;
+  const visit = apartmentStory.state.visit;
+  if (visit !== 'first' && visit !== 'return') return;
+  const target = visit === 'return' ? 'memory-black' : 'memory-white';
+  transitioning = true;
+  interaction?.close();
+  closeInventoryOverlays();
+  el.veil.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 820));
+  let module = null;
+  try {
+    const mod = target === 'memory-black'
+      ? await import('./levels/memory-black.js')
+      : await import('./levels/memory-white.js');
+    const create = target === 'memory-black' ? mod.createMemoryBlack : mod.createMemoryWhite;
+    module = create(scene);
+    preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
+    director.dispose();
+    director = createSceneDirector();
+    const memStory = memoryStoryFor(target);
+    memStory.reset();
+    memStory.takeDragon();
+    memStory.enterMemory();
+    director.add(target, module);
+    director.activate(target);
+    director.get(target)?.syncPhase(memStory.state);
+    chapterId = target;
+    apartmentStory.reset();
+    memory.storyMemoryExitTo = visit === 'return' ? 'end' : 'threshold';
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
+    if (target === 'memory-black') audio.enterMemoryBlack();
+    else audio.enterMemoryWhite();
+    hideEndCard();
+    el.location.textContent = target === 'memory-black'
+      ? 'MEMORY / BLACK DRAGON'
+      : 'MEMORY / WHITE DRAGON';
+    look?.setMaxYaw(1.25);
+    progress = displayed = 0;
+    const pose = memoryHomeCameraPose(0, 'memory');
+    camera.position.set(pose.x, 1.55, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+    camera.far = 65;
+    camera.updateProjectionMatrix();
+    camera.rotation.order = 'XYZ';
+    window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
+    scrollTrigger?.update();
+    lastTime = performance.now();
+    renderer.render(scene, camera);
+    console.info(`[Behind.] Memory entered from apartment · ${target}`);
+  } catch (error) {
+    module?.dispose?.();
+    console.error('[Behind.] Apartment → memory transition failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `Memory could not be loaded: ${error.message}`;
+  } finally {
+    transitioning = false;
+    el.veil.classList.remove('is-active');
+  }
 }
 
 function drawBrassKeyPreview(canvas) {
@@ -2157,7 +2263,7 @@ function applyInventorySnapshot(items = [], equippedWeaponId = null) {
 }
 
 function saveChapterStartCheckpoint() {
-  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen', 'apartment'].includes(chapterId)) return;
   for (const key of [...savedCheckpointKeys]) {
     if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
   }
@@ -2167,7 +2273,7 @@ function saveChapterStartCheckpoint() {
 const savedCheckpointKeys = new Set();
 
 function saveSafeCheckpoint(reason = '') {
-  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen', 'apartment'].includes(chapterId)) return;
   if (gameOverActive || transitioning || steady?.isActive) return;
   if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
   checkpoints.saveLatest(captureCheckpointSnapshot());
@@ -2178,7 +2284,7 @@ function saveSafeCheckpoint(reason = '') {
 }
 
 function maybeAutoCheckpoint() {
-  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen', 'apartment'].includes(chapterId)) return;
   if (chapterId === 'corridor' && story.state.reachedDeadEnd
       && !composureHits.has('corridor-cascade')) {
     saveSafeCheckpoint('corridor-dead-end');
@@ -2313,6 +2419,12 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     } else if (target === 'unseen') {
       Object.assign(unseenStory.state, snapshot.unseen || {});
       director?.reset();
+    } else if (target === 'apartment') {
+      Object.assign(apartmentStory.state, snapshot.apartment || {});
+      director?.reset();
+      director.get('apartment')?.setLightingMode?.(apartmentStory.state.lightingMode);
+      director.get('apartment')?.setObjectState?.(apartmentStory.state.objects);
+      look?.setMaxYaw(1.2);
     }
     composureHits.clear();
     for (const id of snapshot.composureHits || []) composureHits.add(id);
@@ -2893,9 +3005,20 @@ function setEndCard(which) {
   } else if (which === 'interlude') {
     el.endingEyebrow.textContent = 'LEVEL 05B COMPLETE · THE IN-BETWEEN';
     el.endingTitle.innerHTML = 'STILL<br>ORDINARY.';
-    el.endingCopy.textContent = 'The passage ends. Another corridor waits ahead.';
+    el.endingCopy.textContent = 'The passage softens. Somewhere that almost feels like home.';
+    el.continue.textContent = 'CONTINUE INTO THE APARTMENT ↑';
+    el.continue.hidden = false;
+  } else if (which === 'apartment-first') {
+    el.endingEyebrow.textContent = 'THE APARTMENT · FIRST VISIT';
+    el.endingTitle.innerHTML = 'INCOMPLETE<br>BUT WARM.';
+    el.endingCopy.textContent = 'The white dragon stays with you. The rest of the building is still waiting.';
     el.continue.textContent = 'CONTINUE INTO THE THRESHOLD ↑';
     el.continue.hidden = false;
+  } else if (which === 'apartment-return') {
+    el.endingEyebrow.textContent = 'THE APARTMENT · RETURN';
+    el.endingTitle.innerHTML = 'YOU CAME<br>BACK.';
+    el.endingCopy.textContent = 'The black dragon remembers what you tried to leave.';
+    el.continue.hidden = true;
   } else if (which === 'office') {
     el.endingEyebrow.textContent = 'LEVEL 02 COMPLETE · THE OFFICE';
     el.endingTitle.innerHTML = 'WHAT WAS<br>LEFT BEHIND.';
@@ -2945,8 +3068,9 @@ function setEndCard(which) {
   } else {
     el.endingEyebrow.textContent = 'LEVEL 07 COMPLETE · THE UNSEEN';
     el.endingTitle.innerHTML = 'IT\'S STILL<br>THERE.';
-    el.endingCopy.textContent = 'The access passage is silent. For now.';
-    el.continue.hidden = true;
+    el.endingCopy.textContent = 'The access passage is silent. Something pulls you back.';
+    el.continue.textContent = 'RETURN TO THE APARTMENT ↑';
+    el.continue.hidden = false;
   }
 }
 
@@ -2959,6 +3083,8 @@ function showEndCard(which) {
           : which === 'night' ? '04'
             : which === 'stairwells' ? '05'
               : which === 'interlude' ? '05b'
+                : which === 'apartment-first' ? 'apt-1'
+                  : which === 'apartment-return' ? 'apt-2'
                 : which === 'threshold' ? '06'
                   : which === 'hospital-reverse' ? 'ward'
                     : '07';
@@ -3029,6 +3155,8 @@ function reset() {
   memory.extraStepHeard = false;
   memory.keyPassed = false;
   memory.discoveredTapes = [];
+  memory.storyMemoryExitTo = null;
+  apartmentStory.reset();
   keypad?.close();
   audio.reset();
   composure.reset();
@@ -3107,7 +3235,10 @@ async function enterInterlude() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createInterlude } = await import('./levels/interlude.js?v=ib-9');
+    // Story path always uses the residential In-Between before the apartment.
+    procgenSession.setTheme('residential');
+    const { createInterlude, clearInterludePlanCache } = await import('./levels/interlude.js?v=ib-9');
+    clearInterludePlanCache?.();
     module = createInterlude(scene, interludeCreateOpts());
     preserveCarryInventory();
     interaction?.clear();
@@ -3364,15 +3495,140 @@ async function enterStairwells() {
 }
 
 /**
- * Stairwells or In-Between → Threshold (Chapter 06).
+ * In-Between → Apartment (first visit — white dragon memory).
+ */
+async function enterApartmentFirst() {
+  if (!ended || chapterId !== 'interlude' || transitioning) return;
+  transitioning = true;
+  el.veil.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
+  let module = null;
+  try {
+    const { createApartment } = await import('./levels/apartment.js?v=apt-7');
+    apartmentStory.reset({ visit: 'first', lightingMode: 'warm' });
+    module = createApartment(scene, {
+      lightingMode: apartmentStory.state.lightingMode,
+      visit: 'first',
+    });
+    preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
+    director.dispose();
+    director = createSceneDirector();
+    director.add('apartment', module);
+    director.activate('apartment');
+    chapterId = 'apartment';
+    interludeStory.reset();
+    memory.storyMemoryExitTo = null;
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
+    audio.enterMemoryWhite();
+    hideEndCard();
+    el.location.textContent = 'THE APARTMENT / FIRST VISIT';
+    progress = displayed = 0;
+    look?.setMaxYaw(1.2);
+    camera.far = 65;
+    camera.updateProjectionMatrix();
+    camera.rotation.order = 'XYZ';
+    const pose = apartmentCameraPose(0);
+    camera.position.set(pose.x, 1.65, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+    module.setLightingMode?.(apartmentStory.state.lightingMode);
+    module.setObjectState?.(apartmentStory.state.objects);
+    window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
+    scrollTrigger?.update();
+    lastTime = performance.now();
+    saveChapterStartCheckpoint();
+    renderer.render(scene, camera);
+    console.info('[Behind.] Apartment · first visit');
+  } catch (error) {
+    if (chapterId === 'interlude') module?.dispose?.();
+    console.error('[Behind.] Apartment (first) transition failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `The apartment could not be loaded: ${error.message}`;
+  } finally {
+    transitioning = false;
+    el.veil.classList.remove('is-active');
+  }
+}
+
+/**
+ * Unseen → Apartment return (black dragon memory).
+ */
+async function enterApartmentReturn() {
+  if (!ended || chapterId !== 'unseen' || transitioning) return;
+  transitioning = true;
+  el.veil.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
+  let module = null;
+  try {
+    const { createApartment } = await import('./levels/apartment.js?v=apt-7');
+    apartmentStory.reset({ visit: 'return', lightingMode: 'night' });
+    module = createApartment(scene, {
+      lightingMode: apartmentStory.state.lightingMode,
+      visit: 'return',
+    });
+    preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
+    director.dispose();
+    director = createSceneDirector();
+    director.add('apartment', module);
+    director.activate('apartment');
+    chapterId = 'apartment';
+    unseenStory.reset();
+    memory.storyMemoryExitTo = null;
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
+    audio.enterMemoryBlack();
+    hideEndCard();
+    el.location.textContent = 'THE APARTMENT / RETURN';
+    progress = displayed = 0;
+    look?.setMaxYaw(1.2);
+    camera.far = 65;
+    camera.updateProjectionMatrix();
+    camera.rotation.order = 'XYZ';
+    const pose = apartmentCameraPose(0);
+    camera.position.set(pose.x, 1.65, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+    module.setLightingMode?.(apartmentStory.state.lightingMode);
+    module.setObjectState?.(apartmentStory.state.objects);
+    window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
+    scrollTrigger?.update();
+    lastTime = performance.now();
+    saveChapterStartCheckpoint();
+    renderer.render(scene, camera);
+    console.info('[Behind.] Apartment · return visit');
+  } catch (error) {
+    if (chapterId === 'unseen') module?.dispose?.();
+    console.error('[Behind.] Apartment (return) transition failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `The apartment could not be loaded: ${error.message}`;
+  } finally {
+    transitioning = false;
+    el.veil.classList.remove('is-active');
+  }
+}
+
+/**
+ * Apartment first visit (after white memory) or debug skip → Threshold (Chapter 06).
  * The occluding veil conceals chapter resource swaps; restore default camera
  * far/order before the red hall.
  */
 async function enterThreshold() {
   if (!ended || transitioning) return;
-  if (chapterId !== 'stairwells' && chapterId !== 'interlude') return;
-  // When the story interlude is armed, Stairwells must not skip it.
-  if (chapterId === 'stairwells' && !interludeSkip) return;
+  const fromSkip = chapterId === 'stairwells' && interludeSkip;
+  const fromMemory = chapterId === 'memory-white';
+  const fromApartment = chapterId === 'apartment' && apartmentStory.state.visit === 'first';
+  if (!fromSkip && !fromMemory && !fromApartment) return;
   transitioning = true;
   el.veil.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
@@ -3390,7 +3646,10 @@ async function enterThreshold() {
     chapterId = 'threshold';
     stairwellsStory.reset();
     interludeStory.reset();
+    apartmentStory.reset();
+    memoryWhiteStory.reset();
     thresholdStory.reset();
+    memory.storyMemoryExitTo = null;
     syncNightCombatFlag();
     outsideDialogue.clearSession();
     el.line.classList.remove('is-outside');
@@ -3415,7 +3674,7 @@ async function enterThreshold() {
     renderer.render(scene, camera);
     console.info('[Behind.] Level 06 entered · 5.5 m/s max · procedural corruption');
   } catch (error) {
-    if (chapterId === 'stairwells') module?.dispose?.();
+    module?.dispose?.();
     console.error('[Behind.] Threshold transition failed:', error);
     el.fallback.hidden = false;
     el.fallback.textContent = `The Threshold could not be loaded: ${error.message}`;
@@ -3493,7 +3752,7 @@ const DEV_CHAPTER_CONFIG = {
   unseen:    { start: 0, z: UNSEEN_START_Z, location: 'SERVICE LEVEL / MAINTENANCE' },
   'memory-white': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / WHITE DRAGON (DEV)' },
   'memory-black': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / BLACK DRAGON (DEV)' },
-  apartment: { start: 0, z: APARTMENT_START_Z, location: 'DEV / APARTMENT' },
+  apartment: { start: 0, z: APARTMENT_START_Z, location: 'THE APARTMENT / DEBUG' },
   'hospital-reverse': { start: 0, z: HOSPITAL_REVERSE_START_Z, location: 'DEV / THE WARD' },
   interlude: { start: 0, z: INTERLUDE_START_Z, location: 'SERVICE LEVEL / THE IN-BETWEEN' },
   'stairwells': {
@@ -3571,10 +3830,11 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'apartment') {
-      const { createApartment } = await import('./levels/apartment.js?v=apt-5');
-      apartmentStory.reset();
+      const { createApartment } = await import('./levels/apartment.js?v=apt-7');
+      apartmentStory.reset({ visit: 'debug' });
       next.add('apartment', createApartment(scene, {
         lightingMode: apartmentStory.state.lightingMode,
+        visit: 'debug',
       }));
     } else if (target === 'hospital-reverse') {
       const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-gurney-side-1');
@@ -3630,6 +3890,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     memory.photographPassed = false;
     memory.extraStepHeard = false;
     memory.keyPassed = false;
+    memory.storyMemoryExitTo = null;
     keypad?.close();
     cancelWardClankPeak();
     audio.cancelWardDelayedSfx?.();
@@ -3789,8 +4050,13 @@ function continueChapter() {
   if (chapterId === 'stairwells') {
     return interludeSkip ? enterThreshold() : enterInterlude();
   }
-  if (chapterId === 'interlude') return enterThreshold();
+  if (chapterId === 'interlude') return enterApartmentFirst();
+  if (chapterId === 'memory-white') return enterThreshold();
+  if (chapterId === 'apartment' && apartmentStory.state.visit === 'first') {
+    return enterThreshold();
+  }
   if (chapterId === 'threshold') return enterUnseen();
+  if (chapterId === 'unseen') return enterApartmentReturn();
 }
 
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.

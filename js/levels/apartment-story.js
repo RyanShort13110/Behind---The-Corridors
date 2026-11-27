@@ -1,7 +1,7 @@
 /**
- * Apartment — debug-only handcrafted domestic chapter.
- * Quiet exploration foundation for future white/black dragon memory variants.
- * No dialogue, enemies, or QTEs.
+ * Apartment — domestic chapter used in story (first visit / return) and debug.
+ * First visit → white dragon memory. Return → black dragon memory.
+ * No enemies, QTEs, or chapter dialogue beyond instructions.
  */
 
 export const APARTMENT_START_Z = 3.8;
@@ -17,6 +17,9 @@ export const APARTMENT_ZONES = Object.freeze({
   bedroom: Object.freeze({ start: 0.88, end: 1, label: 'BEDROOM DOOR' }),
 });
 
+/**
+ * @param {{ visit?: 'debug' | 'first' | 'return', lightingMode?: 'warm' | 'day' | 'night' }} [opts]
+ */
 export function createApartmentStory() {
   const state = {
     direction: 'forward',
@@ -24,15 +27,17 @@ export function createApartmentStory() {
     completed: false,
     zoneId: 'living',
     zoneLabel: APARTMENT_ZONES.living.label,
-    /** Lighting preset for future memory variants: warm | day | night */
+    /** debug = explorer only; first = white dragon; return = black dragon */
+    visit: 'debug',
     lightingMode: 'warm',
-    /** Object / prop state hooks (memory variants flip these). */
+    dragonTaken: false,
     objects: {
       lampOn: true,
       kitchenLightOn: true,
       tvOn: false,
       curtainsOpen: true,
       bedroomDoorAjar: true,
+      entranceDoorAjar: false,
     },
   };
 
@@ -42,6 +47,31 @@ export function createApartmentStory() {
       if (p >= zone.start && p < zone.end) return { id, ...zone };
     }
     return { id: 'bedroom', ...APARTMENT_ZONES.bedroom };
+  }
+
+  function applyVisitDefaults(visit) {
+    state.visit = visit === 'first' || visit === 'return' ? visit : 'debug';
+    if (state.visit === 'return') {
+      state.lightingMode = 'night';
+      state.objects = {
+        lampOn: true,
+        kitchenLightOn: false,
+        tvOn: false,
+        curtainsOpen: false,
+        bedroomDoorAjar: true,
+        entranceDoorAjar: false,
+      };
+    } else {
+      state.lightingMode = 'warm';
+      state.objects = {
+        lampOn: true,
+        kitchenLightOn: true,
+        tvOn: false,
+        curtainsOpen: true,
+        bedroomDoorAjar: true,
+        entranceDoorAjar: false,
+      };
+    }
   }
 
   return {
@@ -55,36 +85,65 @@ export function createApartmentStory() {
       const zone = zoneAt(current);
       state.zoneId = zone.id;
       state.zoneLabel = zone.label;
-      if (current >= APARTMENT_END_PROGRESS) state.completed = true;
+      // Story visits complete via memory handoff, not rail end.
+      if (state.visit === 'debug' && current >= APARTMENT_END_PROGRESS) {
+        state.completed = true;
+      }
+    },
+    configure({ visit = 'debug', lightingMode } = {}) {
+      applyVisitDefaults(visit);
+      if (lightingMode === 'day' || lightingMode === 'night' || lightingMode === 'warm') {
+        state.lightingMode = lightingMode;
+      }
+    },
+    takeDragon() {
+      state.dragonTaken = true;
     },
     setLightingMode(mode) {
       if (mode === 'day' || mode === 'night' || mode === 'warm') {
         state.lightingMode = mode;
       }
     },
-    setObjectState( partial = {}) {
+    setObjectState(partial = {}) {
       Object.assign(state.objects, partial);
     },
-    reset() {
+    reset(opts = {}) {
       state.direction = 'forward';
       state.hasBacktracked = false;
       state.completed = false;
       state.zoneId = 'living';
       state.zoneLabel = APARTMENT_ZONES.living.label;
-      state.lightingMode = 'warm';
-      state.objects = {
-        lampOn: true,
-        kitchenLightOn: true,
-        tvOn: false,
-        curtainsOpen: true,
-        bedroomDoorAjar: true,
-      };
+      state.dragonTaken = false;
+      applyVisitDefaults(opts.visit || 'debug');
+      if (opts.lightingMode === 'day' || opts.lightingMode === 'night' || opts.lightingMode === 'warm') {
+        state.lightingMode = opts.lightingMode;
+      }
     },
   };
 }
 
 export function apartmentNarrative(_progress, state) {
   const zone = state.zoneLabel ? ` · ${state.zoneLabel}` : '';
+  if (state.visit === 'first') {
+    return {
+      chapter: `THE APARTMENT · FIRST VISIT${zone}`,
+      line: '',
+      dialogueId: '',
+      instruction: state.dragonTaken
+        ? 'REMEMBERING…'
+        : 'SCROLL UP · LOOK FOR WHAT WAS LEFT ↑',
+    };
+  }
+  if (state.visit === 'return') {
+    return {
+      chapter: `THE APARTMENT · RETURN${zone}`,
+      line: '',
+      dialogueId: '',
+      instruction: state.dragonTaken
+        ? 'REMEMBERING…'
+        : 'SCROLL UP · SOMETHING ELSE IS HERE ↑',
+    };
+  }
   return {
     chapter: `DEV — APARTMENT${zone}`,
     line: '',

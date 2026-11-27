@@ -9,13 +9,13 @@ const OPTIONS = [
   ['records', '03 — The Records', '03'],
   ['night', '04 — The Night Shift', '04'],
   ['stairwells', '05 — The Stairwells', '05'],
+  ['interlude', '05B — Residential In-Between', 'interlude'],
+  ['apartment', 'Apartment (debug rail)', 'apartment'],
+  ['memory-white', 'Memory — White Dragon', 'memory-white'],
   ['threshold', '06 — The Threshold', '06'],
   ['unseen', '07 — The Unseen', '07'],
-  ['memory-white', 'DEV — White Memory', 'memory-white'],
-  ['memory-black', 'DEV — Black Memory', 'memory-black'],
-  ['apartment', 'DEV — Apartment', 'apartment'],
+  ['memory-black', 'Memory — Black Dragon', 'memory-black'],
   ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
-  ['interlude', '05B — The In-Between', 'interlude'],
 ];
 const STAIRWELLS_CHAPTERS = new Set(['stairwells']);
 

@@ -1,25 +1,97 @@
 /**
- * Apartment — debug-only handcrafted domestic chapter.
+ * Apartment — shared handcrafted domestic environment.
  *
- * Reuses the remembered-home living-room architectural language (materials,
- * aisle furniture, window treatment) and expands it into a small apartment:
- * living room → kitchen → short hallway → bedroom entrance.
+ * Present-day chapter, future white/black memories, and apartment VHS all
+ * reuse this geometry + scroll rail. Visual presets swap lighting /
+ * atmosphere / object state without rebuilding the room.
  *
- * Structured for future white/black dragon memory lighting & object states.
  * Scroll-rail only; no enemies, dialogue, or QTEs.
  */
 
 import * as THREE from 'three';
-import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-5';
+import { createStuffedDragon } from '../props/stuffed-dragon.js';
+import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-7';
+
+/** @typedef {'present' | 'memory-white' | 'memory-black' | 'vhs'} ApartmentPreset */
+
+export const APARTMENT_PRESETS = Object.freeze({
+  present: Object.freeze({
+    lighting: 'warm',
+    objects: Object.freeze({
+      lampOn: true,
+      kitchenLightOn: true,
+      tvOn: false,
+      curtainsOpen: true,
+      bedroomDoorAjar: true,
+      entranceDoorAjar: false,
+    }),
+  }),
+  'memory-white': Object.freeze({
+    lighting: 'day',
+    objects: Object.freeze({
+      lampOn: false,
+      kitchenLightOn: false,
+      tvOn: false,
+      curtainsOpen: true,
+      bedroomDoorAjar: true,
+      entranceDoorAjar: false,
+    }),
+  }),
+  'memory-black': Object.freeze({
+    lighting: 'night',
+    objects: Object.freeze({
+      lampOn: true,
+      kitchenLightOn: false,
+      tvOn: false,
+      curtainsOpen: false,
+      bedroomDoorAjar: true,
+      entranceDoorAjar: false,
+    }),
+  }),
+  vhs: Object.freeze({
+    lighting: 'vhs',
+    objects: Object.freeze({
+      lampOn: true,
+      kitchenLightOn: true,
+      tvOn: true,
+      curtainsOpen: false,
+      bedroomDoorAjar: false,
+      entranceDoorAjar: false,
+    }),
+  }),
+});
+
+function resolvePreset(name) {
+  return APARTMENT_PRESETS[name] ? name : 'present';
+}
+
+/** Map legacy lightingMode opts onto a preset when `preset` is omitted. */
+function presetFromLegacyLighting(mode) {
+  if (mode === 'day') return 'memory-white';
+  if (mode === 'night') return 'memory-black';
+  return 'present';
+}
 
 /**
  * @param {THREE.Scene} scene
- * @param {{ lightingMode?: 'warm' | 'day' | 'night' }} [opts]
+ * @param {{
+ *   preset?: ApartmentPreset,
+ *   lightingMode?: 'warm' | 'day' | 'night' | 'vhs',
+ *   visit?: 'debug' | 'first' | 'return',
+ * }} [opts]
  */
-export function createApartment(scene, { lightingMode = 'warm' } = {}) {
+export function createApartment(scene, {
+  preset,
+  lightingMode,
+  visit = 'debug',
+} = {}) {
   const world = new THREE.Group();
-  world.name = 'DEV / Apartment';
+  world.name = visit === 'debug' ? 'DEV / Apartment' : 'The Apartment';
   scene.add(world);
+  const dragonVariant = visit === 'return' ? 'black' : visit === 'first' ? 'white' : null;
+  const initialPreset = resolvePreset(
+    preset || (lightingMode ? presetFromLegacyLighting(lightingMode) : 'present'),
+  );
 
   const materials = createApartmentMaterials();
   const cube = new THREE.BoxGeometry(1, 1, 1);
@@ -49,16 +121,26 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
     return pt;
   };
 
-  // Named zones for memory / lighting hooks.
+  // Named zones / landmark parents for memories, VHS, and tooling.
   const livingRoom = new THREE.Group();
-  livingRoom.name = 'apartment/living';
+  livingRoom.name = 'apartment/living-room';
   const kitchen = new THREE.Group();
   kitchen.name = 'apartment/kitchen';
   const hallway = new THREE.Group();
   hallway.name = 'apartment/hallway';
   const bedroomEntrance = new THREE.Group();
-  bedroomEntrance.name = 'apartment/bedroom-entrance';
-  world.add(livingRoom, kitchen, hallway, bedroomEntrance);
+  bedroomEntrance.name = 'apartment/bedroom';
+  const entrance = new THREE.Group();
+  entrance.name = 'apartment/entrance';
+  world.add(livingRoom, kitchen, hallway, bedroomEntrance, entrance);
+
+  const markLandmark = (name, x, y, z, parent) => {
+    const anchor = new THREE.Object3D();
+    anchor.name = `landmark/${name}`;
+    anchor.position.set(x, y, z);
+    parent.add(anchor);
+    return anchor;
+  };
 
   // ——— Shell: continuous floor / ceiling along the rail ———
   // Living (wide) → kitchen pocket (right) → vestibule → hall → bedroom door.
@@ -109,8 +191,28 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   add(0.14, WIN_SILL_Y, WIN_OPEN + 0.04, -3.3, WIN_SILL_Y * 0.5, WIN_Z, materials.wall, livingRoom);
   add(0.14, 2.95 - WIN_HEAD_Y, WIN_OPEN + 0.04, -3.3, (WIN_HEAD_Y + 2.95) * 0.5, WIN_Z, materials.wall, livingRoom);
 
-  // Entry wall BEHIND the camera start (was occluding the first meters)
-  add(6.6, 2.95, 0.14, 0, 1.42, ENTRY_Z, materials.wall, livingRoom);
+  // Apartment entrance BEHIND the camera start — punched door for future VHS knocking.
+  const ENTRY_OPEN_W = 1.0;
+  const ENTRY_OPEN_H = 2.2;
+  const entryPierW = (6.6 - ENTRY_OPEN_W) * 0.5;
+  add(entryPierW, 2.95, 0.14, -(ENTRY_OPEN_W + entryPierW) * 0.5, 1.42, ENTRY_Z, materials.wall, entrance);
+  add(entryPierW, 2.95, 0.14, (ENTRY_OPEN_W + entryPierW) * 0.5, 1.42, ENTRY_Z, materials.wall, entrance);
+  add(ENTRY_OPEN_W + 0.04, 2.95 - ENTRY_OPEN_H, 0.14, 0, ENTRY_OPEN_H + (2.95 - ENTRY_OPEN_H) * 0.5, ENTRY_Z, materials.wall, entrance);
+  add(0.08, ENTRY_OPEN_H + 0.12, 0.1, -ENTRY_OPEN_W * 0.5, ENTRY_OPEN_H * 0.5, ENTRY_Z - 0.04, materials.trim, entrance);
+  add(0.08, ENTRY_OPEN_H + 0.12, 0.1, ENTRY_OPEN_W * 0.5, ENTRY_OPEN_H * 0.5, ENTRY_Z - 0.04, materials.trim, entrance);
+  add(ENTRY_OPEN_W + 0.16, 0.08, 0.1, 0, ENTRY_OPEN_H + 0.02, ENTRY_Z - 0.04, materials.trim, entrance);
+  // Door leaf hinged on the right jamb, closed into the living room by default.
+  const entranceHinge = new THREE.Group();
+  entranceHinge.name = 'apartment/entrance-door-hinge';
+  entranceHinge.position.set(ENTRY_OPEN_W * 0.5 - 0.02, 0, ENTRY_Z - 0.05);
+  entrance.add(entranceHinge);
+  const entranceDoor = add(0.92, 2.12, 0.05, -0.46, 1.1, 0, materials.door, entranceHinge);
+  entranceDoor.name = 'apartment/entrance-door';
+  add(0.04, 0.08, 0.04, -0.82, 1.1, -0.02, materials.metal, entranceHinge);
+  // Dim exterior pocket beyond the entrance (for future knock / hallway peek).
+  add(1.6, 2.7, 0.1, 0, 1.3, ENTRY_Z + 0.9, materials.wallDim, entrance);
+  add(1.5, 0.1, 1.2, 0, -0.02, ENTRY_Z + 0.55, materials.floor, entrance);
+  const entranceGlow = addLight(0xc8d0d8, 0.15, 3.2, 0, 1.5, ENTRY_Z + 0.55, entrance);
 
   // Living far divider: left pier only — center aisle + kitchen stay open
   add(2.1, 2.95, 0.14, -2.2, 1.42, LIVING_FAR_Z, materials.wall, livingRoom);
@@ -118,18 +220,21 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   add(0.12, 0.14, livingDepth, 3.22, 0.07, livingMidZ, materials.trim, livingRoom);
   add(0.12, 0.14, livingDepth, -3.22, 0.07, livingMidZ, materials.trim, livingRoom);
 
-  // Window trim + glass + curtains
+  // Window trim + glass + curtains — landmark parent
+  const window = new THREE.Group();
+  window.name = 'apartment/window';
+  livingRoom.add(window);
   const winH = WIN_HEAD_Y - WIN_SILL_Y;
   const winMidY = (WIN_SILL_Y + WIN_HEAD_Y) * 0.5;
-  add(0.08, 0.1, WIN_OPEN, -3.22, WIN_SILL_Y, WIN_Z, materials.trim, livingRoom);
-  add(0.08, 0.1, WIN_OPEN, -3.22, WIN_HEAD_Y, WIN_Z, materials.trim, livingRoom);
-  add(0.08, winH, 0.1, -3.22, winMidY, WIN_NEAR - 0.05, materials.trim, livingRoom);
-  add(0.08, winH, 0.1, -3.22, winMidY, WIN_FAR + 0.05, materials.trim, livingRoom);
-  add(0.06, winH - 0.1, 0.06, -3.22, winMidY, WIN_Z, materials.trim, livingRoom);
-  const windowGlass = add(0.03, winH - 0.12, WIN_OPEN - 0.12, -3.18, winMidY, WIN_Z, materials.glass, livingRoom);
+  add(0.08, 0.1, WIN_OPEN, -3.22, WIN_SILL_Y, WIN_Z, materials.trim, window);
+  add(0.08, 0.1, WIN_OPEN, -3.22, WIN_HEAD_Y, WIN_Z, materials.trim, window);
+  add(0.08, winH, 0.1, -3.22, winMidY, WIN_NEAR - 0.05, materials.trim, window);
+  add(0.08, winH, 0.1, -3.22, winMidY, WIN_FAR + 0.05, materials.trim, window);
+  add(0.06, winH - 0.1, 0.06, -3.22, winMidY, WIN_Z, materials.trim, window);
+  const windowGlass = add(0.03, winH - 0.12, WIN_OPEN - 0.12, -3.18, winMidY, WIN_Z, materials.glass, window);
   windowGlass.renderOrder = 2;
-  const curtainL = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z + 0.55, materials.curtain, livingRoom);
-  const curtainR = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z - 0.55, materials.curtain, livingRoom);
+  const curtainL = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z + 0.55, materials.curtain, window);
+  const curtainR = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z - 0.55, materials.curtain, window);
 
   // Soft exterior wash (no free-walk outdoor)
   const outside = new THREE.Group();
@@ -142,14 +247,17 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   add(2.5, 0.03, 4.8, 0, 0.01, -1.6, materials.rug, livingRoom);
   add(2.65, 0.02, 4.95, 0, 0.005, -1.6, materials.rugBorder, livingRoom);
 
-  // Couch (right)
-  add(2.15, 0.4, 0.92, 1.95, 0.3, -2.1, materials.fabric, livingRoom);
-  add(2.15, 0.52, 0.16, 1.95, 0.68, -2.5, materials.fabric, livingRoom);
-  add(0.16, 0.52, 0.85, 1.0, 0.68, -2.05, materials.fabric, livingRoom);
-  add(0.16, 0.52, 0.85, 2.9, 0.68, -2.05, materials.fabric, livingRoom);
-  add(0.4, 0.3, 0.16, 1.45, 0.68, -2.2, materials.pillow, livingRoom);
-  add(0.36, 0.28, 0.14, 2.35, 0.66, -2.25, materials.blanket, livingRoom);
-  add(0.9, 0.05, 0.65, 2.2, 0.52, -1.9, materials.blanket, livingRoom);
+  // Couch (right) — landmark parent
+  const couch = new THREE.Group();
+  couch.name = 'apartment/couch';
+  livingRoom.add(couch);
+  add(2.15, 0.4, 0.92, 1.95, 0.3, -2.1, materials.fabric, couch);
+  add(2.15, 0.52, 0.16, 1.95, 0.68, -2.5, materials.fabric, couch);
+  add(0.16, 0.52, 0.85, 1.0, 0.68, -2.05, materials.fabric, couch);
+  add(0.16, 0.52, 0.85, 2.9, 0.68, -2.05, materials.fabric, couch);
+  add(0.4, 0.3, 0.16, 1.45, 0.68, -2.2, materials.pillow, couch);
+  add(0.36, 0.28, 0.14, 2.35, 0.66, -2.25, materials.blanket, couch);
+  add(0.9, 0.05, 0.65, 2.2, 0.52, -1.9, materials.blanket, couch);
 
   // Floor lamp
   add(0.07, 1.3, 0.07, 2.95, 0.68, -1.05, materials.dark, livingRoom);
@@ -174,6 +282,22 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   addCyl(0.05, 0.09, 1.48, 0.48, -1.08, materials.mug, livingRoom);
   addCyl(0.05, 0.09, 1.82, 0.48, -1.22, materials.mugDark, livingRoom);
   add(0.12, 0.02, 0.18, 1.65, 0.44, -1.35, materials.book, livingRoom);
+
+  // Story dragon — coffee table, clear of the center rail (|x| stays ≥ ~1.4)
+  let dragon = null;
+  const separate = [];
+  if (dragonVariant) {
+    const isBlack = dragonVariant === 'black';
+    dragon = createStuffedDragon({
+      color: isBlack ? 0x0a0c0a : 0xf2f0ea,
+      name: isBlack ? 'apartment-black-dragon' : 'apartment-white-dragon',
+    });
+    dragon.group.position.set(1.65, 0.44, -1.15);
+    dragon.group.rotation.y = -0.65;
+    dragon.group.scale.setScalar(0.88);
+    livingRoom.add(dragon.group);
+    separate.push(dragon);
+  }
 
   // Side plant + shelf (right wall — long along Z, shallow into the room)
   add(0.2, 0.24, 0.2, -2.9, 0.14, -3.55, materials.pot, livingRoom);
@@ -289,14 +413,24 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   add(0.2, 0.14, 0.2, 0.55, 1.2, DOOR_WALL_Z - 1.85, materials.lampShade, bedroomEntrance);
   const bedGlow = addLight(0xffd8a8, 0.55, 3.8, 0.4, 1.35, DOOR_WALL_Z - 1.7, bedroomEntrance);
 
-  // Entry console on the wall behind the camera
+  // Entry console beside the apartment entrance (inside, clear of the door swing)
   add(0.9, 0.06, 0.35, 1.6, 0.85, ENTRY_Z - 0.25, materials.wood, livingRoom);
   add(0.05, 0.8, 0.05, 1.3, 0.42, ENTRY_Z - 0.35, materials.wood, livingRoom);
   add(0.05, 0.8, 0.05, 1.9, 0.42, ENTRY_Z - 0.35, materials.wood, livingRoom);
   addCyl(0.08, 0.18, 1.6, 1.0, ENTRY_Z - 0.25, materials.pot, livingRoom);
   add(0.12, 0.22, 0.12, 1.6, 1.2, ENTRY_Z - 0.25, materials.plant, livingRoom);
 
-  const zones = { livingRoom, kitchen, hallway, bedroomEntrance };
+  const landmarks = {
+    livingRoom: markLandmark('living-room', 0, 1.2, livingMidZ, livingRoom),
+    couch: markLandmark('couch', 1.95, 0.5, -2.1, couch),
+    window: markLandmark('window', -3.1, winMidY, WIN_Z, window),
+    kitchen: markLandmark('kitchen', 2.55, 1.2, vestMidZ, kitchen),
+    hallway: markLandmark('hallway', 0, 1.2, hallMidZ, hallway),
+    bedroom: markLandmark('bedroom', 0, 1.2, DOOR_WALL_Z, bedroomEntrance),
+    entrance: markLandmark('entrance', 0, 1.2, ENTRY_Z, entrance),
+  };
+
+  const zones = { livingRoom, kitchen, hallway, bedroomEntrance, entrance, couch, window };
   const lightRefs = {
     livingLamp,
     livingFill,
@@ -306,6 +440,7 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
     hallSconceB,
     vestFill,
     bedGlow,
+    entranceGlow,
   };
   const propRefs = {
     lampShade,
@@ -313,20 +448,37 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
     curtainL,
     curtainR,
     bedroomDoor,
+    entranceDoor,
     windowGlass,
   };
 
-  let currentLighting = lightingMode;
-  let objectState = {
-    lampOn: true,
-    kitchenLightOn: true,
-    tvOn: false,
-    curtainsOpen: true,
-    bedroomDoorAjar: true,
-  };
+  let currentPreset = initialPreset;
+  let currentLighting = APARTMENT_PRESETS[initialPreset].lighting;
+  let objectState = { ...APARTMENT_PRESETS[initialPreset].objects };
+
+  function lampOnIntensity() {
+    if (currentLighting === 'day') return 0.55;
+    if (currentLighting === 'night') return 1.35;
+    if (currentLighting === 'vhs') return 0.85;
+    return 1.15;
+  }
+
+  function kitchenOnIntensity() {
+    if (currentLighting === 'day') return 0.45;
+    if (currentLighting === 'vhs') return 0.7;
+    return 1.05;
+  }
+
+  function bedroomGlowIntensity() {
+    if (!objectState.bedroomDoorAjar) return 0.04;
+    if (currentLighting === 'night') return 0.4;
+    if (currentLighting === 'day') return 0.25;
+    if (currentLighting === 'vhs') return 0.2;
+    return 0.55;
+  }
 
   function applyLightingMode(mode) {
-    currentLighting = mode === 'day' || mode === 'night' ? mode : 'warm';
+    currentLighting = mode === 'day' || mode === 'night' || mode === 'vhs' ? mode : 'warm';
     if (currentLighting === 'night') {
       scene.background = new THREE.Color(0x1a222c);
       scene.fog = new THREE.FogExp2(0x1a222c, 0.028);
@@ -339,7 +491,8 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       hallSconceA.intensity = 0.4;
       hallSconceB.intensity = 0.35;
       vestFill.intensity = 0.18;
-      bedGlow.intensity = objectState.bedroomDoorAjar ? 0.4 : 0.04;
+      bedGlow.intensity = bedroomGlowIntensity();
+      entranceGlow.intensity = 0.08;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.4 : 0.02;
       materials.exteriorSky.color.set(0x152030);
       materials.exteriorSky.emissive.set(0x0a1218);
@@ -356,13 +509,33 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       hallSconceA.intensity = 0.28;
       hallSconceB.intensity = 0.25;
       vestFill.intensity = 0.22;
-      bedGlow.intensity = objectState.bedroomDoorAjar ? 0.25 : 0.04;
+      bedGlow.intensity = bedroomGlowIntensity();
+      entranceGlow.intensity = 0.22;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.2 : 0.02;
       materials.exteriorSky.color.set(0xc8e4f6);
       materials.exteriorSky.emissive.set(0x8eb8d8);
       materials.exteriorSky.emissiveIntensity = 0.55;
+    } else if (currentLighting === 'vhs') {
+      // Flat, slightly cool found-footage grade — ready for future tape overlay.
+      scene.background = new THREE.Color(0x2a3228);
+      scene.fog = new THREE.FogExp2(0x2a3228, 0.02);
+      livingAmb.color.set(0xb8c4a8);
+      livingAmb.groundColor.set(0x2a3020);
+      livingAmb.intensity = 0.42;
+      livingFill.intensity = 0.28;
+      livingLamp.intensity = objectState.lampOn ? 0.85 : 0.05;
+      kitchenLamp.intensity = objectState.kitchenLightOn ? 0.7 : 0.05;
+      hallSconceA.intensity = 0.32;
+      hallSconceB.intensity = 0.28;
+      vestFill.intensity = 0.2;
+      bedGlow.intensity = bedroomGlowIntensity();
+      entranceGlow.intensity = 0.12;
+      materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.28 : 0.02;
+      materials.exteriorSky.color.set(0x1a2818);
+      materials.exteriorSky.emissive.set(0x0c1408);
+      materials.exteriorSky.emissiveIntensity = 0.18;
     } else {
-      // warm (default lived-in evening)
+      // warm / present — lived-in evening
       scene.background = new THREE.Color(0xd8c4a8);
       scene.fog = new THREE.FogExp2(0xd8c4a8, 0.012);
       livingAmb.color.set(0xfff0d8);
@@ -374,7 +547,8 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       hallSconceA.intensity = 0.45;
       hallSconceB.intensity = 0.4;
       vestFill.intensity = 0.35;
-      bedGlow.intensity = objectState.bedroomDoorAjar ? 0.55 : 0.04;
+      bedGlow.intensity = bedroomGlowIntensity();
+      entranceGlow.intensity = 0.15;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.35 : 0.02;
       materials.exteriorSky.color.set(0xb8d0e0);
       materials.exteriorSky.emissive.set(0x6a90a8);
@@ -384,15 +558,11 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
 
   function applyObjectState(partial = {}) {
     Object.assign(objectState, partial);
-    livingLamp.intensity = objectState.lampOn
-      ? (currentLighting === 'day' ? 0.55 : currentLighting === 'night' ? 1.35 : 1.15)
-      : 0.05;
+    livingLamp.intensity = objectState.lampOn ? lampOnIntensity() : 0.05;
     materials.lampShade.emissiveIntensity = objectState.lampOn
-      ? (currentLighting === 'day' ? 0.2 : 0.35)
+      ? (currentLighting === 'day' ? 0.2 : currentLighting === 'vhs' ? 0.28 : 0.35)
       : 0.02;
-    kitchenLamp.intensity = objectState.kitchenLightOn
-      ? (currentLighting === 'day' ? 0.45 : 1.05)
-      : 0.05;
+    kitchenLamp.intensity = objectState.kitchenLightOn ? kitchenOnIntensity() : 0.05;
     tvScreen.material = objectState.tvOn ? materials.screenOn : materials.screenOff;
     curtainL.visible = true;
     curtainR.visible = true;
@@ -402,30 +572,74 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
     curtainL.scale.z = objectState.curtainsOpen ? 1 : 2.2;
     curtainR.scale.z = objectState.curtainsOpen ? 1 : 2.2;
     doorHinge.rotation.y = objectState.bedroomDoorAjar ? -0.55 : 0;
-    bedGlow.intensity = objectState.bedroomDoorAjar
-      ? (currentLighting === 'night' ? 0.4 : currentLighting === 'day' ? 0.25 : 0.55)
-      : 0.04;
+    bedGlow.intensity = bedroomGlowIntensity();
+    // Entrance opens inward (toward -Z / living). Closed = 0.
+    entranceHinge.rotation.y = objectState.entranceDoorAjar ? 0.7 : 0;
   }
 
-  applyLightingMode(currentLighting);
-  applyObjectState(objectState);
+  function applyPreset(name, { mergeObjects = false } = {}) {
+    const id = resolvePreset(name);
+    const cfg = APARTMENT_PRESETS[id];
+    currentPreset = id;
+    if (mergeObjects) {
+      Object.assign(objectState, cfg.objects);
+    } else {
+      objectState = { ...cfg.objects };
+    }
+    applyLightingMode(cfg.lighting);
+    applyObjectState(objectState);
+    return id;
+  }
+
+  applyPreset(initialPreset);
+
+  const interactables = [];
+  if (dragon && dragonVariant) {
+    const isBlack = dragonVariant === 'black';
+    interactables.push({
+      id: isBlack ? 'apartment-black-dragon' : 'apartment-white-dragon',
+      object: dragon.group,
+      radius: 4.2,
+      title: 'STUFFED DRAGON',
+      body: isBlack
+        ? 'Soft. Dark. Heavier than it should be.'
+        : 'Soft. White. Familiar in a way that doesn’t have a name yet.',
+      tooltip: isBlack ? 'A black stuffed dragon.' : 'A white stuffed dragon.',
+      takeable: true,
+      itemId: isBlack ? 'stuffed-dragon-black' : 'stuffed-dragon-white',
+      itemLabel: isBlack ? 'BLACK DRAGON' : 'WHITE DRAGON',
+      previewColor: isBlack ? 0x0a0c0a : 0xf2f0ea,
+    });
+  }
 
   return {
-    interactables: [],
+    interactables,
     rail: { meters: APARTMENT_METERS, startZ: APARTMENT_START_Z },
     zones,
+    landmarks,
+    get preset() { return currentPreset; },
     get lightingMode() { return currentLighting; },
     get objectState() { return { ...objectState }; },
-    setLightingMode: applyLightingMode,
+    /** Apply a named visual preset without rebuilding geometry. */
+    setPreset: applyPreset,
+    /** Legacy warm/day/night (+ vhs) lighting hook — prefer setPreset. */
+    setLightingMode(mode) {
+      if (mode === 'day' || mode === 'night' || mode === 'vhs' || mode === 'warm') {
+        currentLighting = mode;
+        applyLightingMode(mode);
+        applyObjectState(objectState);
+      }
+    },
     setObjectState: applyObjectState,
-    /** Expose for memory prototyping without rebuilding geometry. */
     materials,
     lights,
     props: propRefs,
     lightRefs,
     update(_progress, state) {
       if (!state) return;
-      if (state.lightingMode && state.lightingMode !== currentLighting) {
+      if (state.preset && state.preset !== currentPreset) {
+        applyPreset(state.preset);
+      } else if (state.lightingMode && state.lightingMode !== currentLighting) {
         applyLightingMode(state.lightingMode);
       }
       if (state.objects) {
@@ -436,20 +650,22 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
           || o.tvOn !== objectState.tvOn
           || o.curtainsOpen !== objectState.curtainsOpen
           || o.bedroomDoorAjar !== objectState.bedroomDoorAjar
+          || o.entranceDoorAjar !== objectState.entranceDoorAjar
         ) {
           applyObjectState(o);
         }
       }
+      if (dragon) {
+        dragon.group.visible = !state.dragonTaken;
+        if (state.dragonTaken) dragon.group.userData.taken = true;
+      }
     },
     reset() {
-      applyLightingMode('warm');
-      applyObjectState({
-        lampOn: true,
-        kitchenLightOn: true,
-        tvOn: false,
-        curtainsOpen: true,
-        bedroomDoorAjar: true,
-      });
+      applyPreset(initialPreset);
+      if (dragon) {
+        dragon.group.visible = true;
+        dragon.group.userData.taken = false;
+      }
     },
     dispose() {
       scene.remove(world);
@@ -458,6 +674,7 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
         light.dispose?.();
       }
       for (const d of disposable) d.dispose?.();
+      for (const s of separate) s.dispose?.();
     },
   };
 }

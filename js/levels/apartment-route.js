@@ -2,7 +2,7 @@
  * Straight scroll-rail through the apartment.
  * Same locomotion as corridors / memory-home — progress only, A/D look for discovery.
  */
-import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-5';
+import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-7';
 
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
 

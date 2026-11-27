@@ -347,7 +347,7 @@ export function interludeNarrative(progress, state) {
     line: '',
     dialogueId: '',
     instruction: state.completed
-      ? 'CONTINUE INTO THE THRESHOLD ↑'
+      ? 'CONTINUE INTO THE APARTMENT ↑'
       : 'SCROLL UP TO CONTINUE ↑',
   };
 }
