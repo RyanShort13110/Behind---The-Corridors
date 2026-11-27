@@ -88,12 +88,13 @@ body.debug-performance .perf-hud{display:block}
 .inspect-action{display:inline-block;margin-top:14px;border:1px solid rgba(150,170,166,.45);background:rgba(8,16,18,.75);color:#dce8e6;font:10px/1 'Courier New',monospace;letter-spacing:.2em;padding:10px 16px}
 .inspect-action:hover,.inspect-action:focus-visible{border-color:#c5d8d2;color:#fff}
 .inspect-action[hidden]{display:none}
-.inventory{position:absolute;z-index:6;right:4vw;bottom:78px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .28s,visibility .28s}
+/* Top-right under the 02:17 AM clock — compact satchel launcher. */
+.inventory{position:absolute;z-index:6;top:58px;right:4vw;display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .28s,visibility .28s}
 .inventory.is-visible{opacity:1;visibility:visible;pointer-events:auto}
-.inventory__open{display:inline-flex;align-items:baseline;gap:8px;font:10px/1.4 'Courier New',monospace;letter-spacing:.18em;color:#c5d4cf;background:rgba(4,9,11,.78);border:1px solid rgba(150,170,166,.28);padding:8px 12px;text-shadow:0 2px 12px #000;cursor:pointer}
+.inventory__open{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#c5d4cf;background:rgba(4,9,11,.78);border:1px solid rgba(150,170,166,.28);padding:7px 9px;text-shadow:0 2px 12px #000;cursor:pointer;line-height:0}
 .inventory__open:hover,.inventory__open:focus-visible{border-color:#d2c39a;color:#f0e6c8}
-.inventory__open-label{min-width:0}
-.inventory__open-qty{flex:0 0 auto;letter-spacing:.08em;color:#9eb0aa;font-size:9px}
+.inventory__open-icon{display:block;width:18px;height:18px;flex:0 0 auto}
+.inventory__open-qty{flex:0 0 auto;font:10px/1 'Courier New',monospace;letter-spacing:.08em;color:#9eb0aa;min-width:0.9em;text-align:center}
 /* Legacy item chips kept for safety if any remain */
 .inventory__item{display:inline-flex;align-items:baseline;gap:8px;font:10px/1.4 'Courier New',monospace;letter-spacing:.18em;color:#c5d4cf;background:rgba(4,9,11,.78);border:1px solid rgba(150,170,166,.28);padding:8px 12px;text-shadow:0 2px 12px #000;cursor:pointer}
 .inventory__item:hover,.inventory__item:focus-visible{border-color:#d2c39a;color:#f0e6c8}
@@ -171,7 +172,7 @@ body.debug-performance .perf-hud{display:block}
 .game-over__sub{margin:14px 0 0;font:10px/1 'Courier New',monospace;letter-spacing:.24em;color:#c98982}
 .game-over__actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:36px}
 .game-over__actions .primary{margin:0}
-@media(max-width:650px){.inventory{bottom:110px;right:3vw}.item-detail{bottom:160px;right:3vw}.composure{top:52px;left:3vw}.composure__track{width:64px}.steady{bottom:22vh}.game-over__title{font-size:26px}}
+@media(max-width:650px){.inventory{top:46px;right:3vw}.item-detail{bottom:160px;right:3vw}.composure{top:52px;left:3vw}.composure__track{width:64px}.steady{bottom:22vh}.game-over__title{font-size:26px}}
 @media(prefers-reduced-motion:reduce){.inventory,.item-detail,.composure,.vignette,.steady,.game-over,.inventory-menu{transition:none}}
 
 /* Full-screen survival-horror inventory — no whole-#experience CSS filters. */

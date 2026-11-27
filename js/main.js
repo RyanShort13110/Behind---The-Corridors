@@ -636,7 +636,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     audio?.setLevelBedMuted?.(true);
 
     if (id === 'office-01') {
-      const { createOffice } = await import('./levels/office.js?v=end-note-3');
+      const { createOffice } = await import('./levels/office.js?v=note-size-2');
       const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-9');
       tapeSession = await startOfficeTape01({
         scene,
@@ -1085,7 +1085,7 @@ async function endCamcorderPlayback() {
       director.add('elevator', createElevator(scene));
       el.location.innerHTML = ORIGINAL_LOCATION_HTML;
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=end-note-3');
+      const { createOffice } = await import('./levels/office.js?v=note-size-2');
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
@@ -2248,8 +2248,11 @@ function renderInventory(items) {
     const qty = total > 0
       ? `<span class="inventory__open-qty" aria-hidden="true">${total}</span>`
       : '';
+    const icon = '<svg class="inventory__open-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+      + '<path fill="currentColor" d="M8.2 7.1V5.6c0-2 1.6-3.6 3.8-3.6s3.8 1.6 3.8 3.6v1.5h2.4c.9 0 1.6.7 1.6 1.6v10.6c0 1.2-1 2.2-2.2 2.2H6.4c-1.2 0-2.2-1-2.2-2.2V8.7c0-.9.7-1.6 1.6-1.6h2.4zm1.6 0h4.4V5.6c0-1.1-.9-2-2.2-2s-2.2.9-2.2 2v1.5zm-3.2 1.7v10.5c0 .3.3.6.6.6h10.6c.3 0 .6-.3.6-.6V8.8H6.6zm4.1 3.2c0-.4.3-.7.7-.7h1.2c.4 0 .7.3.7.7v2.4c0 .4-.3.7-.7.7h-1.2c-.4 0-.7-.3-.7-.7v-2.4z"/>'
+      + '</svg>';
     el.inventory.innerHTML = `<button type="button" class="inventory__open" data-inventory-open aria-label="Open inventory${total ? `, ${total} items` : ''}">`
-      + `<span class="inventory__open-label">INVENTORY</span>${qty}</button>`;
+      + `${icon}${qty}</button>`;
   } else {
     el.inventory.innerHTML = '';
   }
@@ -2440,7 +2443,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=end-note-3');
+    const { createOffice } = await import('./levels/office.js?v=note-size-2');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -2799,7 +2802,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=end-note-3');
+      const { createOffice } = await import('./levels/office.js?v=note-size-2');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
