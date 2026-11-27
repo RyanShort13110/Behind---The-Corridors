@@ -13,6 +13,7 @@ const OPTIONS = [
   ['unseen', '07 — The Unseen', '07'],
   ['memory-white', 'DEV — White Memory', 'memory-white'],
   ['memory-black', 'DEV — Black Memory', 'memory-black'],
+  ['apartment', 'DEV — Apartment', 'apartment'],
   ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
   ['interlude', '05B — The In-Between', 'interlude'],
 ];

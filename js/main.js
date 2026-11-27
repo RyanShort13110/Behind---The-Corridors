@@ -70,6 +70,13 @@ import {
 } from './levels/memory-home-story.js';
 import { memoryHomeCameraPose } from './levels/memory-home-route.js';
 import {
+  createApartmentStory,
+  apartmentNarrative,
+  APARTMENT_METERS,
+  APARTMENT_START_Z,
+} from './levels/apartment-story.js?v=apt-1';
+import { apartmentCameraPose } from './levels/apartment-route.js?v=apt-1';
+import {
   createHospitalReverseStory,
   hospitalReverseNarrative,
   hospitalReverseMaxProgress,
@@ -214,6 +221,7 @@ const thresholdStory = createThresholdStory();
 const unseenStory = createUnseenStory();
 const memoryWhiteStory = createMemoryWhiteStory();
 const memoryBlackStory = createMemoryBlackStory();
+const apartmentStory = createApartmentStory();
 const hospitalReverseStory = createHospitalReverseStory();
 const stairwellsStory = createStairwellsStory();
 const audio = createAudioDirector();
@@ -280,6 +288,7 @@ let chapterId = 'corridor';
 let transitioning = false;
 
 const isMemoryChapter = (id = chapterId) => id === 'memory-white' || id === 'memory-black';
+const isApartment = (id = chapterId) => id === 'apartment';
 const isHospitalReverse = (id = chapterId) => id === 'hospital-reverse';
 const isStairwells = (id = chapterId) => id === 'stairwells';
 const memoryStoryFor = (id = chapterId) =>
@@ -522,6 +531,7 @@ function chapterMeters() {
       ? MEMORY_ROOM_METERS
       : MEMORY_STAGING_METERS;
   }
+  if (isApartment()) return APARTMENT_METERS;
   if (isHospitalReverse()) return HOSPITAL_REVERSE_METERS;
   if (isStairwells()) return STAIRWELLS_METERS;
   return UNSEEN_METERS;
@@ -2119,6 +2129,7 @@ function captureCheckpointSnapshot() {
     threshold: { ...thresholdStory.state },
     unseen: { ...unseenStory.state },
     stairwells: { ...stairwellsStory.state },
+    apartment: { ...apartmentStory.state },
   };
 }
 
@@ -3482,6 +3493,7 @@ const DEV_CHAPTER_CONFIG = {
   unseen:    { start: 0, z: UNSEEN_START_Z, location: 'SERVICE LEVEL / MAINTENANCE' },
   'memory-white': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / WHITE DRAGON (DEV)' },
   'memory-black': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / BLACK DRAGON (DEV)' },
+  apartment: { start: 0, z: APARTMENT_START_Z, location: 'DEV / APARTMENT' },
   'hospital-reverse': { start: 0, z: HOSPITAL_REVERSE_START_Z, location: 'DEV / THE WARD' },
   interlude: { start: 0, z: INTERLUDE_START_Z, location: 'SERVICE LEVEL / THE IN-BETWEEN' },
   'stairwells': {
@@ -3558,6 +3570,12 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createMemoryBlack } = await import('./levels/memory-black.js');
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
+    } else if (target === 'apartment') {
+      const { createApartment } = await import('./levels/apartment.js?v=apt-1');
+      apartmentStory.reset();
+      next.add('apartment', createApartment(scene, {
+        lightingMode: apartmentStory.state.lightingMode,
+      }));
     } else if (target === 'hospital-reverse') {
       const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-gurney-side-1');
       hospitalReverseStory.reset();
@@ -3603,6 +3621,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     unseenStory.reset();
     if (target !== 'memory-white') memoryWhiteStory.reset();
     if (target !== 'memory-black') memoryBlackStory.reset();
+    if (target !== 'apartment') apartmentStory.reset();
     if (target !== 'hospital-reverse') hospitalReverseStory.reset();
     if (target !== 'stairwells') stairwellsStory.reset();
     memory.chaptersCompleted.length = 0;
@@ -3623,6 +3642,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     else if (target === 'threshold') audio.enterThreshold();
     else if (target === 'unseen') audio.enterUnseen();
     else if (isMemoryChapter(target)) audio.enterMemoryStaging();
+    else if (target === 'apartment') audio.enterMemoryWhite();
     else if (target === 'hospital-reverse') audio.enterHospitalReverse();
     else if (target === 'stairwells') audio.enterStairwells?.();
 
@@ -3712,6 +3732,14 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
         camera.position.set(0, 1.7, MEMORY_STAGING_START_Z - progress * MEMORY_STAGING_METERS);
       }
     }
+    if (target === 'apartment') {
+      look?.setMaxYaw(1.2); // kitchen bay + window
+      const pose = apartmentCameraPose(progress);
+      camera.position.set(pose.x, 1.65, pose.z);
+      camera.rotation.set(pose.pitch, pose.yaw, 0);
+      director.get('apartment')?.setLightingMode?.(apartmentStory.state.lightingMode);
+      director.get('apartment')?.setObjectState?.(apartmentStory.state.objects);
+    }
     bindChapterInteractables();
     // Checkpointed flags are already true — mark hits so they never re-tax.
     seedCompletedComposureHits();
@@ -3729,6 +3757,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
         : target === 'records' ? recordsStory.state : target === 'night' ? nightStory.state
           : target === 'threshold' ? thresholdStory.state
             : isMemoryChapter(target) ? memoryStoryFor(target).state
+              : target === 'apartment' ? apartmentStory.state
               : target === 'hospital-reverse' ? hospitalReverseStory.state
                 : target === 'stairwells' ? stairwellsStory.state
                   : unseenStory.state, 0, true);
@@ -3817,7 +3846,8 @@ if (DEBUG_MODE) {
             ? (unseenStory.state.retreatStarted ? 'RETREAT' : 'APPROACH')
             : isHospitalReverse()
               ? (hospitalReverseStory.state.reverseStarted ? 'RETREAT' : 'APPROACH')
-              : isMemoryChapter() ? memoryStoryFor().state.phase?.toUpperCase() : '',
+              : isMemoryChapter() ? memoryStoryFor().state.phase?.toUpperCase()
+                : isApartment() ? (apartmentStory.state.zoneLabel || 'APARTMENT') : '',
     }), {
       grantWeapons() {
         if (!inventory) return;
@@ -4098,6 +4128,7 @@ function updateNarrative(p, dt = 0) {
   const inNight = chapterId === 'night';
   const inThreshold = chapterId === 'threshold';
   const inMemory = isMemoryChapter();
+  const inApartment = isApartment();
   const inWard = isHospitalReverse();
   const inStairs = isStairwells();
   const state = inCorridor ? story.state
@@ -4108,6 +4139,7 @@ function updateNarrative(p, dt = 0) {
           : inNight ? nightStory.state
             : inThreshold ? thresholdStory.state
               : inMemory ? memoryStoryFor().state
+                : inApartment ? apartmentStory.state
                 : inWard ? hospitalReverseStory.state
                   : inStairs ? stairwellsStory.state : unseenStory.state;
   const narrative = inCorridor ? narrativeFor(p, state)
@@ -4118,6 +4150,7 @@ function updateNarrative(p, dt = 0) {
           : inNight ? nightNarrative(p, state)
             : inThreshold ? thresholdNarrative(p, state)
               : inMemory ? memoryHomeNarrative(p, state)
+                : inApartment ? apartmentNarrative(p, state)
                 : inWard ? hospitalReverseNarrative(p, state)
                   : inStairs ? stairwellsNarrative(p, state) : unseenNarrative(p, state);
 
@@ -4324,6 +4357,7 @@ function frame(now) {
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
               : isMemoryChapter() ? MEMORY_STAGING_START_Z
+                : isApartment() ? APARTMENT_START_Z
                 : isHospitalReverse() ? HOSPITAL_REVERSE_START_Z
                   : isStairwells() ? STAIRWELLS_START.z : UNSEEN_START_Z;
     const step = walkSpeed * dt / meters;
@@ -4381,6 +4415,8 @@ function frame(now) {
         if (mem.consumeDoorSound?.()) audio.playMemoryDoorLeave();
       }
       if (!wasExitReady && mem.state.exitReady) bindChapterInteractables();
+    } else if (isApartment()) {
+      apartmentStory.observe(previousDisplayed, p);
     } else if (isStairwells()) {
       stairwellsStory.observe(previousDisplayed, p, STAIRWELLS_MARKS);
       const s = stairwellsStory.state;
@@ -4549,6 +4585,10 @@ function frame(now) {
       const route = memoryHomeCameraPose(p, 'memory');
       camera.position.set(route.x, 1.55, route.z);
       camera.rotation.set(route.pitch, route.yaw, 0);
+    } else if (isApartment()) {
+      const route = apartmentCameraPose(p);
+      camera.position.set(route.x, 1.65, route.z);
+      camera.rotation.set(route.pitch, route.yaw, 0);
     }
 
     const uiBlocking = interaction?.isOpen || keypad?.isOpen
@@ -4573,6 +4613,7 @@ function frame(now) {
             : chapterId === 'threshold' ? thresholdStory.state
               : chapterId === 'unseen' ? unseenStory.state
                 : isMemoryChapter() ? memoryStoryFor().state
+                  : isApartment() ? apartmentStory.state
                   : isHospitalReverse() ? hospitalReverseStory.state : null;
     interaction?.update(
       dt,
@@ -4666,6 +4707,10 @@ function frame(now) {
       director.update(p, memoryStoryFor().state, dt, reduced);
       if (chapterId === 'memory-black') audio.updateMemoryBlack(p, memoryBlackStory.state);
       else audio.updateMemoryWhite(p, memoryWhiteStory.state);
+    } else if (isApartment()) {
+      director.update(p, apartmentStory.state, dt, reduced);
+      // Soft warm bed (same bed as white memory); apartment has no staging/memory phases.
+      audio.updateMemoryWhite?.(p, { phase: 'memory', variant: 'white' });
     } else if (isHospitalReverse()) {
       director.update(p, hospitalReverseStory.state, dt, reduced);
       audio.updateHospitalReverse(p, hospitalReverseStory.state);
