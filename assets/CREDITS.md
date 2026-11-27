@@ -1,5 +1,9 @@
 # Audio credits
 
+## `enemies/the_bent_v01.glb`
+Project-authored Bent mesh (vertex colors, no external textures).
+Used by the Night Shift combat encounter. Debug override: `?bentModel=procedural`.
+
 ## `finale/behind_final_organism_v01.glb`
 Project-authored finale organism mesh (vertex colors, no external textures).
 Used only by the debug ending prototype (`?debug=1&ending=finale-prototype`).

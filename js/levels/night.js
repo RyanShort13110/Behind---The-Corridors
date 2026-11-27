@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
-import { createTheBent } from '../combat/enemies/the-bent.js';
+import { createTheBent } from '../combat/enemies/the-bent.js?v=bent-glb-1';
 import {
   BENT_WORLD_Z, BENT_NOTICE_PROGRESS, BENT_TRIGGER_PROGRESS,
-} from '../combat/encounters/the-bent.js';
+} from '../combat/encounters/the-bent.js?v=night-bent-1';
 
 /**
  * Chapter 04 — The Night Shift.
