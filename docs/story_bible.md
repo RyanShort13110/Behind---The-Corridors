@@ -118,8 +118,8 @@ Full-screen inventory (`I`, on-screen **INVENTORY**, or touch control). Categori
 
 | Item | Where | Notes |
 |---|---|---|
-| Rusted crowbar | Records (maintenance aisle) | Permanent melee · blunt · ~23 · stagger-ready tags |
-| Worn machete | Records (shelf) | Permanent melee · slash · ~29 · anti-organic tags |
+| Rusted crowbar | Records (leaning on right filing cabinets) | Permanent melee · blunt · ~23 · stagger-ready tags |
+| Worn machete | Reserved — Unseen (not placed yet) | Permanent melee · slash · ~29 · anti-organic tags |
 | Old revolver | Debug only (not in story yet) | Ballistic · ~42 · 6-round cylinder + reserve |
 | Revolver rounds | Debug only | Reserve ammunition; no chapter placement yet |
 | Unarmed | — | Default ATTACK 18 when nothing equipped |

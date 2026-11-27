@@ -609,7 +609,8 @@ export function createOffice(scene, {
       toneMapped: false,
     });
     ownedMaterials.push(noteMat);
-    const noteGeo = new THREE.PlaneGeometry(0.72, 0.40);
+    // Slightly larger for phone reading distance on the right wall.
+    const noteGeo = new THREE.PlaneGeometry(0.92, 0.52);
     separateGeometries.push(noteGeo);
     const intrusionNote = new THREE.Mesh(noteGeo, noteMat);
     intrusionNote.name = 'Office outside-world note';

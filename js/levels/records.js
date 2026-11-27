@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
-import { createCrowbarProp, disposeCrowbarProp, crowbarInteractable } from '../props/crowbar.js?v=wpn-2';
-import { createMacheteProp, disposeMacheteProp, macheteInteractable } from '../props/machete.js?v=wpn-2';
+import { createCrowbarProp, disposeCrowbarProp, crowbarInteractable } from '../props/crowbar.js?v=wpn-3';
 
 /**
  * Behind. / Level 03 — The Records.
@@ -393,17 +392,13 @@ export function createRecords(scene) {
   cigarette.rotation.set(0, 0.4, 0.08);
   world.add(cigarette);
 
-  // Crowbar leaning by the right cabinets — mid aisle, look right.
+  // Crowbar leaning on the right filing cabinets (row 1) — look right mid-aisle.
+  // Shaft is local +X; tip (+X / claw) rests up against the carcass, grip on the floor.
   const crowbar = createCrowbarProp({ name: 'Records crowbar' });
-  crowbar.position.set(2.35, 0.72, -14.2);
-  crowbar.rotation.set(0.15, -0.4, 1.22);
+  crowbar.position.set(2.70, 0.44, -13.55);
+  crowbar.rotation.set(0.06, 0.12, Math.PI / 2 - 0.38);
   world.add(crowbar);
-
-  // Worn machete on a left shelf deeper in — look left past the sorting station.
-  const machete = createMacheteProp({ name: 'Records worn machete' });
-  machete.position.set(-2.45, 1.28, -22.5);
-  machete.rotation.set(0.15, 0.55, -0.85);
-  world.add(machete);
+  // Worn machete deferred to a later chapter (Unseen) — not placed here.
 
   const interactables = [
     {
@@ -415,7 +410,6 @@ export function createRecords(scene) {
     },
     cigaretteInteractable('cigarette-records', cigarette),
     crowbarInteractable(crowbar),
-    macheteInteractable(machete),
     {
       id: 'records-fob-reader',
       object: reader,
@@ -581,8 +575,6 @@ export function createRecords(scene) {
       cigarette.userData.taken = false;
       crowbar.visible = true;
       crowbar.userData.taken = false;
-      machete.visible = true;
-      machete.userData.taken = false;
       anomalyBinder.visible = true;
       anomalyTrace.visible = false;
       dartPlaying = false;
@@ -603,7 +595,6 @@ export function createRecords(scene) {
       cube.dispose();
       disposeCigaretteProp(cigarette);
       disposeCrowbarProp(crowbar);
-      disposeMacheteProp(machete);
       peekTex.dispose();
       peekMat.dispose();
       readerHit.geometry.dispose();

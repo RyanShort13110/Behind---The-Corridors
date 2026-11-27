@@ -617,7 +617,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     audio?.setLevelBedMuted?.(true);
 
     if (id === 'office-01') {
-      const { createOffice } = await import('./levels/office.js?v=end-note-2');
+      const { createOffice } = await import('./levels/office.js?v=end-note-3');
       const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-9');
       tapeSession = await startOfficeTape01({
         scene,
@@ -1023,11 +1023,11 @@ async function endCamcorderPlayback() {
       director.add('elevator', createElevator(scene));
       el.location.innerHTML = ORIGINAL_LOCATION_HTML;
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=end-note-2');
+      const { createOffice } = await import('./levels/office.js?v=end-note-3');
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=wpn-2');
+      const { createRecords } = await import('./levels/records.js?v=wpn-3');
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
@@ -2365,7 +2365,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=end-note-2');
+    const { createOffice } = await import('./levels/office.js?v=end-note-3');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -2413,7 +2413,7 @@ async function enterRecords() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js?v=wpn-2');
+    const { createRecords } = await import('./levels/records.js?v=wpn-3');
     module = createRecords(scene);
     // Build succeeds before discarding the polished office.
     preserveCarryInventory();
@@ -2724,11 +2724,11 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=end-note-2');
+      const { createOffice } = await import('./levels/office.js?v=end-note-3');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=wpn-2');
+      const { createRecords } = await import('./levels/records.js?v=wpn-3');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
