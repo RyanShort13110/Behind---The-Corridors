@@ -89,6 +89,10 @@ import {
   createOutsideDialogue,
   OUTSIDE_EVENTS,
 } from './outside-dialogue.js?v=dlg-003';
+import {
+  readProcgenBootConfig,
+  createProcgenSession,
+} from './procgen/index.js?v=proc-1';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -111,6 +115,20 @@ const NIGHT_COMBAT_FORCE = DEBUG_MODE && urlParams.get('combat') === '1';
 const NIGHT_COMBAT_OFF = DEBUG_MODE && urlParams.get('nocombat') === '1'
   && !NIGHT_COMBAT_FORCE;
 if (DEBUG_MODE) document.body.classList.add('debug-performance');
+
+/**
+ * Experimental seeded procgen session.
+ * Opt-in only: ?debug=1&procgen=1&seed=<n>. Inactive in normal play.
+ * Seed persists across checkpoints and chapter transitions for this page run.
+ */
+const PROCGEN_BOOT = readProcgenBootConfig(urlParams, { debug: DEBUG_MODE });
+const procgenSession = createProcgenSession({
+  enabled: PROCGEN_BOOT.enabled,
+  seed: PROCGEN_BOOT.seed ?? (Date.now() >>> 0),
+});
+if (procgenSession.enabled) {
+  console.info(`[Behind. PROCGEN] enabled · seed=${procgenSession.seed}`);
+}
 const el = {
   intro: $('intro'), begin: $('begin'), topbar: $('topbar'), bottom: $('bottom'),
   progress: $('progress-fill'), instruction: $('instruction'), narrative: $('narrative'),
@@ -1605,6 +1623,7 @@ function captureCheckpointSnapshot() {
       chaptersCompleted: [...(memory.chaptersCompleted || [])],
       discoveredTapes: [...(memory.discoveredTapes || [])],
     },
+    procgen: procgenSession.snapshot(),
     story: { ...story.state },
     office: { ...officeStory.state },
     maintenance: { ...maintenanceStory.state },
@@ -1787,6 +1806,8 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     } else if (!Array.isArray(memory.discoveredTapes)) {
       memory.discoveredTapes = [];
     }
+    // Keep the run seed stable across checkpoint retries (older snaps: no-op).
+    procgenSession.restore(snapshot.procgen);
     // Pre-feature saves: any cassette still carried counts as discovered.
     for (const item of inventory?.list() || []) {
       if (isTapeItemId(item.id)) discoverTape(item.id);
