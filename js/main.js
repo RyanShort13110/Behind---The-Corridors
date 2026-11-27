@@ -1643,7 +1643,7 @@ async function endCamcorderPlayback() {
       el.location.textContent = 'SOUTH WING / NIGHT STAFF';
       look?.setMaxYaw(1.05); // face the kitchenette cork board from the rail
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=void-light-1');
+      const { createStairwells } = await import('./levels/stairwells.js?v=void-sky-1');
       director.add('stairwells', createStairwells(scene));
       el.location.innerHTML = 'THE STAIRWELLS <span class="separator">/</span> FLOOR 04';
       look?.setMaxYaw(1.45);
@@ -3584,7 +3584,7 @@ async function enterStairwells() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createStairwells } = await import('./levels/stairwells.js?v=void-light-1');
+    const { createStairwells } = await import('./levels/stairwells.js?v=void-sky-1');
     module = createStairwells(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -3984,7 +3984,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=void-light-1');
+      const { createStairwells } = await import('./levels/stairwells.js?v=void-sky-1');
       stairwellsStory.reset();
       next.add('stairwells', createStairwells(scene));
     } else {

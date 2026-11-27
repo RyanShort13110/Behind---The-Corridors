@@ -29,15 +29,8 @@ export function createVoidSkyline(parent, layout) {
   /** @type {{ mesh: THREE.Mesh, base: number, phase: number, speed: number, mode: string, delay: number }[]} */
   const windowLights = [];
 
-  // Unlit hulls — void ambient is too weak for MeshStandard at this range.
-  const hullMat = new THREE.MeshBasicMaterial({
-    color: 0x04060a,
-    fog: true,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  });
-  ownedMats.push(hullMat);
+  // Windows only — translucent hull boxes read as floating black rectangles
+  // once the void brightens enough to see them.
 
   const makeWindowMat = (hex) => {
     const m = new THREE.MeshBasicMaterial({
@@ -52,8 +45,6 @@ export function createVoidSkyline(parent, layout) {
     return m;
   };
 
-  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-  ownedGeos.push(boxGeo);
   const winGeo = new THREE.PlaneGeometry(1, 1);
   ownedGeos.push(winGeo);
 
@@ -85,11 +76,6 @@ export function createVoidSkyline(parent, layout) {
     const bz = clusterZ0 + spec.z;
     const by = clusterY0 + spec.h * 0.5;
 
-    const hull = new THREE.Mesh(boxGeo, hullMat);
-    hull.position.set(bx, by, bz);
-    hull.scale.set(spec.w, spec.h, spec.d);
-    group.add(hull);
-
     const cols = Math.max(3, Math.floor(spec.w / 3.2));
     const rows = Math.max(4, Math.floor(spec.h / 4.2));
     const faceX = bx + spec.w * 0.5 + 0.35;
@@ -113,8 +99,8 @@ export function createVoidSkyline(parent, layout) {
           phase: Math.random() * Math.PI * 2,
           speed: 0.4 + Math.random() * 1.6,
           mode: Math.random() < 0.5 ? 'pulse' : (Math.random() < 0.75 ? 'flicker' : 'steady'),
-          // Stagger so the cluster wakes up unevenly instead of all at once.
-          delay: Math.random() * 0.35,
+          // Light stagger — keep the bloom uneven without lagging the earlier lift.
+          delay: Math.random() * 0.18,
         });
       }
     }
@@ -125,7 +111,6 @@ export function createVoidSkyline(parent, layout) {
   function setReveal(amount) {
     reveal = Math.max(0, Math.min(1, amount));
     group.visible = reveal > 0.01;
-    hullMat.opacity = Math.min(0.92, reveal * 0.95);
   }
 
   function update(_dt = 1 / 60, timeSec = 0) {
