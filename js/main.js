@@ -265,8 +265,8 @@ function maybeArmOutsideDialogue(chapter, progress, state) {
   const p = progress;
 
   if (chapter === 'stairwells') {
-    // After Floor 03 sign + void: quiet return landing before the last flight.
-    if (state.snapped && state.phase === 'return' && !state.onFinalFlight) {
+    // After void snap + “Please wake up.” on the Floor 01 exit wall (~97%).
+    if (state.snapped && (state.phase === 'exit' || p >= 0.94)) {
       outsideDialogue.arm(OUTSIDE_EVENTS.rain);
     }
     return;
@@ -615,7 +615,7 @@ async function startTapeRecording(id, { fromCamcorder = false } = {}) {
     audio?.setLevelBedMuted?.(true);
 
     if (id === 'office-01') {
-      const { createOffice } = await import('./levels/office.js?v=ow-office-3');
+      const { createOffice } = await import('./levels/office.js?v=end-note-2');
       const { startOfficeTape01 } = await import('./tapes/office-01.js?v=cam-9');
       tapeSession = await startOfficeTape01({
         scene,
@@ -1021,7 +1021,7 @@ async function endCamcorderPlayback() {
       director.add('elevator', createElevator(scene));
       el.location.innerHTML = ORIGINAL_LOCATION_HTML;
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=ow-office-3');
+      const { createOffice } = await import('./levels/office.js?v=end-note-2');
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'records') {
@@ -1034,7 +1034,7 @@ async function endCamcorderPlayback() {
       el.location.textContent = 'SOUTH WING / NIGHT STAFF';
       look?.setMaxYaw(1.05); // face the kitchenette cork board from the rail
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=ow-msg-1');
+      const { createStairwells } = await import('./levels/stairwells.js?v=wake-4');
       director.add('stairwells', createStairwells(scene));
       el.location.innerHTML = 'THE STAIRWELLS <span class="separator">/</span> FLOOR 04';
       look?.setMaxYaw(1.45);
@@ -2363,7 +2363,7 @@ async function enterOffice() {
   // All scene and camera reconfiguration happens during full occlusion.
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   try {
-    const { createOffice } = await import('./levels/office.js?v=ow-office-3');
+    const { createOffice } = await import('./levels/office.js?v=end-note-2');
     interaction?.clear();
     look?.reset();
     preserveCarryInventory();
@@ -2510,7 +2510,7 @@ async function enterStairwells() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createStairwells } = await import('./levels/stairwells.js?v=ow-msg-1');
+    const { createStairwells } = await import('./levels/stairwells.js?v=wake-4');
     module = createStairwells(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -2722,7 +2722,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('corridor', createCorridor(scene));
       next.add('elevator', createElevator(scene));
     } else if (target === 'office') {
-      const { createOffice } = await import('./levels/office.js?v=ow-office-3');
+      const { createOffice } = await import('./levels/office.js?v=end-note-2');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'records') {
@@ -2749,7 +2749,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       wardMod.setCamera?.(camera);
       next.add('hospital-reverse', wardMod);
     } else if (target === 'stairwells') {
-      const { createStairwells } = await import('./levels/stairwells.js?v=ow-msg-1');
+      const { createStairwells } = await import('./levels/stairwells.js?v=wake-4');
       stairwellsStory.reset();
       next.add('stairwells', createStairwells(scene));
     } else {

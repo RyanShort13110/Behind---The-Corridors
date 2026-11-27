@@ -260,15 +260,15 @@ Unspecified dialogue defaults to **protagonist**. Do not italicize `#chapter` or
 
 | Chapter | Placement | Text | Presentation |
 |---|---|---|---|
-| 02 — Office | Yellow sticky beside the ringing phone | “I came back today.” | Handwritten desk note; no outline, inspect, sound, or composure effect; separate from the keypad-code sticky |
+| 02 — Office | Yellow sticky on the right wall near RECORDS | “I came back today.” | Handwritten wall note; no outline, inspect, sound, or composure effect; separate from the keypad-code sticky |
 | 04 — Night Shift | Cork noticeboard in the kitchenette | “We're all here.” | Small handwritten paper note; no outline, inspect, sound, or composure effect |
-| 05 — Stairwells | Floor 03 landing wall, before the void | “Please wake up.” | Worn institutional signage / writing; no camera beat, outline, or gameplay trigger |
+| 05 — Stairwells | Floor 01 exit wall, left of the door (after void snap) | “Please wake up.” | Worn institutional signage / writing; hidden until snap; no camera beat, outline, or gameplay trigger |
 
 **IMPLEMENTED — outside conversation dialogue (italic `#line`)**
 
 | Event | Chapter | When (approx.) | Text |
 |---|---|---|---|
-| 01 Ordinary | 05 Stairwells | After void snap; quiet return landing (post–“Please wake up.”) | “It rained again today. You would've hated the drive.” |
+| 01 Ordinary | 05 Stairwells | After void snap; Floor 01 exit wall (post–“Please wake up.”) | “It rained again today. You would've hated the drive.” |
 | 02 Familiar | 06 Threshold | After door crossed; before rupture (~0.33–0.52) | “Oh, I almost forgot. I saw that dog again. The little one you like.” |
 | 03 Quiet | 06 Threshold | After rupture settles (~0.745–0.86) | “I don't really have anything new to tell you today. I just... wanted to be here.” |
 | 04 Forgotten call | 07 Unseen | After silence / threat subsided | “I almost called you on the way home yesterday.” → “I guess I just forgot for a second.” |
@@ -395,7 +395,7 @@ The dead-end, return, and elevator movement instructions remain independent of d
 - Empty glass meeting room. On the second approach, one conference chair slides back from the table once (empty-seat STEADY); aisle chair stays static.
 - Service door opens only after correct keypad entry.
 
-**Outside-world intrusion (IMPLEMENTED):** A yellow handwritten sticky beside the ringing phone reads **“I came back today.”** Not the keypad-code collectible. No outline, inspect panel, dialogue, sound, or composure effect.
+**Outside-world intrusion (IMPLEMENTED):** A yellow handwritten sticky on the right-hand wall near the locked RECORDS doors reads **“I came back today.”** Not the keypad-code collectible. No outline, inspect panel, dialogue, sound, or composure effect.
 
 ### Dialogue Revision 002 (IMPLEMENTED)
 
@@ -490,7 +490,7 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 **Entry:** Night Shift's open final doorway into a concrete fire stair.  
 **Architecture:** Four switchback floors (HUD Floors 04→01), mid-landing U-turns, then an anomalous straight flight into a vast dark room, a hard snap back onto the mid landing facing the last flight, and exit through the Floor 01 door into Threshold.  
 **Movement:** Slower descent (~2.7 m/s). Camera rail and staircase geometry are locked for this pass — do not alter void, snap-back, or exit sequencing casually.  
-**Outside-world intrusion (IMPLEMENTED):** On the Floor 03 landing wall **before** the void, worn institutional writing reads **“Please wake up.”** Not on the reserved future hidden-room door. No camera beat, outline, sound, or composure tax.  
+**Outside-world intrusion (IMPLEMENTED):** On the Floor 01 exit wall (left of the door) **after** the void snap, worn institutional writing reads **“Please wake up.”** Hidden until the snap. No camera beat, outline, sound, or composure tax.  
 **Narrative discipline:** No protagonist explanation of the sign or the void. Composure damage remains 0. End card: **YOU KEPT GOING DOWN.**
 
 **OPEN / PROVISIONAL:** Optional hidden room off a reserved stair door; further intrusion placements.
@@ -570,7 +570,7 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Stairwells as Chapter 05:** Inserted between Night Shift and Threshold; Threshold→06, Unseen→07. Four-floor void descent retained. |
 | 2026-11 | **Records exit polish:** Walk closer to end door; fob reader highlight; fob consumed on use. |
 | 2026-11 | **Outside-world intrusions (first pass):** Public bible rules + Night Shift cork note (“We're all here.”) + Stairwells Floor 03 sign (“Please wake up.”); later lines reserved; writer-only explanation stays gitignored. |
-| 2026-11 | **Outside-world — Office:** Sticky beside the ringing phone (“I came back today.”); writing-origin rule added (spoken fragment first, placement second). |
+| 2026-11 | **Outside-world — Office:** Sticky on the right wall near RECORDS (“I came back today.”); writing-origin rule added (spoken fragment first, placement second). |
 | 2026-11 | **Narrative direction update (continuity):** Public bible reframes grief as separation/absence; formalizes player-discovery-before-protagonist; expands outside-world restraint and reserved later lines. Private revised backstory kept only in gitignored writer-only notes (superseded prior private outline marked there — not rewritten into historical public entries). |
 | 2026-11 | **Outside conversation dialogue:** Italic `#line` source vs roman protagonist; five ordinary→intimate one-shot conversations in Stairwells / Threshold / Unseen after “Please wake up.”; reserved “I know you can't hear me…” / “Please come back to me.”; no voice/Foley in this pass. |
 | 2026-11 | **Environmental anomaly Experiment 001 (Records):** Unmarked binder vanishes off-camera after first pass; dust-free counter trace remains; optional to notice; no dialogue/systems. |

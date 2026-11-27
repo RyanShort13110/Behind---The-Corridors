@@ -366,77 +366,6 @@ export function createOffice(scene, {
   add(0.30, 0.11, 0.20, 4.02, 0.99, -31.9, materials.plastic);
   add(0.24, 0.07, 0.06, 4.02, 1.075, -31.9, materials.metal);
 
-  // Outside-world intrusion — ordinary yellow sticky beside the phone.
-  // Not the keypad-code collectible; no outline, inspect, or gameplay hooks.
-  {
-    const noteW = 640;
-    const noteH = 360;
-    const canvas = document.createElement('canvas');
-    canvas.width = noteW;
-    canvas.height = noteH;
-    const ctx = canvas.getContext('2d');
-    // Match materials.sticky tone so it lights like other desk paper.
-    ctx.fillStyle = '#d6c46a';
-    ctx.fillRect(0, 0, noteW, noteH);
-    for (let i = 0; i < 1400; i += 1) {
-      const n = 150 + Math.random() * 55;
-      ctx.fillStyle = `rgba(${n},${n - 12},${n - 40},${0.04 + Math.random() * 0.06})`;
-      ctx.fillRect(Math.random() * noteW, Math.random() * noteH, 1 + Math.random() * 2, 1);
-    }
-    // Soft adhesive shadow along the top edge
-    ctx.fillStyle = 'rgba(80,70,40,0.12)';
-    ctx.fillRect(0, 0, noteW, 18);
-    const phrase = 'I came back today.';
-    ctx.fillStyle = '#1e2a32';
-    ctx.textBaseline = 'alphabetic';
-    ctx.font = 'italic 54px "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive';
-    let totalW = 0;
-    for (let i = 0; i < phrase.length; i += 1) {
-      totalW += ctx.measureText(phrase[i]).width + 0.9;
-    }
-    totalW -= 0.9;
-    let x = (noteW - totalW) * 0.5;
-    const baseline = 200;
-    for (let i = 0; i < phrase.length; i += 1) {
-      const ch = phrase[i];
-      const wobbleY = (Math.sin(i * 1.6) * 1.8) + (i % 3 === 0 ? 0.9 : -0.5);
-      const wobbleRot = Math.sin(i * 0.85) * 0.024;
-      ctx.save();
-      ctx.translate(x, baseline + wobbleY);
-      ctx.rotate(wobbleRot);
-      ctx.fillText(ch, 0, 0);
-      x += ctx.measureText(ch).width + 0.9;
-      ctx.restore();
-    }
-
-    const noteTex = new THREE.CanvasTexture(canvas);
-    noteTex.colorSpace = THREE.SRGBColorSpace;
-    noteTex.anisotropy = 8;
-    noteTex.generateMipmaps = true;
-    noteTex.minFilter = THREE.LinearMipmapLinearFilter;
-    noteTex.magFilter = THREE.LinearFilter;
-    ownedTextures.push(noteTex);
-    const noteMat = new THREE.MeshStandardMaterial({
-      map: noteTex,
-      color: 0xffffff,
-      roughness: 0.88,
-      metalness: 0,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    });
-    ownedMaterials.push(noteMat);
-    const noteGeo = new THREE.PlaneGeometry(0.48, 0.28);
-    separateGeometries.push(noteGeo);
-    const intrusionNote = new THREE.Mesh(noteGeo, noteMat);
-    intrusionNote.name = 'Office outside-world note';
-    // Flush on the service-alcove near wall (z ≈ -32.25), beside the phone.
-    // Faces the approach (+Z) so it reads as stuck to the surface, not floating.
-    intrusionNote.position.set(3.55, 1.32, -32.23);
-    intrusionNote.rotation.set(0, 0, 0);
-    world.add(intrusionNote);
-  }
-
   // Glass-walled CONFERENCE ROOM (right side, x=2.58..6.2, z=-35.3..-45.3).
   // Unlike the cubicle rows, this is a deliberate shared space: one long table
   // and eight chairs facing inward around it. Everything is ordinary and still.
@@ -620,6 +549,75 @@ export function createOffice(scene, {
   const label = new THREE.Mesh(new THREE.PlaneGeometry(1.30, 0.33), labelMaterial);
   label.position.set(0, 3.38, -50.15);
   world.add(label);
+
+  // Outside-world intrusion — yellow sticky on the right-hand wall near RECORDS.
+  // Not the keypad-code collectible; no outline, inspect, or gameplay hooks.
+  // BasicMaterial so the dark corner stays legible without a spotlight.
+  {
+    const noteW = 1024;
+    const noteH = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = noteW;
+    canvas.height = noteH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#d6c46a';
+    ctx.fillRect(0, 0, noteW, noteH);
+    for (let i = 0; i < 1800; i += 1) {
+      const n = 150 + Math.random() * 55;
+      ctx.fillStyle = `rgba(${n},${n - 12},${n - 40},${0.04 + Math.random() * 0.06})`;
+      ctx.fillRect(Math.random() * noteW, Math.random() * noteH, 1 + Math.random() * 2, 1);
+    }
+    ctx.fillStyle = 'rgba(80,70,40,0.12)';
+    ctx.fillRect(0, 0, noteW, 28);
+    const lines = ['I came back', 'today.'];
+    ctx.fillStyle = '#12181e';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'italic 128px "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive';
+    const lineGap = 168;
+    const firstBaseline = 210;
+    for (let li = 0; li < lines.length; li += 1) {
+      const phrase = lines[li];
+      let totalW = 0;
+      for (let i = 0; i < phrase.length; i += 1) {
+        totalW += ctx.measureText(phrase[i]).width + 2.2;
+      }
+      totalW -= 2.2;
+      let x = (noteW - totalW) * 0.5;
+      const baseline = firstBaseline + li * lineGap;
+      for (let i = 0; i < phrase.length; i += 1) {
+        const ch = phrase[i];
+        const wobbleY = (Math.sin((i + li * 7) * 1.6) * 3.0) + (i % 3 === 0 ? 1.4 : -0.8);
+        const wobbleRot = Math.sin((i + li) * 0.85) * 0.028;
+        ctx.save();
+        ctx.translate(x, baseline + wobbleY);
+        ctx.rotate(wobbleRot);
+        ctx.fillText(ch, 0, 0);
+        x += ctx.measureText(ch).width + 2.2;
+        ctx.restore();
+      }
+    }
+
+    const noteTex = new THREE.CanvasTexture(canvas);
+    noteTex.colorSpace = THREE.SRGBColorSpace;
+    noteTex.anisotropy = 8;
+    noteTex.generateMipmaps = true;
+    noteTex.minFilter = THREE.LinearMipmapLinearFilter;
+    noteTex.magFilter = THREE.LinearFilter;
+    ownedTextures.push(noteTex);
+    const noteMat = new THREE.MeshBasicMaterial({
+      map: noteTex,
+      toneMapped: false,
+    });
+    ownedMaterials.push(noteMat);
+    const noteGeo = new THREE.PlaneGeometry(0.72, 0.40);
+    separateGeometries.push(noteGeo);
+    const intrusionNote = new THREE.Mesh(noteGeo, noteMat);
+    intrusionNote.name = 'Office outside-world note';
+    // Right wall inner face ≈ x 6.12; near the far corner, facing the aisle.
+    intrusionNote.position.set(6.10, 1.55, -48.85);
+    intrusionNote.rotation.set(0, -Math.PI / 2, 0.05);
+    world.add(intrusionNote);
+  }
 
   // Light sources are few and fixed. Shadows are disabled deliberately.
   for (const z of [0, -10, -20, -30, -40, -48]) {

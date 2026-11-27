@@ -122,6 +122,9 @@ export function createStairwells(scene) {
   let exitDoor = null;
   let exitDoorDark = null;
   let exitOpen = 0;
+  /** “Please wake up.” — only after the void snap. */
+  let wakeSign = null;
+  let wakePlaque = null;
 
   for (let floor = 0; floor < STAIR.floors; floor += 1) {
     const mats = makeFloorMats(floor);
@@ -208,22 +211,20 @@ export function createStairwells(scene) {
     box(group, 0.28, 0.18, 0.04,
       -doorW * 0.55 - 0.2, y0 + 1.65, halfD - 0.02, mats.plaque);
 
-    // Floor 03 (+Z landing, HUD): worn outside-world writing on the side wall —
-    // before the void, not on the reserved door. Easy to notice during the U-turn.
-    if (floor === 2) {
+    // “Please wake up.” on Floor 01 exit wall, left of the door (~97% beat).
+    // Hidden until the void snap so it isn't on the way down.
+    if (floor === 0) {
       const signCanvas = document.createElement('canvas');
       signCanvas.width = 512;
       signCanvas.height = 160;
       const sctx = signCanvas.getContext('2d');
       sctx.fillStyle = '#9a9a8e';
       sctx.fillRect(0, 0, 512, 160);
-      // Institutional wear
       for (let i = 0; i < 1400; i += 1) {
         const n = 90 + Math.random() * 70;
         sctx.fillStyle = `rgba(${n},${n - 4},${n - 10},${0.05 + Math.random() * 0.08})`;
         sctx.fillRect(Math.random() * 512, Math.random() * 160, 1 + Math.random() * 3, 1);
       }
-      // Soft edge fade / peeled corners
       sctx.fillStyle = 'rgba(55,58,52,0.22)';
       sctx.fillRect(0, 0, 512, 10);
       sctx.fillRect(0, 150, 512, 10);
@@ -233,7 +234,6 @@ export function createStairwells(scene) {
       sctx.lineTo(36, 0);
       sctx.lineTo(0, 28);
       sctx.fill();
-      // Slightly uneven stencil lettering
       sctx.fillStyle = '#2c302c';
       sctx.textAlign = 'center';
       sctx.textBaseline = 'middle';
@@ -253,23 +253,23 @@ export function createStairwells(scene) {
       signTex.colorSpace = THREE.SRGBColorSpace;
       signTex.anisotropy = 4;
       ownedTextures.push(signTex);
-      const signMat = material({
+      const signMat = new THREE.MeshBasicMaterial({
         map: signTex,
-        color: 0xffffff,
-        roughness: 0.94,
-        metalness: 0.02,
-      }, mats.bag);
-      const signGeo = new THREE.PlaneGeometry(0.62, 0.2);
+        toneMapped: false,
+      });
+      ownedMaterials.push(signMat);
+      const signGeo = new THREE.PlaneGeometry(0.68, 0.22);
       ownedGeometries.push(signGeo);
-      const sign = new THREE.Mesh(signGeo, signMat);
-      sign.name = 'Stairwells / outside-world sign';
-      // East inner wall of Floor 03 landing — faces into the well; clear of the door.
-      sign.position.set(halfW - 0.025, y0 + 1.58, halfD - landingD * 0.55);
-      sign.rotation.y = -Math.PI / 2;
-      group.add(sign);
-      // Thin backing plate so it reads as mounted signage, not a floating texture.
-      box(group, 0.018, 0.22, 0.66,
-        halfW - 0.012, y0 + 1.58, halfD - landingD * 0.55, mats.plaque);
+      wakeSign = new THREE.Mesh(signGeo, signMat);
+      wakeSign.name = 'Stairwells / outside-world sign';
+      // +Z exit wall, left of the door — faces the approach (player yaw ≈ π).
+      wakeSign.position.set(-1.48, y0 + 1.48, halfD - 0.025);
+      wakeSign.rotation.y = Math.PI;
+      wakeSign.visible = false;
+      group.add(wakeSign);
+      wakePlaque = box(group, 0.72, 0.26, 0.018,
+        -1.48, y0 + 1.48, halfD - 0.012, mats.plaque);
+      wakePlaque.visible = false;
     }
 
     {
@@ -295,6 +295,30 @@ export function createStairwells(scene) {
 
       box(group, STAIR.wellW - 0.04, 0.14, landingD,
         0, yMid - 0.07, -halfD + landingD * 0.5, mats.floor);
+
+      // Void / return mid landing (floor 01↔02). Extend the slab through the
+      // −Z bay beside the west flight so left/right of the void steps aren't holes.
+      if (floor === 1) {
+        const flightL = westX - STAIR.flightW * 0.5;
+        const flightR = westX + STAIR.flightW * 0.5;
+        const lipD = STAIR.wallT + 0.85;
+        const lipZ = -halfD - lipD * 0.42;
+        const yFloor = yMid - 0.07;
+        const leftW = flightL - (-halfW);
+        const rightW = halfW - flightR;
+        if (leftW > 0.05) {
+          box(group, leftW, 0.16, lipD,
+            -halfW + leftW * 0.5, yFloor, lipZ, mats.floor);
+        }
+        if (rightW > 0.05) {
+          box(group, rightW, 0.16, lipD,
+            flightR + rightW * 0.5, yFloor, lipZ, mats.floor);
+        }
+        // Thin lip across the flight threshold (under the first void tread).
+        box(group, STAIR.flightW + 0.12, 0.14, 0.22,
+          westX, yFloor, -halfD - 0.06, mats.floor);
+      }
+
       for (const side of [-1, 1]) {
         // End-wall sconces: inset from corners, flush to the −Z face.
         const fixtureD = 0.08;
@@ -523,6 +547,31 @@ export function createStairwells(scene) {
   // Deck beside / under the flight so the run isn't flanked by blank slabs.
   tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, 0.14, sleeveLen - STAIR.wallT,
     0, 0.05, sleeveMidZ + STAIR.wallT * 0.5, voidMats.floor, 1.0);
+  // World-space entrance fill — match shaft floor tone (void concrete read as
+  // “gray holes”). Covers left/right of the west flight at the bay lip.
+  {
+    const landY = v.yTop - 0.02;
+    const shaftFloor = floorGroups[1]?.userData?.mats?.floor || voidMats.floor;
+    const flightL = v.x - STAIR.flightW * 0.5;
+    const flightR = v.x + STAIR.flightW * 0.5;
+    const wellL = -halfW;
+    const wellR = halfW;
+    const patchD = landingD + STAIR.wallT + 0.5;
+    const patchZ = v.zStart - patchD * 0.15;
+    const leftW = flightL - wellL;
+    const rightW = wellR - flightR;
+    if (leftW > 0.05) {
+      box(voidGroup, leftW, 0.18, patchD,
+        wellL + leftW * 0.5, landY, patchZ, shaftFloor);
+    }
+    if (rightW > 0.05) {
+      box(voidGroup, rightW, 0.18, patchD,
+        flightR + rightW * 0.5, landY, patchZ, shaftFloor);
+    }
+    // Threshold under the first tread — seals the lip without a light slab.
+    box(voidGroup, STAIR.flightW + 0.2, 0.14, 0.4,
+      v.x, landY + 0.01, v.zStart - 0.08, shaftFloor);
+  }
   // Ceiling spans onto wall thickness so L seams don't open.
   tiledBox(sleeve, sleeveX * 2 + STAIR.wallT * 2, 0.18, sleeveLen - STAIR.wallT,
     0, sleeveWallY + sleeveH * 0.5 - 0.02, sleeveMidZ + STAIR.wallT * 0.5, voidMats.ceiling, 1.2);
@@ -693,6 +742,11 @@ export function createStairwells(scene) {
     }
   }
 
+  function setWakeVisible(on) {
+    if (wakeSign) wakeSign.visible = !!on;
+    if (wakePlaque) wakePlaque.visible = !!on;
+  }
+
   function update(_progress, state, dt = 1 / 60) {
     const inVoid = state?.phase === 'void';
     const targetVoid = inVoid ? (state.voidAmount || 0) : 0;
@@ -705,6 +759,9 @@ export function createStairwells(scene) {
     skylineTime += dt;
     skyline?.update(dt, skylineTime);
 
+    // Only after the void snap — same mid landing, but not on the way in.
+    setWakeVisible(!!state?.snapped);
+
     const wantOpen = state?.phase === 'exit' ? 1 : 0;
     exitOpen += (wantOpen - exitOpen) * Math.min(1, dt * 2.4);
     if (exitDoor) exitDoor.rotation.y = -exitOpen * 1.35;
@@ -716,6 +773,7 @@ export function createStairwells(scene) {
     skylineTime = 0;
     if (exitDoor) exitDoor.rotation.y = 0;
     if (exitDoorDark) exitDoorDark.visible = false;
+    setWakeVisible(false);
     for (const g of floorGroups) g.visible = true;
     skyline?.setReveal(0);
     applyVoidVisuals(0, false);
