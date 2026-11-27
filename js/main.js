@@ -47,8 +47,8 @@ import {
 import { recordsCameraPose } from './levels/records-route.js';
 import {
   createMaintenanceStory, maintenanceNarrative, MAINTENANCE_METERS, MAINTENANCE_START_Z,
-} from './levels/maintenance-story.js?v=svc-1';
-import { maintenanceCameraPose } from './levels/maintenance-route.js?v=svc-1';
+} from './levels/maintenance-story.js?v=proc-5';
+import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-5';
 import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
@@ -404,11 +404,24 @@ function progressBounds() {
   return { min: 0, max: 1 };
 }
 
+/** Service Wing rail from the active module (modular procgen may vary length). */
+function maintenanceRail() {
+  return director?.get?.('maintenance')?.rail ?? null;
+}
+
+/** Bind story progress markers to an assembled (or authored) Service Wing layout. */
+function bindMaintenanceLayout(module) {
+  if (module?.markers) maintenanceStory.setLayoutMarkers(module.markers);
+  else maintenanceStory.clearLayoutMarkers();
+}
+
 /** Active rail length for walk-speed / scroll-lead. Bedroom uses its own meters. */
 function chapterMeters() {
   if (chapterId === 'corridor') return CORRIDOR_METERS;
   if (chapterId === 'office') return OFFICE_METERS;
-  if (chapterId === 'maintenance') return MAINTENANCE_METERS;
+  if (chapterId === 'maintenance') {
+    return maintenanceRail()?.meters ?? MAINTENANCE_METERS;
+  }
   if (chapterId === 'records') return RECORDS_METERS;
   if (chapterId === 'night') return NIGHT_METERS;
   if (chapterId === 'threshold') return THRESHOLD_METERS;
@@ -1118,8 +1131,10 @@ async function endCamcorderPlayback() {
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-3');
-      director.add('maintenance', createMaintenance(scene, { procgen: procgenSession }));
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-5');
+      const maintenanceModule = createMaintenance(scene, { procgen: procgenSession });
+      director.add('maintenance', maintenanceModule);
+      bindMaintenanceLayout(maintenanceModule);
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'records') {
       const { createRecords } = await import('./levels/records.js?v=svc-1');
@@ -2557,7 +2572,7 @@ async function enterMaintenance() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createMaintenance } = await import('./levels/maintenance.js?v=proc-3');
+    const { createMaintenance } = await import('./levels/maintenance.js?v=proc-5');
     module = createMaintenance(scene, { procgen: procgenSession });
     preserveCarryInventory();
     interaction?.clear();
@@ -2568,6 +2583,7 @@ async function enterMaintenance() {
     director.activate('maintenance');
     chapterId = 'maintenance';
     maintenanceStory.reset();
+    bindMaintenanceLayout(module);
     bindChapterInteractables();
     noteFogBase();
     syncComposureUi();
@@ -2575,7 +2591,7 @@ async function enterMaintenance() {
     hideEndCard();
     el.location.textContent = 'EAST ANNEX / SERVICE WING';
     progress = displayed = 0;
-    camera.position.set(0, 1.7, MAINTENANCE_START_Z);
+    camera.position.set(0, 1.7, module.rail?.startZ ?? MAINTENANCE_START_Z);
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
@@ -2920,9 +2936,11 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-3');
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-5');
       maintenanceStory.reset();
-      next.add('maintenance', createMaintenance(scene, { procgen: procgenSession }));
+      const maintenanceModule = createMaintenance(scene, { procgen: procgenSession });
+      next.add('maintenance', maintenanceModule);
+      bindMaintenanceLayout(maintenanceModule);
     } else if (target === 'records') {
       const { createRecords } = await import('./levels/records.js?v=svc-1');
       next.add('records', createRecords(scene));
@@ -2970,7 +2988,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     // Office already rolled its keypad code before createOffice above.
     story.reset();
     if (target !== 'office') officeStory.reset();
-    if (target !== 'maintenance') maintenanceStory.reset();
+    if (target !== 'maintenance') {
+      maintenanceStory.reset();
+      maintenanceStory.clearLayoutMarkers();
+    }
     if (target !== 'records') recordsStory.reset();
     nightStory.reset();
     thresholdStory.reset();
@@ -3005,8 +3026,15 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     el.location.innerHTML = DEV_CHAPTER_CONFIG[target].location;
     progress = displayed = target === 'unseen'
       ? unseenStory.seekCheckpoint(checkpoint) : DEV_CHAPTER_CONFIG[target].start;
-    camera.position.set(0, 1.7, DEV_CHAPTER_CONFIG[target].z -
-      (target === 'corridor' ? progress * CORRIDOR_METERS : 0));
+    const maintenanceStartZ = target === 'maintenance'
+      ? (director.get('maintenance')?.rail?.startZ ?? MAINTENANCE_START_Z)
+      : DEV_CHAPTER_CONFIG[target].z;
+    camera.position.set(
+      0,
+      1.7,
+      (target === 'maintenance' ? maintenanceStartZ : DEV_CHAPTER_CONFIG[target].z)
+        - (target === 'corridor' ? progress * CORRIDOR_METERS : 0),
+    );
     camera.rotation.set(0, 0, 0);
     if (target === 'unseen') {
       const pose = unseenCameraPose(progress, unseenStory.state);
@@ -3623,7 +3651,8 @@ function frame(now) {
     const eased = (progress - displayed) * (reduced ? 1 : 1 - Math.exp(-dt * 5));
     const startZ = chapterId === 'corridor' ? REAR_CABIN_CAMERA_Z
       : chapterId === 'office' ? OFFICE_START_Z
-        : chapterId === 'maintenance' ? MAINTENANCE_START_Z
+        : chapterId === 'maintenance'
+          ? (maintenanceRail()?.startZ ?? MAINTENANCE_START_Z)
         : chapterId === 'records' ? RECORDS_START_Z
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
@@ -3794,7 +3823,7 @@ function frame(now) {
       camera.position.z = route.z;
       camera.rotation.y += route.yaw;
     } else if (chapterId === 'maintenance') {
-      const route = maintenanceCameraPose(p);
+      const route = maintenanceCameraPose(p, maintenanceRail());
       camera.position.x = route.x;
       camera.position.z = route.z;
       camera.rotation.y = route.yaw ?? 0;
