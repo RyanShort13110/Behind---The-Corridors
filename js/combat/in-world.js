@@ -18,6 +18,7 @@ import { BENT_COMBAT_CONFIG, BENT_ENCOUNTER_ID } from './encounters/the-bent.js'
  * @param {boolean} [opts.showTutorial]
  * @param {boolean} [opts.storyMode]  Mandatory fight — no skip/exit to clear path
  * @param {string} [opts.eyebrow]
+ * @param {string} [opts.encounterId] data-combat attribute (defaults to Bent)
  * @param {(dt: number) => void} [opts.onFrame] Ambient chapter update while frozen
  * @param {(result: { snapshot: object }) => void | Promise<void>} opts.onVictory
  * @param {() => void | Promise<void>} opts.onRetry
@@ -33,6 +34,7 @@ export async function startInWorldCombat({
   showTutorial = true,
   storyMode = false,
   eyebrow = 'IN-WORLD COMBAT · DEBUG',
+  encounterId = BENT_ENCOUNTER_ID,
   onFrame,
   onVictory,
   onRetry,
@@ -40,7 +42,7 @@ export async function startInWorldCombat({
 } = {}) {
   const experience = document.getElementById('experience');
   experience?.classList.add('combat-mode', 'combat-mode--in-world');
-  experience?.setAttribute('data-combat', BENT_ENCOUNTER_ID);
+  experience?.setAttribute('data-combat', encounterId || BENT_ENCOUNTER_ID);
   if (storyMode) experience?.classList.add('combat-mode--story');
 
   document.getElementById('inventory')?.classList.remove('is-visible');

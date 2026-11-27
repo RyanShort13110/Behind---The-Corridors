@@ -10,6 +10,13 @@ body.debug-performance .perf-hud{display:block}
 /* Level 01 -> 02 opaque handoff. No geometry swaps are visible. */
 #chapter-veil{position:absolute;inset:0;z-index:15;background:#020506;opacity:0;pointer-events:none;transition:opacity .68s ease}
 #chapter-veil.is-active{opacity:1;pointer-events:all}
+/* Soft grab fade — keeps the hallway readable under the veil. */
+#chapter-veil.reverse-ambush-veil{
+  opacity:.42;
+  background:radial-gradient(ellipse at 50% 45%,rgba(2,5,6,.18) 0%,rgba(2,5,6,.55) 70%,rgba(2,5,6,.72) 100%);
+  pointer-events:none;
+  transition:opacity .55s ease;
+}
 .ending-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 .ending-actions .primary{margin-top:24px}
 .ending-actions [hidden]{display:none}

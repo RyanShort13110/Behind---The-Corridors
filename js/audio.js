@@ -2401,6 +2401,130 @@ export function createAudioDirector() {
     stopWardCry(0.05);
   }
 
+  /** Quiet reverse-ambush approach (behind player). Separate from Ward rush. */
+  let ambushApproachTimers = [];
+  let ambushApproachPlaying = false;
+  let ambushBreathUntil = 0;
+
+  function cancelReverseAmbushSfx() {
+    for (const id of ambushApproachTimers) window.clearTimeout(id);
+    ambushApproachTimers = [];
+    ambushApproachPlaying = false;
+    ambushBreathUntil = 0;
+  }
+
+  function playReverseAmbushScrape(side = 0, level = 1) {
+    if (!enabled || !ctx) return;
+    resume();
+    const t = ctx.currentTime;
+    const out = ctx.createGain();
+    out.gain.value = CORRIDOR_GAIN * 0.55;
+    const pan = ctx.createStereoPanner?.();
+    if (pan) {
+      pan.pan.value = side * 0.18;
+      out.connect(pan).connect(ctx.destination);
+    } else {
+      out.connect(ctx.destination);
+    }
+    const len = Math.ceil(ctx.sampleRate * 0.12);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let n = 0; n < len; n++) {
+      data[n] = (Math.random() * 2 - 1) * Math.exp(-n / ctx.sampleRate * 22);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 160;
+    bp.Q.value = 0.7;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.012 * level, t);
+    g.gain.exponentialRampToValueAtTime(0.0003, t + 0.14);
+    src.connect(bp).connect(g).connect(out);
+    src.start(t);
+  }
+
+  function playReverseAmbushBreath(level = 1) {
+    if (!enabled || !ctx) return;
+    resume();
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(58, t);
+    osc.frequency.linearRampToValueAtTime(46, t + 0.55);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.007 * level, t + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0003, t + 0.7);
+    const pan = ctx.createStereoPanner?.();
+    if (pan) {
+      pan.pan.value = 0.04;
+      osc.connect(g).connect(pan).connect(ctx.destination);
+    } else {
+      osc.connect(g).connect(ctx.destination);
+    }
+    osc.start(t);
+    osc.stop(t + 0.75);
+  }
+
+  /**
+   * Subtle closing-in cues while the player reverses toward the grab.
+   * Soft steps + occasional scrape/breath — not a Ward-style rush.
+   */
+  function startReverseAmbushApproach({
+    gapStartMs = 520,
+    gapEndMs = 280,
+  } = {}) {
+    if (!enabled || !ctx) return;
+    if (ambushApproachPlaying) return;
+    resume();
+    cancelReverseAmbushSfx();
+    ambushApproachPlaying = true;
+    const count = 14;
+    let delay = 180;
+    for (let i = 0; i < count; i++) {
+      const t = i / Math.max(1, count - 1);
+      const gap = gapStartMs + (gapEndMs - gapStartMs) * t;
+      const at = delay;
+      delay += gap;
+      const id = window.setTimeout(() => {
+        if (!enabled || !ctx || !ambushApproachPlaying) return;
+        const swell = 0.45 + t * 0.4;
+        playWardWalkStep(i % 2 === 0 ? -1 : 1, swell * 0.55);
+        if (i % 3 === 2) playReverseAmbushScrape(i % 2 === 0 ? -1 : 1, swell);
+        if (i === count - 1) ambushApproachPlaying = false;
+      }, Math.round(at));
+      ambushApproachTimers.push(id);
+    }
+    ambushBreathUntil = performance.now() + delay + 400;
+    markSfx(delay / 1000 + 0.4);
+  }
+
+  function updateReverseAmbushApproach(state) {
+    if (!enabled || !ctx || !state?.ambushEnabled) return;
+    if (state.ambushCombatStarted || state.ambushDefeated || state.ambushSkipped) {
+      cancelReverseAmbushSfx();
+      return;
+    }
+    if (state.ambushApproach && state.reverseFromSeal && !ambushApproachPlaying) {
+      startReverseAmbushApproach();
+    }
+    if (ambushBreathUntil > 0 && performance.now() < ambushBreathUntil) {
+      // Occasional held breath under the steps.
+      if (Math.random() < 0.008) playReverseAmbushBreath(0.7);
+    }
+  }
+
+  function playReverseAmbushGrab() {
+    if (!enabled || !ctx) return;
+    resume();
+    cancelReverseAmbushSfx();
+    playNoiseBurst({ duration: 0.28, band: 140, q: 0.55, level: 0.014, pan: 0 });
+    playTone({ freq: 62, duration: 0.45, level: 0.012, type: 'sine', pan: 0 });
+    playReverseAmbushBreath(1.1);
+  }
+
   function updateHospitalReverse(progress, state) {
     if (!enabled || levelBedMuted || !ctx || ctx.state !== 'running') return;
     setGain(humGain, 0.0028 + (state?.cryingIntensity || 0) * 0.0012, 0.35);
@@ -2790,6 +2914,8 @@ export function createAudioDirector() {
     playNightLampDying, playNightChairSettle,
     playCigaretteDraw,
     playComposureHit,
+    startReverseAmbushApproach, updateReverseAmbushApproach, playReverseAmbushGrab,
+    cancelReverseAmbushSfx,
     setWardCryVolume, getWardCryVolume, stopWardCry, cancelWardDelayedSfx,
     get wardCryUsesHrtf() { return wardCryUseHrtf; },
     setComposureStress,
