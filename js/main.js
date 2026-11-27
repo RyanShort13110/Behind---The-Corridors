@@ -51,8 +51,8 @@ import {
 import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-7';
 import {
   createInterludeStory, interludeNarrative, INTERLUDE_METERS, INTERLUDE_START_Z,
-} from './levels/interlude-story.js?v=ib-2';
-import { interludeCameraPose } from './levels/interlude-route.js?v=ib-2';
+} from './levels/interlude-story.js?v=ib-3';
+import { interludeCameraPose } from './levels/interlude-route.js?v=ib-3';
 import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
@@ -134,13 +134,24 @@ if (procgenSession.enabled) {
   console.info(`[Behind. PROCGEN] enabled · seed=${procgenSession.seed}`);
 }
 /**
- * When procgen is on, Corridor can insert The In-Between before Office.
- * Debug escape hatch: ?skipinterlude=1 or DEV TOOLS → SKIP INTERLUDE.
+ * Story chapter: Stairwells → The In-Between → Threshold.
+ * Debug escape hatch: ?skipinterlude=1 or DEV TOOLS → SKIP INTERLUDE
+ * (skips straight Stairwells → Threshold).
+ * URL ?seed= locks the layout for the whole page run; otherwise each new
+ * playthrough rolls a fresh seed and retries reuse the cached plan.
  */
+const PROCGEN_URL_SEED = PROCGEN_BOOT.seed;
 let interludeSkip = DEBUG_MODE && urlParams.get('skipinterlude') === '1';
 
-function shouldInsertInterlude() {
-  return Boolean(DEBUG_MODE && procgenSession.enabled && !interludeSkip);
+function rollPlaythroughSeed() {
+  if (PROCGEN_URL_SEED != null) {
+    procgenSession.setSeed(PROCGEN_URL_SEED);
+  } else {
+    procgenSession.setSeed((Date.now() ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0);
+  }
+  void import('./levels/interlude.js?v=ib-3')
+    .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
+    .catch(() => {});
 }
 const el = {
   intro: $('intro'), begin: $('begin'), topbar: $('topbar'), bottom: $('bottom'),
@@ -1165,7 +1176,7 @@ async function endCamcorderPlayback() {
       bindMaintenanceLayout(maintenanceModule);
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-2');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-3');
       const interludeModule = createInterlude(scene, { procgen: procgenSession });
       director.add('interlude', interludeModule);
       bindInterludeLayout(interludeModule);
@@ -2389,6 +2400,7 @@ function renderInventory(items) {
 function start() {
   if (started || !renderer || !director) return;
   started = true;
+  rollPlaythroughSeed();
   el.intro.classList.add('is-hidden');
   el.topbar.classList.add('active');
   el.bottom.classList.add('active');
@@ -2418,19 +2430,14 @@ function setEndCard(which) {
   if (which === 'corridor') {
     el.endingEyebrow.textContent = 'LEVEL 01 COMPLETE · THE CORRIDOR';
     el.endingTitle.innerHTML = 'NO ONE<br>ANSWERED.';
-    if (shouldInsertInterlude()) {
-      el.endingCopy.textContent = 'A service passage waits beyond the elevator.';
-      el.continue.textContent = 'CONTINUE INTO THE PASSAGE ↑';
-    } else {
-      el.endingCopy.textContent = 'The doors have closed in front of you.';
-      el.continue.textContent = 'CONTINUE INTO THE OFFICE ↑';
-    }
+    el.endingCopy.textContent = 'The doors have closed in front of you.';
+    el.continue.textContent = 'CONTINUE INTO THE OFFICE ↑';
     el.continue.hidden = false;
   } else if (which === 'interlude') {
-    el.endingEyebrow.textContent = 'PASSAGE COMPLETE · THE IN-BETWEEN';
-    el.endingTitle.innerHTML = 'THE WAY<br>OPENS.';
-    el.endingCopy.textContent = 'The corridor ahead looks familiar.';
-    el.continue.textContent = 'CONTINUE INTO THE OFFICE ↑';
+    el.endingEyebrow.textContent = 'LEVEL 05B COMPLETE · THE IN-BETWEEN';
+    el.endingTitle.innerHTML = 'STILL<br>ORDINARY.';
+    el.endingCopy.textContent = 'The passage ends. Another corridor waits ahead.';
+    el.continue.textContent = 'CONTINUE INTO THE THRESHOLD ↑';
     el.continue.hidden = false;
   } else if (which === 'office') {
     el.endingEyebrow.textContent = 'LEVEL 02 COMPLETE · THE OFFICE';
@@ -2459,8 +2466,13 @@ function setEndCard(which) {
   } else if (which === 'stairwells') {
     el.endingEyebrow.textContent = 'LEVEL 05 COMPLETE · THE STAIRWELLS';
     el.endingTitle.innerHTML = 'YOU KEPT<br>GOING DOWN.';
-    el.endingCopy.textContent = 'The stair door opens onto another corridor.';
-    el.continue.textContent = 'CONTINUE INTO THE THRESHOLD ↑';
+    if (interludeSkip) {
+      el.endingCopy.textContent = 'The stair door opens onto another corridor.';
+      el.continue.textContent = 'CONTINUE INTO THE THRESHOLD ↑';
+    } else {
+      el.endingCopy.textContent = 'A quiet service passage waits below.';
+      el.continue.textContent = 'CONTINUE INTO THE PASSAGE ↑';
+    }
     el.continue.hidden = false;
   } else if (which === 'threshold') {
     el.endingEyebrow.textContent = 'LEVEL 06 COMPLETE · THE THRESHOLD';
@@ -2484,12 +2496,12 @@ function setEndCard(which) {
 function showEndCard(which) {
   ended = true;
   const id = which === 'corridor' ? '01'
-    : which === 'interlude' ? '01b'
-      : which === 'office' ? '02'
-        : which === 'maintenance' ? '02b'
-          : which === 'records' ? '03'
-            : which === 'night' ? '04'
-              : which === 'stairwells' ? '05'
+    : which === 'office' ? '02'
+      : which === 'maintenance' ? '02b'
+        : which === 'records' ? '03'
+          : which === 'night' ? '04'
+            : which === 'stairwells' ? '05'
+              : which === 'interlude' ? '05b'
                 : which === 'threshold' ? '06'
                   : which === 'hospital-reverse' ? 'ward'
                     : '07';
@@ -2532,9 +2544,7 @@ function reset() {
   maintenanceStory.reset();
   interludeStory.reset();
   interludeStory.clearLayout();
-  void import('./levels/interlude.js?v=ib-2')
-    .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
-    .catch(() => {});
+  rollPlaythroughSeed();
   recordsStory.reset();
   nightStory.reset();
   stairwellsStory.reset();
@@ -2578,15 +2588,9 @@ function reset() {
   monitor?.reset();
 }
 
-/**
- * Corridor (or In-Between) → The Office.
- * Accepts either Chapter 01 direct continue, or the procedural interlude exit.
- */
+/** Corridor → The Office. */
 async function enterOffice() {
-  if (!ended || transitioning) return;
-  if (chapterId !== 'corridor' && chapterId !== 'interlude') return;
-  // When the interlude is armed, Corridor must not skip straight to Office.
-  if (chapterId === 'corridor' && shouldInsertInterlude()) return;
+  if (!ended || chapterId !== 'corridor' || transitioning) return;
   transitioning = true;
   el.veil.classList.add('is-active');
   // All scene and camera reconfiguration happens during full occlusion.
@@ -2629,18 +2633,18 @@ async function enterOffice() {
 }
 
 /**
- * Corridor → The In-Between (debug procgen path only).
- * Uses the same veil / dispose pattern as enterOffice.
+ * Stairwells → The In-Between (story chapter 05B).
+ * Seeded layout is cached for the playthrough so retries match.
  */
 async function enterInterlude() {
-  if (!ended || chapterId !== 'corridor' || transitioning) return;
-  if (!shouldInsertInterlude()) return;
+  if (!ended || chapterId !== 'stairwells' || transitioning) return;
+  if (interludeSkip) return;
   transitioning = true;
   el.veil.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createInterlude } = await import('./levels/interlude.js?v=ib-2');
+    const { createInterlude } = await import('./levels/interlude.js?v=ib-3');
     module = createInterlude(scene, { procgen: procgenSession });
     preserveCarryInventory();
     interaction?.clear();
@@ -2650,8 +2654,12 @@ async function enterInterlude() {
     director.add('interlude', module);
     director.activate('interlude');
     chapterId = 'interlude';
+    stairwellsStory.reset();
     interludeStory.reset();
     bindInterludeLayout(module);
+    outsideDialogue.clearSession();
+    el.line.classList.remove('is-outside');
+    el.narrative.classList.remove('is-outside-voice');
     bindChapterInteractables();
     noteFogBase();
     syncComposureUi();
@@ -2659,6 +2667,10 @@ async function enterInterlude() {
     hideEndCard();
     el.location.textContent = 'SERVICE LEVEL / THE IN-BETWEEN';
     progress = displayed = 0;
+    look?.setMaxYaw();
+    camera.far = 65;
+    camera.updateProjectionMatrix();
+    camera.rotation.order = 'XYZ';
     camera.position.set(0, 1.7, module.rail?.startZ ?? INTERLUDE_START_Z);
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
@@ -2667,11 +2679,11 @@ async function enterInterlude() {
     saveChapterStartCheckpoint();
     renderer.render(scene, camera);
     console.info(
-      `[Behind.] In-Between entered · seed=${procgenSession.seed}`
+      `[Behind.] Level 05B entered · In-Between · seed=${procgenSession.seed}`
       + ` · ${module.rail?.meters?.toFixed?.(1) ?? '?'} m`,
     );
   } catch (error) {
-    if (chapterId === 'corridor') module?.dispose?.();
+    if (chapterId === 'stairwells') module?.dispose?.();
     console.error('[Behind.] In-Between transition failed:', error);
     el.fallback.hidden = false;
     el.fallback.textContent = `The In-Between could not be loaded: ${error.message}`;
@@ -2884,11 +2896,15 @@ async function enterStairwells() {
 }
 
 /**
- * Stairwells -> Threshold (Chapter 06). The occluding veil conceals chapter
- * resource swaps; restore default camera far/order before the red hall.
+ * Stairwells or In-Between → Threshold (Chapter 06).
+ * The occluding veil conceals chapter resource swaps; restore default camera
+ * far/order before the red hall.
  */
 async function enterThreshold() {
-  if (!ended || chapterId !== 'stairwells' || transitioning) return;
+  if (!ended || transitioning) return;
+  if (chapterId !== 'stairwells' && chapterId !== 'interlude') return;
+  // When the story interlude is armed, Stairwells must not skip it.
+  if (chapterId === 'stairwells' && !interludeSkip) return;
   transitioning = true;
   el.veil.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
@@ -2905,6 +2921,7 @@ async function enterThreshold() {
     director.activate('threshold');
     chapterId = 'threshold';
     stairwellsStory.reset();
+    interludeStory.reset();
     thresholdStory.reset();
     syncNightCombatFlag();
     outsideDialogue.clearSession();
@@ -3062,7 +3079,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-2');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-3');
       interludeStory.reset();
       const interludeModule = createInterlude(scene, { procgen: procgenSession });
       next.add('interlude', interludeModule);
@@ -3278,22 +3295,22 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
 }
 
 function continueChapter() {
-  if (chapterId === 'corridor') {
-    return shouldInsertInterlude() ? enterInterlude() : enterOffice();
-  }
-  if (chapterId === 'interlude') return enterOffice();
+  if (chapterId === 'corridor') return enterOffice();
   if (chapterId === 'office') return enterMaintenance();
   if (chapterId === 'maintenance') return enterRecords();
   if (chapterId === 'records') return enterNightShift();
   if (chapterId === 'night') return enterStairwells();
-  if (chapterId === 'stairwells') return enterThreshold();
+  if (chapterId === 'stairwells') {
+    return interludeSkip ? enterThreshold() : enterInterlude();
+  }
+  if (chapterId === 'interlude') return enterThreshold();
   if (chapterId === 'threshold') return enterUnseen();
 }
 
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=ib-1').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=ib-3').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3457,10 +3474,10 @@ if (DEBUG_MODE) {
         return interludeSkip;
       },
       getStatus() {
+        const skip = interludeSkip ? ' · story interlude SKIPPED' : '';
         if (!procgenSession.enabled) {
-          return 'Procgen: off · add &procgen=1&seed=12345';
+          return `Procgen debug: off · seed=${procgenSession.seed}${skip}`;
         }
-        const skip = interludeSkip ? ' · interlude SKIPPED' : ' · interlude ON';
         return `Procgen: ON · seed=${procgenSession.seed}${skip}`;
       },
     });

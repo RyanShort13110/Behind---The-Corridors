@@ -1,12 +1,11 @@
 /**
- * The In-Between — procedural corridor between Chapter 01 and The Office.
- * Active in normal progression only when ?debug=1&procgen=1.
- * No dialogue, pickups, puzzles, or story beats yet.
+ * The In-Between — story chapter between The Stairwells and The Threshold.
+ * Quiet procedural service passage. No dialogue, pickups, combat, or QTEs.
  */
 
 export const INTERLUDE_START_Z = 3.95;
-/** Fallback meters when no module rail is active (matches fallback plan 65). */
-export const INTERLUDE_METERS = 65;
+/** Fallback meters when no module rail is active (matches fallback plan 115). */
+export const INTERLUDE_METERS = 115;
 export const INTERLUDE_END_PROGRESS = 0.96;
 
 export function createInterludeStory() {
@@ -66,11 +65,11 @@ export function interludeNarrative(progress, state) {
     ? ` · ${state.sectionName}`
     : '';
   return {
-    chapter: `THE IN-BETWEEN${section}`,
+    chapter: `05B — THE IN-BETWEEN${section}`,
     line: '',
     dialogueId: '',
     instruction: state.completed
-      ? 'CONTINUE INTO THE OFFICE ↑'
+      ? 'CONTINUE INTO THE THRESHOLD ↑'
       : 'SCROLL UP TO CONTINUE ↑',
   };
 }

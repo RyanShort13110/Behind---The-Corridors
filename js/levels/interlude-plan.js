@@ -1,11 +1,11 @@
 /**
- * The In-Between — seeded layout plan for the Corridor→Office interlude.
- * Target length 40–90 m (hard max 100). Uses Behind. procgen RNG only.
+ * The In-Between — seeded layout plan (story chapter after The Stairwells).
+ * Target length 90–140 m (hard max 150). Uses Behind. procgen RNG only.
  */
 
-export const INTERLUDE_MIN_METERS = 40;
-export const INTERLUDE_MAX_METERS = 100;
-export const INTERLUDE_SOFT_MAX_METERS = 90;
+export const INTERLUDE_MIN_METERS = 90;
+export const INTERLUDE_MAX_METERS = 150;
+export const INTERLUDE_SOFT_MAX_METERS = 140;
 
 export const INTERLUDE_SECTION_TYPES = Object.freeze([
   Object.freeze({
@@ -45,14 +45,16 @@ const TYPE_BY_ID = Object.freeze(
   Object.fromEntries(INTERLUDE_SECTION_TYPES.map((t) => [t.id, t])),
 );
 
-/** Known-good linear layout (~65 m) used when generation / validation fails. */
+/** Known-good linear layout (115 m) used when generation / validation fails. */
 const FALLBACK_SEQUENCE = Object.freeze([
-  ['empty', 10],
+  ['empty', 14],
+  ['pipe', 16],
+  ['files', 15],
+  ['service', 14],
+  ['shelves', 16],
+  ['lockers', 15],
+  ['empty', 14],
   ['pipe', 11],
-  ['files', 12],
-  ['service', 10.5],
-  ['shelves', 11],
-  ['lockers', 10.5],
 ]);
 
 function pieceFromType(i, typeId, start, len, featureSeed) {
@@ -76,8 +78,8 @@ function pieceFromType(i, typeId, start, len, featureSeed) {
 export function assembleInterludePlan(rng) {
   if (!rng) throw new Error('assembleInterludePlan requires a seeded rng');
 
-  // 4–6 sections × 10–15 m → typically 40–90 m, never over the hard max.
-  const count = 4 + rng.nextInt(0, 3);
+  // 6–9 sections budgeted toward 90–140 m.
+  const count = 6 + rng.nextInt(0, 4);
   const pieces = [];
   let last = -1;
   let offset = 0;
@@ -89,32 +91,30 @@ export function assembleInterludePlan(rng) {
         % INTERLUDE_SECTION_TYPES.length;
     }
     last = index;
-    let len = Math.round(rng.nextFloat(10, 15) * 2) / 2;
-    // Keep remaining budget under the soft max so the final piece still fits.
+    let len = Math.round(rng.nextFloat(12, 18) * 2) / 2;
     const remainingSlots = count - i - 1;
-    const maxForThis = INTERLUDE_SOFT_MAX_METERS - offset - remainingSlots * 10;
+    const maxForThis = INTERLUDE_SOFT_MAX_METERS - offset - remainingSlots * 12;
     const minForThis = Math.max(
-      10,
-      INTERLUDE_MIN_METERS - offset - remainingSlots * 15,
+      12,
+      INTERLUDE_MIN_METERS - offset - remainingSlots * 18,
     );
-    if (Number.isFinite(maxForThis) && maxForThis >= 10) {
+    if (Number.isFinite(maxForThis) && maxForThis >= 12) {
       len = Math.min(len, Math.round(maxForThis * 2) / 2);
     }
     if (Number.isFinite(minForThis) && minForThis > len) {
       len = Math.round(minForThis * 2) / 2;
     }
-    len = Math.max(10, Math.min(15, len));
+    len = Math.max(12, Math.min(18, len));
     const typeId = INTERLUDE_SECTION_TYPES[index].id;
     pieces.push(pieceFromType(i, typeId, offset, len, rng.nextU32()));
     offset += len;
   }
 
-  // Hard clamp — should be rare given the budgeted loop above.
   if (offset > INTERLUDE_MAX_METERS) {
     const scale = INTERLUDE_SOFT_MAX_METERS / offset;
     let cursor = 0;
     for (let i = 0; i < pieces.length; i++) {
-      const nextLen = Math.max(10, Math.round(pieces[i].len * scale * 2) / 2);
+      const nextLen = Math.max(12, Math.round(pieces[i].len * scale * 2) / 2);
       pieces[i].start = cursor;
       pieces[i].len = nextLen;
       pieces[i].end = cursor + nextLen;
@@ -124,7 +124,7 @@ export function assembleInterludePlan(rng) {
   }
 
   return {
-    version: 2,
+    version: 3,
     seed: rng.seed,
     pieces,
     len: offset,
@@ -146,7 +146,7 @@ export function createFallbackInterludePlan(seed = 48271) {
     offset += len;
   });
   return {
-    version: 2,
+    version: 3,
     seed: seed >>> 0,
     pieces,
     len: offset,
@@ -167,7 +167,7 @@ export function validateInterludePlan(plan) {
   if (!(plan.len > 0) || plan.len !== plan.pieces[plan.pieces.length - 1]?.end) {
     return { ok: false, reason: 'length' };
   }
-  if (plan.pieces.length < 4 || plan.pieces.length > 7) {
+  if (plan.pieces.length < 6 || plan.pieces.length > 10) {
     return { ok: false, reason: 'count' };
   }
   if (!(plan.len >= INTERLUDE_MIN_METERS && plan.len <= INTERLUDE_MAX_METERS)) {
@@ -178,7 +178,7 @@ export function validateInterludePlan(plan) {
     const p = plan.pieces[i];
     if (!TYPE_IDS.includes(p.type)) return { ok: false, reason: `type:${p.type}` };
     if (p.start !== cursor) return { ok: false, reason: 'gap' };
-    if (!(p.len >= 9 && p.len <= 18)) return { ok: false, reason: 'piece-len' };
+    if (!(p.len >= 11 && p.len <= 20)) return { ok: false, reason: 'piece-len' };
     if (p.end !== p.start + p.len) return { ok: false, reason: 'end' };
     cursor = p.end;
   }

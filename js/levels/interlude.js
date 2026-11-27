@@ -1,18 +1,17 @@
 /**
- * The In-Between — procedural chapter between Corridor and Office.
- * Story insertion requires ?debug=1&procgen=1. Direct debug jump always works.
+ * The In-Between — story chapter between The Stairwells and The Threshold.
  * Falls back to a known-good layout if generation fails.
- * Plans are cached per session seed so retries / re-entry never reshuffle.
+ * Plans are cached per playthrough seed so retries / re-entry never reshuffle.
  */
 
-import { createSeededRng } from '../procgen/index.js?v=ib-2';
+import { createSeededRng } from '../procgen/index.js?v=ib-3';
 import {
   assembleInterludePlan,
   validateInterludePlan,
   createFallbackInterludePlan,
-} from './interlude-plan.js?v=ib-2';
-import { buildInterludeWorld } from './interlude-build.js?v=ib-2';
-import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-2';
+} from './interlude-plan.js?v=ib-3';
+import { buildInterludeWorld } from './interlude-build.js?v=ib-3';
+import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-3';
 
 /** @type {Map<number|string, object>} */
 const planCache = new Map();

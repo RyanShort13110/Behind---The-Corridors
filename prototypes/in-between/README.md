@@ -1,6 +1,6 @@
 # Behind. — The In-Between (standalone procedural hallway proof of concept)
 
-This is an **isolated Three.js experiment**, also integrated into Behind. as a debug-only chapter.
+This is an **isolated Three.js experiment**, also integrated into Behind. as story chapter **05B**.
 
 ## Run standalone
 
@@ -13,26 +13,29 @@ Three.js is loaded from its official distribution on jsDelivr, so an internet co
 
 ## Run inside Behind. (integrated)
 
-Behind. hosts this generator as the `interlude` chapter (40–90 m, hard max 100):
+Story progression:
+
+**Night Shift → Stairwells → The In-Between → Threshold → Unseen**
+
+Direct jump / bookmark:
 
 ```
-?debug=1&level=interlude&procgen=1&seed=48271
+?debug=1&level=interlude&seed=48271
 ```
 
-With `?debug=1&procgen=1`, finishing Chapter 01 inserts the passage before The Office (Corridor → In-Between → Office). Without that flag, Corridor still goes straight to Office. Skip with `?skipinterlude=1` or DEV TOOLS → SKIP INTERLUDE.
+Hall length targets **90–140 m** (hard max 150). Plans are cached per playthrough seed so retries reproduce the same layout; a fresh seed is rolled on each new playthrough unless `?seed=` is set.
 
-It uses Behind.'s existing scene, scroll rail, look controls, and `js/procgen/` RNG session. Plans are cached per seed so retries do not reshuffle the hallway.
+Debug skip (Stairwells → Threshold): `?skipinterlude=1` or DEV TOOLS → SKIP INTERLUDE.
 
 ## What this experiment does
 
 - Builds the corridor shell, structural frames, lighting, pipes, lockers, shelves, storage objects and utility workbenches from a deterministic seed.
-- Chooses 9–12 modular corridor sections with varying lengths and visual categories.
-- Preserves a single straight, reversible, centerline camera route, with no random branches or inaccessible required items.
-- Has a clear start and an end door; **does not integrate or alter any original chapter transitions**.
-- Shows how a separate generated 'in-between' level could work between authored chapters.
+- Chooses modular corridor sections with varying lengths and visual categories.
+- Preserves a single straight, reversible, centerline camera route.
+- Has a clear start and an end door into The Threshold.
 
 ## What it intentionally doesn't do yet
 
-- No pickups, enemies, puzzles, cutscenes, or scripted story beats.
-- No side branches or turns; the first integration should prove corridor junctions and camera continuity before adding turning routes.
-- No production collision/occlusion validator beyond layout validation + fallback.
+- No pickups, enemies, puzzles, QTEs, cutscenes, or scripted horror beats.
+- No side branches or turns.
+- The environment stays quiet and almost completely ordinary for now.

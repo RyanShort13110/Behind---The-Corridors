@@ -14,7 +14,7 @@ const OPTIONS = [
   ['memory-white', 'DEV — White Memory', 'memory-white'],
   ['memory-black', 'DEV — Black Memory', 'memory-black'],
   ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
-  ['interlude', '01B — The In-Between', 'interlude'],
+  ['interlude', '05B — The In-Between', 'interlude'],
 ];
 const STAIRWELLS_CHAPTERS = new Set(['stairwells']);
 
@@ -517,7 +517,9 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     if (skipInterludeBtn) {
       const skipping = Boolean(procgenApi?.skipInterlude);
       skipInterludeBtn.textContent = skipping ? 'USE INTERLUDE' : 'SKIP INTERLUDE';
-      skipInterludeBtn.hidden = !procgenApi?.enabled;
+      skipInterludeBtn.title = skipping
+        ? 'Stairwells will continue into The In-Between'
+        : 'Skip The In-Between (Stairwells → Threshold)';
     }
   };
   skipInterludeBtn?.addEventListener('click', () => {
