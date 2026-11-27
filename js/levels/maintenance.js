@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {
   createCrowbarProp, disposeCrowbarProp, crowbarInteractable,
 } from '../props/crowbar.js?v=wpn-4';
-import { resolveMaintenanceDecor } from './maintenance-layout.js?v=proc-2';
+import { resolveMaintenanceDecor } from './maintenance-layout.js?v=proc-3';
 
 /**
  * The Service Wing — narrow maintenance corridors between Office and Records.

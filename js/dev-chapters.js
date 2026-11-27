@@ -21,7 +21,7 @@ const MEMORY_CHAPTERS = new Set(['memory-white', 'memory-black']);
 const WARD_CHAPTERS = new Set(['hospital-reverse']);
 const STORAGE_KEY = 'behind.devPanelCollapsed';
 
-export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null, camcorderApi = null, finaleApi = null, combatApi = null) {
+export function mountDevChapters(jump, getCurrentChapter, composureApi = null, audioApi = null, getLocation = null, camcorderApi = null, finaleApi = null, combatApi = null, procgenApi = null) {
   const panel = document.createElement('aside');
   panel.className = 'dev-chapters';
   panel.setAttribute('aria-label', 'Developer tools');
@@ -167,6 +167,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
       </div>
       <p class="dev-chapters__status" id="dev-combat-status" aria-live="polite">Combat: —</p>
     </div>
+    <p class="dev-chapters__status" id="dev-procgen-status" aria-live="polite">Procgen: off</p>
     <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
     </div>
   `;
@@ -499,6 +500,17 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     });
   });
   refreshCombatStatus();
+
+  const procgenStatus = panel.querySelector('#dev-procgen-status');
+  const refreshProcgenStatus = () => {
+    if (!procgenStatus) return;
+    const status = procgenApi?.getStatus?.();
+    procgenStatus.textContent = status
+      || (procgenApi?.enabled
+        ? `Procgen: ON · seed=${procgenApi.seed}`
+        : 'Procgen: off');
+  };
+  refreshProcgenStatus();
 
   const refreshCryVol = () => {
     if (!cryStatus) return;

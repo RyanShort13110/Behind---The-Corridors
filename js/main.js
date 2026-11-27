@@ -92,7 +92,7 @@ import {
 import {
   readProcgenBootConfig,
   createProcgenSession,
-} from './procgen/index.js?v=proc-1';
+} from './procgen/index.js?v=proc-3';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -1118,7 +1118,7 @@ async function endCamcorderPlayback() {
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-2');
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-3');
       director.add('maintenance', createMaintenance(scene, { procgen: procgenSession }));
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'records') {
@@ -2557,7 +2557,7 @@ async function enterMaintenance() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createMaintenance } = await import('./levels/maintenance.js?v=proc-2');
+    const { createMaintenance } = await import('./levels/maintenance.js?v=proc-3');
     module = createMaintenance(scene, { procgen: procgenSession });
     preserveCarryInventory();
     interaction?.clear();
@@ -2920,7 +2920,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-2');
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-3');
       maintenanceStory.reset();
       next.add('maintenance', createMaintenance(scene, { procgen: procgenSession }));
     } else if (target === 'records') {
@@ -3124,7 +3124,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=night-bent-1').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=proc-3').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3274,6 +3274,14 @@ if (DEBUG_MODE) {
         composureHits.add('night-cadence');
         syncNightCombatFlag();
         return true;
+      },
+    }, {
+      get enabled() { return procgenSession.enabled; },
+      get seed() { return procgenSession.seed; },
+      getStatus() {
+        return procgenSession.enabled
+          ? `Procgen: ON · seed=${procgenSession.seed}`
+          : 'Procgen: off · add &procgen=1&seed=12345';
       },
     });
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
