@@ -2,17 +2,17 @@ import * as THREE from 'three';
 import {
   createCrowbarProp, disposeCrowbarProp, crowbarInteractable,
 } from '../props/crowbar.js?v=wpn-4';
-import { resolveMaintenanceDecor } from './maintenance-layout.js?v=proc-5';
+import { resolveMaintenanceDecor } from './maintenance-layout.js?v=proc-7';
 import {
   assembleMaintenancePlan,
   validateMaintenancePlan,
   EVENT_IDS,
-} from './maintenance-assemble.js?v=proc-5';
-import { MODULE_TEMPLATES } from './maintenance-modules.js?v=proc-5';
+} from './maintenance-assemble.js?v=proc-7';
+import { MODULE_TEMPLATES } from './maintenance-modules.js?v=proc-7';
 import {
   MAINTENANCE_METERS,
   MAINTENANCE_START_Z,
-} from './maintenance-story.js?v=proc-5';
+} from './maintenance-story.js?v=proc-7';
 
 /**
  * The Service Wing — narrow maintenance corridors between Office and Records.
@@ -161,6 +161,39 @@ function buildCart(kit, parent) {
   }
   add(0.35, 0.05, 0.08, 0.1, 1.0, 0.05, mat.metal, parent);
   add(0.08, 0.22, 0.08, -0.22, 1.1, -0.05, mat.rust, parent);
+}
+
+/**
+ * Records threshold: framed door seated in the jamb, with a solid end wall
+ * behind so the ajar leaf never reads as floating in void.
+ */
+function buildExitPortal(kit, exitZ) {
+  const { add, mat } = kit;
+  const jambX = 1.14;
+  const leafW = 2.05;
+  // Leaf top meets the header underside (header center 2.68, h 0.2 → bottom 2.58).
+  const leafH = 2.54;
+  const leafY = leafH * 0.5 + 0.02;
+
+  // Close the corridor behind the frame.
+  add(6.5, 3.2, 0.2, 0, 1.52, exitZ - 0.55, mat.wallDark);
+
+  // Jambs sit on the floor; header sits under the ceiling (no pipe clash).
+  add(0.22, 2.58, 0.24, -jambX, 1.31, exitZ, mat.darkMetal);
+  add(0.22, 2.58, 0.24, jambX, 1.31, exitZ, mat.darkMetal);
+  add(2.5, 0.2, 0.24, 0, 2.68, exitZ, mat.darkMetal);
+
+  const leaf = kit.addGroup('room:exit:door');
+  // Hinge against the inner face of the left jamb; leaf swings into the wing.
+  leaf.position.set(-jambX + 0.12, 0, exitZ + 0.04);
+  leaf.rotation.y = 0.42;
+  // Slightly lighter than the end wall so the ajar leaf still reads in the dark.
+  add(leafW, leafH, 0.07, leafW * 0.5, leafY, 0, mat.wall, leaf);
+  add(0.04, 0.14, 0.05, leafW - 0.18, 1.22, 0.05, mat.metal, leaf);
+  // Exit sign flush on the player-facing header — not a floating ceiling brick.
+  add(0.55, 0.12, 0.06, 0, 2.68, exitZ + 0.16, mat.exitLite);
+  kit.lights.push(kit.addLight(0xc8b090, 1.05, 7, 0, 2.35, exitZ + 1.1));
+  return leaf;
 }
 
 function finishLevel(scene, world, kit, {
@@ -317,15 +350,7 @@ function buildAuthored(scene, decor) {
     add(0.04, 0.25, 0.04, 2.95, 1.7, z, mat.metal);
   }
 
-  const exitZ = -36.4;
-  add(0.18, 2.7, 0.28, -1.15, 1.4, exitZ, mat.darkMetal);
-  add(0.18, 2.7, 0.28, 1.15, 1.4, exitZ, mat.darkMetal);
-  add(2.5, 0.16, 0.28, 0, 2.8, exitZ, mat.darkMetal);
-  const exitLeaf = kit.addGroup('room:exit:door');
-  exitLeaf.position.set(-1.0, 0, exitZ + 0.05);
-  exitLeaf.rotation.y = 0.45;
-  add(1.05, 2.55, 0.08, 0.52, 1.3, 0, mat.wallDark, exitLeaf);
-  add(0.5, 0.14, 0.18, 0, 2.95, exitZ + 0.1, mat.exitLite);
+  buildExitPortal(kit, -36.4);
 
   for (const z of [-1, -9, -17, -25.5, -33]) {
     kit.addMesh(mat.tube, 1.35, 0.04, 0.28, 0, 2.92, z);
@@ -375,6 +400,7 @@ function buildFromPlan(scene, plan, rng) {
     // Local kit that parents into the room group.
     const localKit = {
       ...kit,
+      role: mod.role,
       add: (w, h, d, x, y, z, material, parent = room) =>
         kit.add(w, h, d, x, y, z, material, parent),
       addCyl: (r, h, x, y, z, material, opts = {}) =>
@@ -398,17 +424,10 @@ function buildFromPlan(scene, plan, rng) {
     }
   }
 
-  // Exit door on the final connector.
+  // Exit door seated on the final connector (end wall caps the void).
   const exitMod = plan.modules[plan.modules.length - 1];
-  const exitZ = exitMod.zOrigin - exitMod.length + 0.4;
-  add(0.18, 2.7, 0.28, -1.15, 1.4, exitZ, mat.darkMetal);
-  add(0.18, 2.7, 0.28, 1.15, 1.4, exitZ, mat.darkMetal);
-  add(2.5, 0.16, 0.28, 0, 2.8, exitZ, mat.darkMetal);
-  const exitLeaf = kit.addGroup('room:exit:door');
-  exitLeaf.position.set(-1.0, 0, exitZ + 0.05);
-  exitLeaf.rotation.y = 0.45;
-  add(1.05, 2.55, 0.08, 0.52, 1.3, 0, mat.wallDark, exitLeaf);
-  add(0.5, 0.14, 0.18, 0, 2.95, exitZ + 0.1, mat.exitLite);
+  const exitZ = exitMod.zOrigin - exitMod.length + 0.85;
+  buildExitPortal(kit, exitZ);
 
   const cartEvent = plan.events[EVENT_IDS.cart];
   const cart = kit.addGroup(EVENT_IDS.cart);

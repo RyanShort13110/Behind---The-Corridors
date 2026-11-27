@@ -47,8 +47,8 @@ import {
 import { recordsCameraPose } from './levels/records-route.js';
 import {
   createMaintenanceStory, maintenanceNarrative, MAINTENANCE_METERS, MAINTENANCE_START_Z,
-} from './levels/maintenance-story.js?v=proc-5';
-import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-5';
+} from './levels/maintenance-story.js?v=proc-7';
+import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-7';
 import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
@@ -1131,7 +1131,7 @@ async function endCamcorderPlayback() {
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-5');
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-7');
       const maintenanceModule = createMaintenance(scene, { procgen: procgenSession });
       director.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
@@ -2572,7 +2572,7 @@ async function enterMaintenance() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createMaintenance } = await import('./levels/maintenance.js?v=proc-5');
+    const { createMaintenance } = await import('./levels/maintenance.js?v=proc-7');
     module = createMaintenance(scene, { procgen: procgenSession });
     preserveCarryInventory();
     interaction?.clear();
@@ -2936,7 +2936,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-5');
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-7');
       maintenanceStory.reset();
       const maintenanceModule = createMaintenance(scene, { procgen: procgenSession });
       next.add('maintenance', maintenanceModule);

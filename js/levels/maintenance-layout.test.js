@@ -9,6 +9,7 @@ import {
   DEFAULT_MAINTENANCE_DECOR,
   MAINTENANCE_RAIL_CLEAR_X,
   resolveMaintenanceDecor,
+  isDecorGrounded,
   SHELF_SLOTS,
   CABINET_SLOTS,
 } from './maintenance-layout.js';
@@ -74,6 +75,18 @@ test('decor stays clear of the camera rail and workshop crowbar bay', () => {
     }
     for (const z of decor.cabinets) {
       assert.ok(z > -24.0 || z < -29.0, `cabinet in workshop ${z}`);
+    }
+  }
+});
+
+test('procgen decor items rest on floor, shelf, or cabinet surfaces', () => {
+  for (const seed of [12345, 7, 99991, 42, 987654]) {
+    const decor = resolveMaintenanceDecor(createSeededRng(`${seed}:maintenance-decor`));
+    for (const item of [...decor.clutter, ...decor.tools]) {
+      assert.ok(
+        isDecorGrounded(item),
+        `floating ${item.kind} y=${item.y} h=${item.h} seed=${seed}`,
+      );
     }
   }
 });

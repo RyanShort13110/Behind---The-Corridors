@@ -2,10 +2,28 @@
  * Service Wing decor placement.
  * Default = authored layout. With a seeded RNG, picks from safe wall slots
  * that stay clear of the camera rail, crowbar workshop, cart, entry, and exit.
+ * Procgen props are snapped onto floor / shelf / cabinet surfaces (no floaters).
  */
 
 /** Half-width kept clear for the scroll camera (x ≈ 0). */
 export const MAINTENANCE_RAIL_CLEAR_X = 1.55;
+
+/** Floor plane used by decor boxes (mesh tops out at y=0). */
+export const MAINTENANCE_FLOOR_Y = 0;
+
+/** Shelf board tops matching the Service Wing shelf build. */
+export const MAINTENANCE_SHELF_BOARDS = Object.freeze([0.55, 1.15, 1.7]);
+
+/** Top of the right-wall cabinet body (center 0.95, height 1.7). */
+export const MAINTENANCE_CABINET_TOP_Y = 1.8;
+
+const SURFACE_Y = Object.freeze({
+  floor: MAINTENANCE_FLOOR_Y,
+  shelfLow: MAINTENANCE_SHELF_BOARDS[0],
+  shelfMid: MAINTENANCE_SHELF_BOARDS[1],
+  shelfHigh: MAINTENANCE_SHELF_BOARDS[2],
+  cabinetTop: MAINTENANCE_CABINET_TOP_Y,
+});
 
 /** Authoritative default arrangement (matches the non-procgen build). */
 export const DEFAULT_MAINTENANCE_DECOR = Object.freeze({
@@ -49,20 +67,20 @@ export const CABINET_SLOTS = Object.freeze([
 
 /** Floor / shelf clutter templates; Z comes from chosen shelf / cabinet anchors. */
 const CLUTTER_KINDS = Object.freeze([
-  { kind: 'box', w: 0.22, h: 0.18, d: 0.18, y: 1.28, side: 'left', mat: 'metal' },
-  { kind: 'can', w: 0.12, h: 0.35, d: 0.12, y: 1.45, side: 'left', mat: 'dark' },
-  { kind: 'tray', w: 0.28, h: 0.08, d: 0.2, y: 1.78, side: 'left', mat: 'rust' },
-  { kind: 'crate', w: 0.3, h: 0.22, d: 0.24, y: 0.58, side: 'left', mat: 'wood' },
-  { kind: 'lid', w: 0.2, h: 0.06, d: 0.26, y: 1.2, side: 'right', mat: 'darkMetal' },
-  { kind: 'case', w: 0.26, h: 0.2, d: 0.2, y: 0.55, side: 'right', mat: 'cabinet' },
+  { kind: 'box', w: 0.22, h: 0.18, d: 0.18, surface: 'shelfMid', side: 'left', mat: 'metal' },
+  { kind: 'can', w: 0.12, h: 0.35, d: 0.12, surface: 'shelfMid', side: 'left', mat: 'dark' },
+  { kind: 'tray', w: 0.28, h: 0.08, d: 0.2, surface: 'shelfHigh', side: 'left', mat: 'rust' },
+  { kind: 'crate', w: 0.3, h: 0.22, d: 0.24, surface: 'floor', side: 'left', mat: 'wood' },
+  { kind: 'lid', w: 0.2, h: 0.06, d: 0.26, surface: 'cabinetTop', side: 'right', mat: 'darkMetal' },
+  { kind: 'case', w: 0.26, h: 0.2, d: 0.2, surface: 'floor', side: 'right', mat: 'cabinet' },
 ]);
 
 const TOOL_KINDS = Object.freeze([
-  { kind: 'wrench', w: 0.32, h: 0.05, d: 0.07, y: 0.58, side: 'left', mat: 'metal' },
-  { kind: 'spool', w: 0.14, h: 0.14, d: 0.14, y: 1.2, side: 'left', mat: 'rust' },
-  { kind: 'bar', w: 0.4, h: 0.04, d: 0.04, y: 1.72, side: 'left', mat: 'metal' },
-  { kind: 'block', w: 0.16, h: 0.16, d: 0.16, y: 0.55, side: 'right', mat: 'hazard' },
-  { kind: 'clamp', w: 0.18, h: 0.12, d: 0.1, y: 1.05, side: 'right', mat: 'metal' },
+  { kind: 'wrench', w: 0.32, h: 0.05, d: 0.07, surface: 'shelfLow', side: 'left', mat: 'metal' },
+  { kind: 'spool', w: 0.14, h: 0.14, d: 0.14, surface: 'shelfMid', side: 'left', mat: 'rust' },
+  { kind: 'bar', w: 0.4, h: 0.04, d: 0.04, surface: 'shelfHigh', side: 'left', mat: 'metal' },
+  { kind: 'block', w: 0.16, h: 0.16, d: 0.16, surface: 'floor', side: 'right', mat: 'hazard' },
+  { kind: 'clamp', w: 0.18, h: 0.12, d: 0.1, surface: 'cabinetTop', side: 'right', mat: 'metal' },
 ]);
 
 function cloneDecor(src) {
@@ -76,6 +94,30 @@ function cloneDecor(src) {
 
 function sideX(side) {
   return side === 'right' ? 2.45 : -2.48;
+}
+
+/** Center Y so a box of height `h` rests on surfaceY. */
+export function groundedCenterY(h, surfaceY = MAINTENANCE_FLOOR_Y) {
+  return surfaceY + h * 0.5;
+}
+
+/**
+ * Snap a decor item onto a named surface. Mutates and returns the item.
+ * @param {{ h: number, y?: number, surface?: string }} item
+ * @param {keyof typeof SURFACE_Y} [surface]
+ */
+export function groundDecorItem(item, surface = item.surface || 'floor') {
+  const surfaceY = SURFACE_Y[surface] ?? MAINTENANCE_FLOOR_Y;
+  item.surface = surface;
+  item.y = groundedCenterY(item.h, surfaceY);
+  return item;
+}
+
+/** True when the item bottom sits on a known Service Wing surface. */
+export function isDecorGrounded(item, epsilon = 0.02) {
+  if (!(item?.h > 0) || !Number.isFinite(item.y)) return false;
+  const bottom = item.y - item.h * 0.5;
+  return Object.values(SURFACE_Y).some((y) => Math.abs(bottom - y) <= epsilon);
 }
 
 /**
@@ -130,16 +172,16 @@ export function resolveMaintenanceDecor(rng = null) {
       ? cabinets[i % cabinets.length]
       : shelves[i % shelves.length];
     const zJitter = rng.nextFloat(-0.2, 0.2);
-    return {
+    return groundDecorItem({
       kind: tmpl.kind,
       x: sideX(tmpl.side) + rng.nextFloat(-0.06, 0.06),
-      y: tmpl.y,
       z: anchor + zJitter,
       w: tmpl.w,
       h: tmpl.h,
       d: tmpl.d,
       mat: tmpl.mat,
-    };
+      surface: tmpl.surface,
+    }, tmpl.surface);
   });
 
   const toolCount = 2 + rng.nextInt(0, 3); // 2–4
@@ -149,16 +191,16 @@ export function resolveMaintenanceDecor(rng = null) {
       ? cabinets[(i + 1) % cabinets.length]
       : shelves[(i + 1) % shelves.length];
     const zJitter = rng.nextFloat(-0.16, 0.16);
-    return {
+    return groundDecorItem({
       kind: tmpl.kind,
       x: sideX(tmpl.side) + rng.nextFloat(-0.05, 0.05),
-      y: tmpl.y,
       z: anchor + zJitter,
       w: tmpl.w,
       h: tmpl.h,
       d: tmpl.d,
       mat: tmpl.mat,
-    };
+      surface: tmpl.surface,
+    }, tmpl.surface);
   });
 
   for (const item of [...clutter, ...tools]) {

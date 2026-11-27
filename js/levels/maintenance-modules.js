@@ -31,13 +31,14 @@ function shell(ctx, length) {
   add(0.1, 0.26, length, 3.08, 0.14, mid, mat.baseboard);
 }
 
-function ceilingPipes(ctx, length) {
+function ceilingPipes(ctx, length, { endPad = 0.4 } = {}) {
   const { addCyl, add, mat } = ctx;
-  const mid = -length * 0.5;
+  const usable = Math.max(2, length - endPad);
+  const mid = -usable * 0.5;
   for (const [x, pipeMat] of [[-1.1, mat.pipe], [1.35, mat.pipeCool], [-0.15, mat.rust]]) {
-    addCyl(0.07, length * 0.92, x, 2.72, mid, pipeMat, { rotX: Math.PI / 2 });
+    addCyl(0.07, usable * 0.92, x, 2.72, mid, pipeMat, { rotX: Math.PI / 2 });
   }
-  for (let z = -2; z > -length + 2; z -= 6) {
+  for (let z = -2; z > -usable + 1.5; z -= 6) {
     add(0.08, 0.06, 0.18, -1.1, 2.72, z, mat.darkMetal);
     add(0.08, 0.06, 0.18, 1.35, 2.72, z, mat.darkMetal);
   }
@@ -59,9 +60,12 @@ export const MODULE_CORRIDOR = Object.freeze({
   tags: Object.freeze(['corridor']),
   build(ctx) {
     shell(ctx, 8);
-    ceilingPipes(ctx, 8);
+    // Exit corridors stop pipes/fixtures short of the Records door frame.
+    const endPad = ctx.role === 'exit' ? 2.8 : 0.4;
+    ceilingPipes(ctx, 8, { endPad });
     fixture(ctx, -2);
-    fixture(ctx, -6);
+    if (ctx.role === 'exit') fixture(ctx, -4.2);
+    else fixture(ctx, -6);
   },
 });
 
@@ -85,11 +89,12 @@ export const MODULE_STORAGE = Object.freeze({
       add(0.52, 0.04, 0.66, -2.55, 0.55, z, mat.darkMetal);
       add(0.52, 0.04, 0.66, -2.55, 1.15, z, mat.darkMetal);
       add(0.52, 0.04, 0.66, -2.55, 1.7, z, mat.darkMetal);
-      add(0.2, 0.14, 0.16, -2.45, 1.28, z + 0.1, mat.metal);
+      // Mid shelf board is at y=1.15 — rest the box on it.
+      add(0.2, 0.14, 0.16, -2.45, 1.15 + 0.07, z + 0.1, mat.metal);
     }
-    // Optional right crates.
-    add(0.4, 0.35, 0.5, 2.55, 0.3, -4.5, mat.dark);
-    add(0.35, 0.28, 0.4, 2.5, 0.25, -6.8, mat.rust);
+    // Floor crates (center Y = half-height so bottoms sit on y=0).
+    add(0.4, 0.35, 0.5, 2.55, 0.175, -4.5, mat.dark);
+    add(0.35, 0.28, 0.4, 2.5, 0.14, -6.8, mat.rust);
   },
 });
 
