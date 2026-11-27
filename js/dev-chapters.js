@@ -14,7 +14,7 @@ const OPTIONS = [
   ['memory-white', 'DEV — White Memory', 'memory-white'],
   ['memory-black', 'DEV — Black Memory', 'memory-black'],
   ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
-  ['interlude', 'DEV — The In-Between', 'interlude'],
+  ['interlude', '01B — The In-Between', 'interlude'],
 ];
 const STAIRWELLS_CHAPTERS = new Set(['stairwells']);
 
@@ -169,6 +169,9 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
       <p class="dev-chapters__status" id="dev-combat-status" aria-live="polite">Combat: —</p>
     </div>
     <p class="dev-chapters__status" id="dev-procgen-status" aria-live="polite">Procgen: off</p>
+    <div class="dev-chapters__row" id="dev-interlude-row">
+      <button type="button" id="dev-skip-interlude" title="Skip Corridor→Office procedural passage">SKIP INTERLUDE</button>
+    </div>
     <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
     </div>
   `;
@@ -503,6 +506,7 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   refreshCombatStatus();
 
   const procgenStatus = panel.querySelector('#dev-procgen-status');
+  const skipInterludeBtn = panel.querySelector('#dev-skip-interlude');
   const refreshProcgenStatus = () => {
     if (!procgenStatus) return;
     const status = procgenApi?.getStatus?.();
@@ -510,7 +514,16 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
       || (procgenApi?.enabled
         ? `Procgen: ON · seed=${procgenApi.seed}`
         : 'Procgen: off');
+    if (skipInterludeBtn) {
+      const skipping = Boolean(procgenApi?.skipInterlude);
+      skipInterludeBtn.textContent = skipping ? 'USE INTERLUDE' : 'SKIP INTERLUDE';
+      skipInterludeBtn.hidden = !procgenApi?.enabled;
+    }
   };
+  skipInterludeBtn?.addEventListener('click', () => {
+    procgenApi?.toggleSkipInterlude?.();
+    refreshProcgenStatus();
+  });
   refreshProcgenStatus();
 
   const refreshCryVol = () => {

@@ -13,13 +13,15 @@ Three.js is loaded from its official distribution on jsDelivr, so an internet co
 
 ## Run inside Behind. (integrated)
 
-Behind. hosts this generator as the debug-only `interlude` chapter:
+Behind. hosts this generator as the `interlude` chapter (40–90 m, hard max 100):
 
 ```
 ?debug=1&level=interlude&procgen=1&seed=48271
 ```
 
-It uses Behind.'s existing scene, scroll rail, look controls, and `js/procgen/` RNG session. No standalone renderer loop is used in-game. Generation validates layouts and falls back to a known-good plan on failure. The chapter is **not** part of normal story progression.
+With `?debug=1&procgen=1`, finishing Chapter 01 inserts the passage before The Office (Corridor → In-Between → Office). Without that flag, Corridor still goes straight to Office. Skip with `?skipinterlude=1` or DEV TOOLS → SKIP INTERLUDE.
+
+It uses Behind.'s existing scene, scroll rail, look controls, and `js/procgen/` RNG session. Plans are cached per seed so retries do not reshuffle the hallway.
 
 ## What this experiment does
 

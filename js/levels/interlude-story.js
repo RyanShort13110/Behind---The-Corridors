@@ -1,12 +1,13 @@
 /**
- * The In-Between — debug-only procedural interlude.
+ * The In-Between — procedural corridor between Chapter 01 and The Office.
+ * Active in normal progression only when ?debug=1&procgen=1.
  * No dialogue, pickups, puzzles, or story beats yet.
  */
 
 export const INTERLUDE_START_Z = 3.95;
-/** Fallback meters when no module rail is active (matches fallback plan ~160.5). */
-export const INTERLUDE_METERS = 160.5;
-export const INTERLUDE_END_PROGRESS = 0.97;
+/** Fallback meters when no module rail is active (matches fallback plan 65). */
+export const INTERLUDE_METERS = 65;
+export const INTERLUDE_END_PROGRESS = 0.96;
 
 export function createInterludeStory() {
   const state = {
@@ -17,8 +18,8 @@ export function createInterludeStory() {
     sectionName: '',
   };
 
-  /** @type {{ end: number, pieces: object[] }} */
-  let layout = { end: INTERLUDE_END_PROGRESS, pieces: [] };
+  /** @type {{ end: number, pieces: object[], meters: number }} */
+  let layout = { end: INTERLUDE_END_PROGRESS, pieces: [], meters: INTERLUDE_METERS };
 
   return {
     state,
@@ -65,11 +66,11 @@ export function interludeNarrative(progress, state) {
     ? ` · ${state.sectionName}`
     : '';
   return {
-    chapter: `DEV — THE IN-BETWEEN${section}`,
+    chapter: `THE IN-BETWEEN${section}`,
     line: '',
     dialogueId: '',
     instruction: state.completed
-      ? 'END OF PASSAGE · SCROLL DOWN OR JUMP CHAPTERS'
+      ? 'CONTINUE INTO THE OFFICE ↑'
       : 'SCROLL UP TO CONTINUE ↑',
   };
 }

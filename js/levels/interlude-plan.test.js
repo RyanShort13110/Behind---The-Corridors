@@ -9,6 +9,9 @@ import {
   assembleInterludePlan,
   validateInterludePlan,
   createFallbackInterludePlan,
+  INTERLUDE_MIN_METERS,
+  INTERLUDE_MAX_METERS,
+  INTERLUDE_SOFT_MAX_METERS,
 } from './interlude-plan.js';
 
 function test(name, fn) {
@@ -33,14 +36,17 @@ test('same seed reproduces the same section chain', () => {
   assert.equal(a.len, b.len);
 });
 
-test('plans are 9–12 sections with continuous connectors', () => {
-  for (const seed of [48271, 1, 7, 99991, 12345]) {
+test('plans stay within 40–100 m with continuous connectors', () => {
+  for (const seed of [48271, 1, 7, 99991, 12345, 42, 777]) {
     const plan = assembleInterludePlan(createSeededRng(`${seed}:interlude`));
     const check = validateInterludePlan(plan);
     assert.equal(check.ok, true, `${seed}: ${check.reason}`);
     assert.equal(plan.path.kind, 'straight');
     assert.equal(plan.path.reversible, true);
-    assert.ok(plan.pieces.length >= 9 && plan.pieces.length <= 12);
+    assert.ok(plan.pieces.length >= 4 && plan.pieces.length <= 7);
+    assert.ok(plan.len >= INTERLUDE_MIN_METERS, `too short ${plan.len}`);
+    assert.ok(plan.len <= INTERLUDE_MAX_METERS, `over hard max ${plan.len}`);
+    assert.ok(plan.len <= INTERLUDE_SOFT_MAX_METERS + 0.01, `over soft max ${plan.len}`);
   }
 });
 
@@ -53,12 +59,13 @@ test('different seeds can diverge', () => {
   );
 });
 
-test('fallback layout always validates', () => {
+test('fallback layout always validates under the new length budget', () => {
   const plan = createFallbackInterludePlan(48271);
   const check = validateInterludePlan(plan);
   assert.equal(check.ok, true, check.reason);
   assert.equal(plan.fallback, true);
-  assert.equal(plan.pieces.length, 10);
+  assert.equal(plan.pieces.length, 6);
+  assert.equal(plan.len, 65);
 });
 
 test('adjacent sections do not share the same type when avoidable', () => {
