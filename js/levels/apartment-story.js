@@ -5,16 +5,16 @@
  */
 
 export const APARTMENT_START_Z = 3.8;
-/** Living → kitchen → hall → bedroom door. */
-export const APARTMENT_METERS = 19;
+/** Living → kitchen pocket → vestibule → hall → bedroom door (stop ~2.5m short of the wall). */
+export const APARTMENT_METERS = 15.5;
 export const APARTMENT_END_PROGRESS = 0.97;
 
 /** Named zones along the rail (for lighting / memory hooks). */
 export const APARTMENT_ZONES = Object.freeze({
-  living: Object.freeze({ start: 0, end: 0.38, label: 'LIVING ROOM' }),
-  kitchen: Object.freeze({ start: 0.38, end: 0.58, label: 'KITCHEN' }),
-  hallway: Object.freeze({ start: 0.58, end: 0.85, label: 'HALLWAY' }),
-  bedroom: Object.freeze({ start: 0.85, end: 1, label: 'BEDROOM DOOR' }),
+  living: Object.freeze({ start: 0, end: 0.36, label: 'LIVING ROOM' }),
+  kitchen: Object.freeze({ start: 0.36, end: 0.58, label: 'KITCHEN' }),
+  hallway: Object.freeze({ start: 0.58, end: 0.88, label: 'HALLWAY' }),
+  bedroom: Object.freeze({ start: 0.88, end: 1, label: 'BEDROOM DOOR' }),
 });
 
 export function createApartmentStory() {

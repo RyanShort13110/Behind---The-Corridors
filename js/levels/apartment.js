@@ -10,7 +10,7 @@
  */
 
 import * as THREE from 'three';
-import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js';
+import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-3';
 
 /**
  * @param {THREE.Scene} scene
@@ -61,45 +61,75 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   world.add(livingRoom, kitchen, hallway, bedroomEntrance);
 
   // ——— Shell: continuous floor / ceiling along the rail ———
-  // Living (wide) → kitchen pocket (right) → hall (narrow) → bedroom door wall.
-  add(6.6, 0.12, 8.2, 0, -0.06, -1.5, materials.floor, livingRoom);
-  add(6.6, 0.12, 8.2, 0, 2.88, -1.5, materials.ceiling, livingRoom);
-  // Kitchen floor (right bay)
-  add(3.4, 0.12, 4.2, 2.4, -0.06, -7.6, materials.floorTile, kitchen);
-  add(3.4, 0.12, 4.2, 2.4, 2.88, -7.6, materials.ceiling, kitchen);
-  // Hall
-  add(2.5, 0.12, 5.2, 0, -0.06, -12.2, materials.floor, hallway);
-  add(2.5, 0.12, 5.2, 0, 2.88, -12.2, materials.ceiling, hallway);
+  // Living (wide) → kitchen pocket (right) → vestibule → hall → bedroom door.
+  // Camera starts at APARTMENT_START_Z (3.8); entry wall sits behind it.
+  const ENTRY_Z = 4.55;
+  const LIVING_FAR_Z = -5.55;
+  const HALL_NEAR_Z = -9.65;
+  const DOOR_WALL_Z = -14.75;
 
-  // Living walls
-  add(0.14, 2.95, 8.2, 3.3, 1.42, -1.5, materials.wall, livingRoom);
-  // Left wall with window opening
+  // Living floor/ceiling: entry → living far
+  const livingDepth = ENTRY_Z - LIVING_FAR_Z;
+  const livingMidZ = (ENTRY_Z + LIVING_FAR_Z) * 0.5;
+  add(6.6, 0.12, livingDepth, 0, -0.06, livingMidZ, materials.floor, livingRoom);
+  add(6.6, 0.12, livingDepth, 0, 2.88, livingMidZ, materials.ceiling, livingRoom);
+
+  // Vestibule (center aisle between living and hall) — closes the old void gap
+  const vestDepth = LIVING_FAR_Z - HALL_NEAR_Z;
+  const vestMidZ = (LIVING_FAR_Z + HALL_NEAR_Z) * 0.5;
+  add(2.6, 0.12, vestDepth, 0, -0.06, vestMidZ, materials.floor, hallway);
+  add(2.6, 0.12, vestDepth, 0, 2.88, vestMidZ, materials.ceiling, hallway);
+
+  // Kitchen floor (right bay, open to living + vestibule)
+  add(3.0, 0.12, vestDepth + 0.2, 2.55, -0.06, vestMidZ, materials.floorTile, kitchen);
+  add(3.0, 0.12, vestDepth + 0.2, 2.55, 2.88, vestMidZ, materials.ceiling, kitchen);
+
+  // Hall floor/ceiling
+  const hallDepth = HALL_NEAR_Z - DOOR_WALL_Z;
+  const hallMidZ = (HALL_NEAR_Z + DOOR_WALL_Z) * 0.5;
+  add(2.5, 0.12, hallDepth, 0, -0.06, hallMidZ, materials.floor, hallway);
+  add(2.5, 0.12, hallDepth, 0, 2.88, hallMidZ, materials.ceiling, hallway);
+
+  // Living right wall (continuous)
+  add(0.14, 2.95, livingDepth, 3.3, 1.42, livingMidZ, materials.wall, livingRoom);
+
+  // Left wall with window — piers meet the opening exactly (memory-home style)
   const WIN_Z = -1.8;
   const WIN_OPEN = 1.5;
-  add(0.14, 2.95, 3.0, -3.3, 1.42, 0.85, materials.wall, livingRoom);
-  add(0.14, 2.95, 3.55, -3.3, 1.42, -4.55, materials.wall, livingRoom);
-  add(0.14, 0.82, WIN_OPEN + 0.06, -3.3, 0.41, WIN_Z, materials.wall, livingRoom);
-  add(0.14, 0.62, WIN_OPEN + 0.06, -3.3, 2.62, WIN_Z, materials.wall, livingRoom);
-  // Entry wall (behind camera start)
-  add(6.6, 2.95, 0.14, 0, 1.42, 2.65, materials.wall, livingRoom);
-  // Living → hall / kitchen divider (opening on center + kitchen right)
-  add(1.7, 2.95, 0.14, -2.35, 1.42, -5.55, materials.wall, livingRoom);
-  add(1.15, 2.95, 0.14, 1.05, 1.42, -5.55, materials.wall, livingRoom);
+  const WIN_NEAR = WIN_Z + WIN_OPEN * 0.5; // -1.05
+  const WIN_FAR = WIN_Z - WIN_OPEN * 0.5;  // -2.55
+  const WIN_SILL_Y = 0.82;
+  const WIN_HEAD_Y = 2.28;
+  const frontPierDepth = ENTRY_Z - WIN_NEAR;
+  const frontPierMid = (ENTRY_Z + WIN_NEAR) * 0.5;
+  const rearPierDepth = WIN_FAR - LIVING_FAR_Z;
+  const rearPierMid = (WIN_FAR + LIVING_FAR_Z) * 0.5;
+  add(0.14, 2.95, frontPierDepth, -3.3, 1.42, frontPierMid, materials.wall, livingRoom);
+  add(0.14, 2.95, rearPierDepth, -3.3, 1.42, rearPierMid, materials.wall, livingRoom);
+  add(0.14, WIN_SILL_Y, WIN_OPEN + 0.04, -3.3, WIN_SILL_Y * 0.5, WIN_Z, materials.wall, livingRoom);
+  add(0.14, 2.95 - WIN_HEAD_Y, WIN_OPEN + 0.04, -3.3, (WIN_HEAD_Y + 2.95) * 0.5, WIN_Z, materials.wall, livingRoom);
+
+  // Entry wall BEHIND the camera start (was occluding the first meters)
+  add(6.6, 2.95, 0.14, 0, 1.42, ENTRY_Z, materials.wall, livingRoom);
+
+  // Living far divider: left pier only — center aisle + kitchen stay open
+  add(2.1, 2.95, 0.14, -2.2, 1.42, LIVING_FAR_Z, materials.wall, livingRoom);
   // Baseboards
-  add(0.12, 0.14, 8.2, 3.22, 0.07, -1.5, materials.trim, livingRoom);
-  add(0.12, 0.14, 8.2, -3.22, 0.07, -1.5, materials.trim, livingRoom);
+  add(0.12, 0.14, livingDepth, 3.22, 0.07, livingMidZ, materials.trim, livingRoom);
+  add(0.12, 0.14, livingDepth, -3.22, 0.07, livingMidZ, materials.trim, livingRoom);
 
   // Window trim + glass + curtains
-  const winH = 1.45;
-  add(0.08, 0.08, WIN_OPEN, -3.22, 0.82, WIN_Z, materials.trim, livingRoom);
-  add(0.08, 0.08, WIN_OPEN, -3.22, 2.28, WIN_Z, materials.trim, livingRoom);
-  add(0.08, winH, 0.08, -3.22, 1.55, WIN_Z + WIN_OPEN * 0.5 - 0.04, materials.trim, livingRoom);
-  add(0.08, winH, 0.08, -3.22, 1.55, WIN_Z - WIN_OPEN * 0.5 + 0.04, materials.trim, livingRoom);
-  add(0.05, winH - 0.1, 0.05, -3.22, 1.55, WIN_Z, materials.trim, livingRoom);
-  const windowGlass = add(0.03, winH - 0.12, WIN_OPEN - 0.12, -3.18, 1.55, WIN_Z, materials.glass, livingRoom);
+  const winH = WIN_HEAD_Y - WIN_SILL_Y;
+  const winMidY = (WIN_SILL_Y + WIN_HEAD_Y) * 0.5;
+  add(0.08, 0.1, WIN_OPEN, -3.22, WIN_SILL_Y, WIN_Z, materials.trim, livingRoom);
+  add(0.08, 0.1, WIN_OPEN, -3.22, WIN_HEAD_Y, WIN_Z, materials.trim, livingRoom);
+  add(0.08, winH, 0.1, -3.22, winMidY, WIN_NEAR - 0.05, materials.trim, livingRoom);
+  add(0.08, winH, 0.1, -3.22, winMidY, WIN_FAR + 0.05, materials.trim, livingRoom);
+  add(0.06, winH - 0.1, 0.06, -3.22, winMidY, WIN_Z, materials.trim, livingRoom);
+  const windowGlass = add(0.03, winH - 0.12, WIN_OPEN - 0.12, -3.18, winMidY, WIN_Z, materials.glass, livingRoom);
   windowGlass.renderOrder = 2;
-  const curtainL = add(0.05, winH - 0.2, 0.28, -3.08, 1.55, WIN_Z + 0.55, materials.curtain, livingRoom);
-  const curtainR = add(0.05, winH - 0.2, 0.28, -3.08, 1.55, WIN_Z - 0.55, materials.curtain, livingRoom);
+  const curtainL = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z + 0.55, materials.curtain, livingRoom);
+  const curtainR = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z - 0.55, materials.curtain, livingRoom);
 
   // Soft exterior wash (no free-walk outdoor)
   const outside = new THREE.Group();
@@ -126,10 +156,14 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   const lampShade = add(0.3, 0.26, 0.3, 2.95, 1.4, -1.05, materials.lampShade, livingRoom);
   const livingLamp = addLight(0xffd8a8, 1.15, 7.5, 2.85, 1.55, -1.05, livingRoom);
 
-  // TV + stand (left, clear of window)
-  add(0.5, 0.08, 0.42, -2.85, 0.52, -0.35, materials.wood, livingRoom);
-  add(0.08, 0.72, 0.95, -2.98, 1.15, -0.35, materials.dark, livingRoom);
-  const tvScreen = add(0.04, 0.6, 0.84, -2.92, 1.15, -0.35, materials.screenOff, livingRoom);
+  // TV + stand (left, clear of window — flush to the wall)
+  add(0.42, 0.08, 0.42, -3.0, 0.48, -0.2, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -3.12, 0.22, -0.05, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -2.88, 0.22, -0.05, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -3.12, 0.22, -0.35, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -2.88, 0.22, -0.35, materials.wood, livingRoom);
+  add(0.08, 0.72, 0.95, -3.18, 1.15, -0.2, materials.dark, livingRoom);
+  const tvScreen = add(0.04, 0.6, 0.84, -3.12, 1.15, -0.2, materials.screenOff, livingRoom);
 
   // Coffee table + mugs (right of aisle, in front of couch)
   add(1.05, 0.05, 0.55, 1.65, 0.4, -1.15, materials.wood, livingRoom);
@@ -155,18 +189,18 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   add(0.03, 0.44, 0.35, -3.18, 1.7, 1.35, materials.photoSoft, livingRoom);
 
   // Soft living fill
-  const livingAmb = new THREE.HemisphereLight(0xfff0d8, 0x8a7a60, 0.55);
+  const livingAmb = new THREE.HemisphereLight(0xfff0d8, 0x8a7a60, 0.62);
   livingRoom.add(livingAmb);
   lights.push(livingAmb);
-  const livingFill = addLight(0xffe2c0, 0.55, 10, 0, 2.4, -1.5, livingRoom);
+  const livingFill = addLight(0xffe2c0, 0.7, 11, 0, 2.4, livingMidZ, livingRoom);
 
-  // ——— Kitchen (right bay off the living, rail still centered) ———
-  // Opening from living into kitchen at z≈-5.6, x>0.6
-  add(0.14, 2.95, 4.2, 0.85, 1.42, -7.6, materials.wall, kitchen);
-  add(0.14, 2.95, 4.2, 4.05, 1.42, -7.6, materials.wall, kitchen);
-  add(3.2, 2.95, 0.14, 2.45, 1.42, -5.55, materials.wall, kitchen);
-  add(3.2, 2.95, 0.14, 2.45, 1.42, -9.65, materials.wall, kitchen);
-  // Counters along outer wall (x≈3.55) — clear of rail
+  // ——— Kitchen (right bay — open to living / vestibule on the aisle side) ———
+  // Outer + rear walls only; front and aisle stay open so A/D look can see counters.
+  add(0.14, 2.95, vestDepth, 4.05, 1.42, vestMidZ, materials.wall, kitchen);
+  add(2.9, 2.95, 0.14, 2.6, 1.42, HALL_NEAR_Z, materials.wall, kitchen);
+  // Short knee-wall toward the aisle (does not block sightlines into the bay)
+  add(0.1, 0.95, 2.4, 1.25, 0.48, -8.35, materials.cabinet, kitchen);
+  // Counters along outer wall — clear of rail
   add(0.55, 0.08, 3.4, 3.45, 0.92, -7.5, materials.counter, kitchen);
   add(0.55, 0.88, 3.4, 3.45, 0.44, -7.5, materials.cabinet, kitchen);
   add(0.55, 0.7, 1.1, 3.45, 2.0, -6.4, materials.cabinet, kitchen);
@@ -175,68 +209,74 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   add(0.35, 0.06, 0.42, 3.4, 0.98, -7.35, materials.sink, kitchen);
   add(0.04, 0.28, 0.04, 3.28, 1.15, -7.35, materials.metal, kitchen);
   // Fridge
-  add(0.7, 1.85, 0.7, 3.4, 0.95, -9.15, materials.appliance, kitchen);
-  add(0.02, 1.7, 0.55, 3.04, 0.95, -9.15, materials.metal, kitchen);
+  add(0.7, 1.85, 0.7, 3.4, 0.95, -9.0, materials.appliance, kitchen);
+  add(0.02, 1.7, 0.55, 3.04, 0.95, -9.0, materials.metal, kitchen);
   // Stovetop hint
   add(0.5, 0.04, 0.55, 3.42, 0.98, -8.15, materials.dark, kitchen);
   add(0.08, 0.02, 0.08, 3.3, 1.01, -8.05, materials.metal, kitchen);
   add(0.08, 0.02, 0.08, 3.52, 1.01, -8.05, materials.metal, kitchen);
-  // Small table clear of rail (near kitchen opening, x≈2.0)
-  add(0.7, 0.05, 0.7, 1.85, 0.78, -6.85, materials.wood, kitchen);
-  add(0.05, 0.72, 0.05, 1.6, 0.38, -6.6, materials.wood, kitchen);
-  add(0.05, 0.72, 0.05, 2.1, 0.38, -6.6, materials.wood, kitchen);
-  add(0.05, 0.72, 0.05, 1.6, 0.38, -7.1, materials.wood, kitchen);
-  add(0.05, 0.72, 0.05, 2.1, 0.38, -7.1, materials.wood, kitchen);
-  addCyl(0.05, 0.1, 1.85, 0.88, -6.85, materials.mug, kitchen);
+  // Small table near kitchen opening (still clear of |x|<1.1 rail)
+  add(0.7, 0.05, 0.7, 1.95, 0.78, -6.55, materials.wood, kitchen);
+  add(0.05, 0.72, 0.05, 1.7, 0.38, -6.3, materials.wood, kitchen);
+  add(0.05, 0.72, 0.05, 2.2, 0.38, -6.3, materials.wood, kitchen);
+  add(0.05, 0.72, 0.05, 1.7, 0.38, -6.8, materials.wood, kitchen);
+  add(0.05, 0.72, 0.05, 2.2, 0.38, -6.8, materials.wood, kitchen);
+  addCyl(0.05, 0.1, 1.95, 0.88, -6.55, materials.mug, kitchen);
   // Kitchen pendant
-  add(0.12, 0.08, 0.12, 2.4, 2.55, -7.5, materials.metal, kitchen);
-  const kitchenLamp = addLight(0xffe8c8, 1.05, 6.5, 2.4, 2.35, -7.5, kitchen);
-  add(0.8, 0.04, 0.8, 2.4, 2.72, -7.5, materials.lampShade, kitchen);
+  add(0.12, 0.08, 0.12, 2.55, 2.55, -7.5, materials.metal, kitchen);
+  const kitchenLamp = addLight(0xffe8c8, 0.95, 6.5, 2.55, 2.35, -7.5, kitchen);
+  add(0.8, 0.04, 0.8, 2.55, 2.72, -7.5, materials.lampShade, kitchen);
 
-  // ——— Hallway ———
-  add(0.14, 2.95, 5.2, -1.25, 1.42, -12.2, materials.wall, hallway);
-  add(0.14, 2.95, 5.2, 1.25, 1.42, -12.2, materials.wall, hallway);
-  // Transition wall from kitchen/living into hall (opening on center)
-  add(1.55, 2.95, 0.14, -1.85, 1.42, -9.65, materials.wall, hallway);
-  add(1.55, 2.95, 0.14, 1.85, 1.42, -9.65, materials.wall, hallway);
-  // Runner
-  add(0.85, 0.02, 4.6, 0, 0.015, -12.1, materials.runner, hallway);
+  // ——— Vestibule side walls + hallway ———
+  // Left wall continuous from living far through vestibule into hall
+  add(0.14, 2.95, vestDepth, -1.25, 1.42, vestMidZ, materials.wall, hallway);
+  // Right vestibule wall only near hall mouth (kitchen bay stays open upstream)
+  add(0.14, 2.95, 1.4, 1.25, 1.42, HALL_NEAR_Z + 0.7, materials.wall, hallway);
+
+  add(0.14, 2.95, hallDepth, -1.25, 1.42, hallMidZ, materials.wall, hallway);
+  add(0.14, 2.95, hallDepth, 1.25, 1.42, hallMidZ, materials.wall, hallway);
+  // Hall mouth trim (opening on center)
+  add(0.7, 2.95, 0.1, -0.9, 1.42, HALL_NEAR_Z, materials.trim, hallway);
+  add(0.7, 2.95, 0.1, 0.9, 1.42, HALL_NEAR_Z, materials.trim, hallway);
+  // Runner spans vestibule + hall
+  add(0.85, 0.02, vestDepth + hallDepth - 0.4, 0, 0.015, (LIVING_FAR_Z + DOOR_WALL_Z) * 0.5, materials.runner, hallway);
   // Closet doors (left) — shallow, clear of rail
   add(0.06, 2.15, 1.1, -1.15, 1.15, -11.2, materials.door, hallway);
   add(0.04, 0.08, 0.04, -1.1, 1.15, -10.85, materials.metal, hallway);
   add(0.06, 2.15, 1.1, -1.15, 1.15, -13.0, materials.door, hallway);
-  // Hall sconces
+  // Hall sconces (softer — was blowing out the narrow hall)
   add(0.1, 0.14, 0.1, 1.1, 2.05, -11.0, materials.metal, hallway);
   add(0.08, 0.12, 0.08, 1.02, 2.05, -11.0, materials.lampShade, hallway);
-  const hallSconceA = addLight(0xffd8a8, 0.7, 4.5, 0.7, 2.0, -11.0, hallway);
-  add(0.1, 0.14, 0.1, 1.1, 2.05, -13.2, materials.metal, hallway);
-  add(0.08, 0.12, 0.08, 1.02, 2.05, -13.2, materials.lampShade, hallway);
-  const hallSconceB = addLight(0xffd8a8, 0.65, 4.5, 0.7, 2.0, -13.2, hallway);
+  const hallSconceA = addLight(0xffd8a8, 0.45, 4.2, 0.7, 2.0, -11.0, hallway);
+  add(0.1, 0.14, 0.1, 1.1, 2.05, -13.0, materials.metal, hallway);
+  add(0.08, 0.12, 0.08, 1.02, 2.05, -13.0, materials.lampShade, hallway);
+  const hallSconceB = addLight(0xffd8a8, 0.4, 4.2, 0.7, 2.0, -13.0, hallway);
+  const vestFill = addLight(0xffe2c0, 0.35, 6, 0, 2.3, vestMidZ, hallway);
   // Framed photo
   add(0.04, 0.42, 0.35, 1.17, 1.7, -12.1, materials.frame, hallway);
   add(0.02, 0.32, 0.26, 1.14, 1.7, -12.1, materials.photoSoft, hallway);
 
-  // ——— Bedroom entrance ———
-  add(2.5, 2.95, 0.14, 0, 1.42, -14.75, materials.wall, bedroomEntrance);
-  // Door leaf (slightly ajar by default)
-  const bedroomDoor = add(0.08, 2.2, 0.9, 0.15, 1.15, -14.68, materials.door, bedroomEntrance);
-  bedroomDoor.rotation.y = -0.22;
-  add(0.05, 0.08, 0.05, -0.2, 1.15, -14.55, materials.metal, bedroomEntrance);
+  // ——— Bedroom entrance (rail stops short; door stays readable) ———
+  add(2.5, 2.95, 0.14, 0, 1.42, DOOR_WALL_Z, materials.wall, bedroomEntrance);
+  // Door leaf hinged on the left, slightly ajar — keeps the center aisle clear at rail end
+  const bedroomDoor = add(0.07, 2.2, 0.92, -0.35, 1.15, DOOR_WALL_Z + 0.06, materials.door, bedroomEntrance);
+  bedroomDoor.rotation.y = -0.38;
+  add(0.05, 0.08, 0.05, -0.55, 1.15, DOOR_WALL_Z + 0.18, materials.metal, bedroomEntrance);
   // Doorframe
-  add(0.1, 2.35, 0.1, -0.55, 1.2, -14.7, materials.trim, bedroomEntrance);
-  add(0.1, 2.35, 0.1, 0.55, 1.2, -14.7, materials.trim, bedroomEntrance);
-  add(1.2, 0.1, 0.1, 0, 2.35, -14.7, materials.trim, bedroomEntrance);
+  add(0.1, 2.35, 0.1, -0.55, 1.2, DOOR_WALL_Z + 0.05, materials.trim, bedroomEntrance);
+  add(0.1, 2.35, 0.1, 0.55, 1.2, DOOR_WALL_Z + 0.05, materials.trim, bedroomEntrance);
+  add(1.2, 0.1, 0.1, 0, 2.35, DOOR_WALL_Z + 0.05, materials.trim, bedroomEntrance);
   // Dim bedroom glow beyond the ajar door (suggests a room without building it)
-  const bedGlow = addLight(0xffe0b8, 0.35, 3.5, 0, 1.6, -15.4, bedroomEntrance);
-  add(1.6, 2.4, 0.08, 0, 1.3, -15.6, materials.wallDim, bedroomEntrance);
-  add(0.55, 0.08, 0.7, 0.55, 0.45, -15.35, materials.fabric, bedroomEntrance);
+  const bedGlow = addLight(0xffe0b8, 0.28, 3.2, 0, 1.6, DOOR_WALL_Z - 0.65, bedroomEntrance);
+  add(1.6, 2.4, 0.08, 0, 1.3, DOOR_WALL_Z - 0.85, materials.wallDim, bedroomEntrance);
+  add(0.55, 0.08, 0.7, 0.55, 0.45, DOOR_WALL_Z - 0.6, materials.fabric, bedroomEntrance);
 
-  // Entry console behind start (on entry wall side)
-  add(0.9, 0.06, 0.35, 1.6, 0.85, 2.35, materials.wood, livingRoom);
-  add(0.05, 0.8, 0.05, 1.3, 0.42, 2.25, materials.wood, livingRoom);
-  add(0.05, 0.8, 0.05, 1.9, 0.42, 2.25, materials.wood, livingRoom);
-  addCyl(0.08, 0.18, 1.6, 1.0, 2.35, materials.pot, livingRoom);
-  add(0.12, 0.22, 0.12, 1.6, 1.2, 2.35, materials.plant, livingRoom);
+  // Entry console on the wall behind the camera
+  add(0.9, 0.06, 0.35, 1.6, 0.85, ENTRY_Z - 0.25, materials.wood, livingRoom);
+  add(0.05, 0.8, 0.05, 1.3, 0.42, ENTRY_Z - 0.35, materials.wood, livingRoom);
+  add(0.05, 0.8, 0.05, 1.9, 0.42, ENTRY_Z - 0.35, materials.wood, livingRoom);
+  addCyl(0.08, 0.18, 1.6, 1.0, ENTRY_Z - 0.25, materials.pot, livingRoom);
+  add(0.12, 0.22, 0.12, 1.6, 1.2, ENTRY_Z - 0.25, materials.plant, livingRoom);
 
   const zones = { livingRoom, kitchen, hallway, bedroomEntrance };
   const lightRefs = {
@@ -246,6 +286,7 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
     kitchenLamp,
     hallSconceA,
     hallSconceB,
+    vestFill,
     bedGlow,
   };
   const propRefs = {
@@ -277,8 +318,9 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       livingFill.intensity = 0.15;
       livingLamp.intensity = objectState.lampOn ? 1.35 : 0.05;
       kitchenLamp.intensity = objectState.kitchenLightOn ? 0.85 : 0.05;
-      hallSconceA.intensity = 0.55;
-      hallSconceB.intensity = 0.5;
+      hallSconceA.intensity = 0.4;
+      hallSconceB.intensity = 0.35;
+      vestFill.intensity = 0.18;
       bedGlow.intensity = 0.22;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.4 : 0.02;
       materials.exteriorSky.color.set(0x152030);
@@ -293,8 +335,9 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       livingFill.intensity = 0.35;
       livingLamp.intensity = objectState.lampOn ? 0.55 : 0.05;
       kitchenLamp.intensity = objectState.kitchenLightOn ? 0.45 : 0.05;
-      hallSconceA.intensity = 0.35;
-      hallSconceB.intensity = 0.32;
+      hallSconceA.intensity = 0.28;
+      hallSconceB.intensity = 0.25;
+      vestFill.intensity = 0.22;
       bedGlow.intensity = 0.15;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.2 : 0.02;
       materials.exteriorSky.color.set(0xc8e4f6);
@@ -309,10 +352,11 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       livingAmb.intensity = 0.55;
       livingFill.intensity = 0.55;
       livingLamp.intensity = objectState.lampOn ? 1.15 : 0.05;
-      kitchenLamp.intensity = objectState.kitchenLightOn ? 1.05 : 0.05;
-      hallSconceA.intensity = 0.7;
-      hallSconceB.intensity = 0.65;
-      bedGlow.intensity = 0.35;
+      kitchenLamp.intensity = objectState.kitchenLightOn ? 0.95 : 0.05;
+      hallSconceA.intensity = 0.45;
+      hallSconceB.intensity = 0.4;
+      vestFill.intensity = 0.35;
+      bedGlow.intensity = 0.28;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.35 : 0.02;
       materials.exteriorSky.color.set(0xb8d0e0);
       materials.exteriorSky.emissive.set(0x6a90a8);

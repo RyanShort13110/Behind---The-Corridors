@@ -74,8 +74,8 @@ import {
   apartmentNarrative,
   APARTMENT_METERS,
   APARTMENT_START_Z,
-} from './levels/apartment-story.js?v=apt-1';
-import { apartmentCameraPose } from './levels/apartment-route.js?v=apt-1';
+} from './levels/apartment-story.js?v=apt-3';
+import { apartmentCameraPose } from './levels/apartment-route.js?v=apt-3';
 import {
   createHospitalReverseStory,
   hospitalReverseNarrative,
@@ -3571,7 +3571,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'apartment') {
-      const { createApartment } = await import('./levels/apartment.js?v=apt-1');
+      const { createApartment } = await import('./levels/apartment.js?v=apt-3');
       apartmentStory.reset();
       next.add('apartment', createApartment(scene, {
         lightingMode: apartmentStory.state.lightingMode,
