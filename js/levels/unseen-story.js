@@ -194,23 +194,48 @@ export function createUnseenStory() {
   return { state, observe, reset, seekCheckpoint };
 }
 
+/**
+ * Dialogue Revision 003 — two brief thoughts; instructions stay separate.
+ * "A dragging sound. Ahead." removed. Blocked-passage line kept once for
+ * sound-off accessibility near the barrier.
+ */
 export function unseenNarrative(progress, state) {
   const chapter = '07 — THE UNSEEN';
-  if (state.completed) return { chapter, line: '', instruction: ' ' };
+  if (state.completed) {
+    return { chapter, line: '', dialogueId: '', instruction: ' ' };
+  }
   if (!state.reachedBarrier) {
-    return { chapter, line: progress > 0.68 ? 'The passage is blocked.' : '',
-      instruction: 'SCROLL UP TO CONTINUE ↑' };
+    const nearBlock = progress > 0.68;
+    return {
+      chapter,
+      line: nearBlock ? 'The passage is blocked.' : '',
+      dialogueId: nearBlock ? 'unseen-blocked' : '',
+      instruction: 'SCROLL UP TO CONTINUE ↑',
+    };
   }
   if (!state.retreatStarted) {
-    return { chapter,
-      line: state.encounterElapsed < 2 ? 'A dragging sound. Ahead.' : 'Something is coming this way.',
-      instruction: 'SCROLL DOWN. KEEP FACING THE CORRIDOR ↓' };
+    return {
+      chapter,
+      line: 'Something is coming this way.',
+      dialogueId: 'unseen-coming',
+      instruction: 'SCROLL DOWN. KEEP FACING THE CORRIDOR ↓',
+    };
   }
-  if (state.silence) return { chapter,
-    line: 'It stopped.',
-    instruction: 'KEEP SCROLLING DOWN — THROUGH THE DOOR ↓' };
-  if (state.sideDoorOpen && progress <= 0.29) return { chapter,
-    line: '',
-    instruction: 'KEEP SCROLLING DOWN — THROUGH THE DOOR ↓' };
-  return { chapter, line: '', instruction: 'KEEP SCROLLING DOWN ↓' };
+  if (state.silence) {
+    return {
+      chapter,
+      line: 'It stopped.',
+      dialogueId: 'unseen-stopped',
+      instruction: 'KEEP SCROLLING DOWN — THROUGH THE DOOR ↓',
+    };
+  }
+  if (state.sideDoorOpen && progress <= 0.29) {
+    return {
+      chapter,
+      line: '',
+      dialogueId: '',
+      instruction: 'KEEP SCROLLING DOWN — THROUGH THE DOOR ↓',
+    };
+  }
+  return { chapter, line: '', dialogueId: '', instruction: 'KEEP SCROLLING DOWN ↓' };
 }

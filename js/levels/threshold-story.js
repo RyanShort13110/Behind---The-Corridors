@@ -82,27 +82,38 @@ export function createThresholdStory() {
   };
 }
 
-const firstPass = [
-  { to: 0.12, line: '' },
-  { to: 0.19, line: 'A door?' },
-  { to: 0.27, line: '' },
-  { to: 0.64, line: '' },
-  { to: 0.72, line: "Don't touch the walls." },
-  { to: 0.85, line: '' },
-  { to: 0.92, line: 'Keep moving.' },
-  { to: 1.01, line: '' },
-];
-
+/**
+ * Dialogue Revision 003 — one retained thought when the hall turns organic.
+ * "A door?" / "Keep moving." removed; visuals carry the rest.
+ */
 export function thresholdNarrative(progress, state) {
   if (state.completed) {
-    return { chapter: '06 — THE THRESHOLD', line: '', instruction: ' ' };
+    return { chapter: '06 — THE THRESHOLD', line: '', dialogueId: '', instruction: ' ' };
   }
   if (state.hasBacktracked && state.direction === 'backward') {
-    return { chapter: '06 — THE THRESHOLD', line: '', instruction: 'SCROLL UP TO CONTINUE ↑' };
+    return {
+      chapter: '06 — THE THRESHOLD',
+      line: '',
+      dialogueId: '',
+      instruction: 'SCROLL UP TO CONTINUE ↑',
+    };
   }
+
+  let line = '';
+  let dialogueId = '';
+  // After organic corruption is unmistakable; brief timer handles duration.
+  if (state.reachedOrganic
+      && !state.nightmareCleared
+      && progress >= 0.62
+      && progress < 0.78) {
+    line = "Don't touch the walls.";
+    dialogueId = 'threshold-dont-touch';
+  }
+
   return {
     chapter: '06 — THE THRESHOLD',
-    line: firstPass.find(beat => progress < beat.to)?.line ?? '',
+    line,
+    dialogueId,
     instruction: 'SCROLL UP TO CONTINUE ↑',
   };
 }

@@ -172,27 +172,31 @@ export function createStairwellsStory() {
   return { state, reset, observe, seekCheckpoint };
 }
 
+/**
+ * Dialogue Revision 003 — sparse one-shot thoughts.
+ * Prefer silence; environment carries the beat. Keys are stable event ids
+ * for showBriefDialogue (not the line text).
+ */
 export function stairwellsNarrative(progress, state) {
-  let line = 'Concrete stairs. The air cools as you descend.';
-  if (progress < 0.04) line = 'A fire stair. Only one way: down.';
-  else if (state.phase === 'void') {
-    if (state.voidAmount < 0.33) line = 'The flight keeps going. No landing.';
-    else if (state.voidAmount < 0.40) line = 'The lights thin out. Still only stairs.';
-    else if (state.voidAmount < 0.63) line = '…';
-    else line = 'The walls are gone. The dark has a size.';
-  } else if (state.phase === 'return') {
-    line = state.onFinalFlight
-      ? 'One flight left. The door is below.'
-      : 'The landing. As if nothing happened.';
-  } else if (state.phase === 'exit') {
-    line = state.exited ? 'Outside the well.' : 'A door. Finally.';
-  } else if (progress > 0.45) {
-    line = 'The flights keep repeating.';
+  let line = '';
+  let dialogueId = '';
+
+  // Unnaturally long descent — still walled, before blackout / open void.
+  if (state.phase === 'void'
+      && state.voidAmount >= 0.14
+      && state.voidAmount < 0.33) {
+    line = "There should've been a landing.";
+    dialogueId = 'stairs-no-landing';
+  } else if (state.phase === 'return' && !state.onFinalFlight) {
+    // Just after the snap — familiar mid landing again.
+    line = 'I was still going down.';
+    dialogueId = 'stairs-still-going-down';
   }
 
   return {
     chapter: '05 — THE STAIRWELLS',
     line,
+    dialogueId,
     instruction: state.phase === 'exit' && !state.exited
       ? 'SCROLL UP TO LEAVE · A / D OR SWIPE TO LOOK'
       : 'SCROLL UP TO DESCEND · A / D OR SWIPE TO LOOK',

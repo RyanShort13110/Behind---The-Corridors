@@ -266,15 +266,15 @@ Unspecified dialogue defaults to **protagonist**. Do not italicize `#chapter` or
 
 **IMPLEMENTED — outside conversation dialogue (italic `#line`)**
 
-| Event | Chapter | When (approx.) | Text |
-|---|---|---|---|
-| 01 Ordinary | 05 Stairwells | After void snap; Floor 01 exit wall (post–“Please wake up.”) | “It rained again today. You would've hated the drive.” |
-| 02 Familiar | 06 Threshold | After door crossed; before rupture (~0.33–0.52) | “Oh, I almost forgot. I saw that dog again. The little one you like.” |
-| 03 Quiet | 06 Threshold | After rupture settles (~0.745–0.86) | “I don't really have anything new to tell you today. I just... wanted to be here.” |
-| 04 Forgotten call | 07 Unseen | After silence / threat subsided | “I almost called you on the way home yesterday.” → “I guess I just forgot for a second.” |
-| 05 Goodbye for now | 07 Unseen | Later quiet after final click | “Anyway. That's about all I've got for today.” → “I'll come back tomorrow.” |
+| Event | Chapter | When (approx.) | Text | Status |
+|---|---|---|---|---|
+| 01 Ordinary | 05 Stairwells | After “Please wake up.” | “It rained again today. You would've hated the drive.” | **RESERVED** — insufficient rail after Floor 01 sign; keep text for a later quiet window |
+| 02 Familiar | 06 Threshold | After door crossed; before rupture (~0.33–0.52) | “Oh, I almost forgot. I saw that dog again. The little one you like.” | **IMPLEMENTED** |
+| 03 Quiet | 06 Threshold | After rupture settles (~0.745–0.86); postponed if debug Bent combat | “I don't really have anything new to tell you today. I just... wanted to be here.” | **IMPLEMENTED** |
+| 04 Forgotten call | 07 Unseen | After silence / threat subsided | “I almost called you on the way home yesterday.” → “I guess I just forgot for a second.” | **IMPLEMENTED** |
+| 05 Goodbye for now | (future) | Reserved quiet window | “Anyway. That's about all I've got for today.” → “I'll come back tomorrow.” | **RESERVED** — not auto-armed in Unseen |
 
-Technical: `js/outside-dialogue.js` + `updateNarrative()` in `main.js`. One-shot; does not re-fire on reverse scroll; holds long enough to read; suppresses overlapping protagonist line while active.
+Technical: `js/outside-dialogue.js` + `updateNarrative()` in `main.js`. One-shot; does not re-fire on reverse scroll; holds long enough to read; suppresses overlapping protagonist line while active; pauses during STEADY / combat.
 
 **OPEN / PROVISIONAL (later beats — do not implement yet; not for Ch 01 or Ch 03)**
 
@@ -491,6 +491,7 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 **Architecture:** Four switchback floors (HUD Floors 04→01), mid-landing U-turns, then an anomalous straight flight into a vast dark room, a hard snap back onto the mid landing facing the last flight, and exit through the Floor 01 door into Threshold.  
 **Movement:** Slower descent (~2.7 m/s). Camera rail and staircase geometry are locked for this pass — do not alter void, snap-back, or exit sequencing casually.  
 **Outside-world intrusion (IMPLEMENTED):** On the Floor 01 exit wall (left of the door) **after** the void snap, worn institutional writing reads **“Please wake up.”** Hidden until the snap. No camera beat, outline, sound, or composure tax.  
+**Dialogue Revision 003:** Two brief one-shot thoughts only — **“There should've been a landing.”** (early void) and **“I was still going down.”** (post-snap). No narration of the void room, repeating flights, or exit door. Protagonist never comments on “Please wake up.”  
 **Narrative discipline:** No protagonist explanation of the sign or the void. Composure damage remains 0. End card: **YOU KEPT GOING DOWN.**
 
 **OPEN / PROVISIONAL:** Optional hidden room off a reserved stair door; further intrusion placements.
@@ -506,6 +507,8 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 **Implementation:** Single Three.js scene, one reused cube for instanced architecture, procedural organic meshes, few non-shadow-casting lights. Three corruption curves change lighting/fog/audio by scroll progress. Scene disposable on future chapter transition.
 **Narrative discipline:** Avoid diagnosing the building, revealing a person's identity, or asserting a memory. The protagonist is now disturbed by what they physically see, but the personal history remains hidden.
 
+**Dialogue Revision 003:** One brief thought — **“Don't touch the walls.”** when organic corruption is clear (~0.62–0.78). Removed “A door?” and “Keep moving.” Scroll instructions stay independent.
+
 **STEADY — Threshold Rupture (IMPLEMENTED):** Around progress `0.605`, organic wall seams contract inward once with a deep groan and a brief light weaken; STEADY (`threshold-rupture`, 18/9/4) peaks with the contraction. No monster, sting, or new dialogue.
 
 ## Chapter 07: The Unseen — Prototype 006.0 / first playable pass (renumbered)
@@ -518,7 +521,7 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **The exit:** A left-side maintenance door, previously another ordinary access panel, opens once the retreat has begun. Near the door the camera turns left, then scrolling DOWN moves the player laterally through that doorway. The camera does not turn back to reveal or explain the presence. Completing the retreat ends Chapter 07; the continuation beyond it is not implemented yet.
 
-**Narration:** Keep quiet during exploration. At the blocked end, describe an audible scrape in text, including when sound is disabled. Instruction explicitly invites backward movement. Once the player begins retreating, use silence and, briefly, “It is still moving.” At the side junction: “The maintenance door is open.”
+**Dialogue Revision 003:** Brief one-shots only — **“The passage is blocked.”** (sound-off accessibility near the barrier), **“Something is coming this way.”** (presence apparent), **“It stopped.”** (after silence). No dialogue during the retreat scramble. Retreat / side-door instructions remain independent of the 2.6s thought timer.
 
 **Mechanics:** Forward progress is capped at the solid barrier. Reaching it latches the encounter; returning the scrollbar does not reset the state. The side passage is inaccessible until that condition occurs. The side-turn camera route never exceeds the established 5.5 m/s movement cap. The scene is recyclable/disposable; audio sources are created lazily when needed and are muted on jump/reset.
 
@@ -573,4 +576,5 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Outside-world — Office:** Sticky on the right wall near RECORDS (“I came back today.”); writing-origin rule added (spoken fragment first, placement second). |
 | 2026-11 | **Narrative direction update (continuity):** Public bible reframes grief as separation/absence; formalizes player-discovery-before-protagonist; expands outside-world restraint and reserved later lines. Private revised backstory kept only in gitignored writer-only notes (superseded prior private outline marked there — not rewritten into historical public entries). |
 | 2026-11 | **Outside conversation dialogue:** Italic `#line` source vs roman protagonist; five ordinary→intimate one-shot conversations in Stairwells / Threshold / Unseen after “Please wake up.”; reserved “I know you can't hear me…” / “Please come back to me.”; no voice/Foley in this pass. |
+| 2026-11 | **Dialogue Revision 003 (L05–L07):** Brief one-shot protagonist thoughts for Stairwells / Threshold / Unseen; cut descriptive narration; rain + “come back tomorrow” outside lines reserved; STEADY/combat pause outside speech. |
 | 2026-11 | **Environmental anomaly Experiment 001 (Records):** Unmarked binder vanishes off-camera after first pass; dust-free counter trace remains; optional to notice; no dialogue/systems. |

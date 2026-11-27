@@ -49,8 +49,8 @@ import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_EN
 import {
   createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z,
   THRESHOLD_END_PROGRESS, THRESHOLD_COMBAT_TRIGGER,
-} from './levels/threshold-story.js?v=bent-1';
-import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js?v=ow-dlg-1';
+} from './levels/threshold-story.js?v=dlg-003';
+import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js?v=dlg-003';
 import { unseenCameraPose } from './levels/unseen-route.js';
 import {
   createMemoryWhiteStory, createMemoryBlackStory,
@@ -70,7 +70,7 @@ import { hospitalReverseCameraPose } from './levels/hospital-reverse-route.js';
 import {
   createStairwellsStory,
   stairwellsNarrative,
-} from './levels/stairwells-story.js?v=stairs-exit-1';
+} from './levels/stairwells-story.js?v=dlg-003';
 import {
   stairwellsCameraPose,
   STAIRWELLS_METERS,
@@ -81,7 +81,7 @@ import {
 import {
   createOutsideDialogue,
   OUTSIDE_EVENTS,
-} from './outside-dialogue.js?v=ow-dlg-1';
+} from './outside-dialogue.js?v=dlg-003';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -235,7 +235,7 @@ function hasDiscoveredTape(tapeId) {
 }
 const ORIGINAL_LOCATION_HTML = 'NORTH WING <span class="separator">/</span> LEVEL 13';
 
-// Dialogue Revision 002: one-shot thoughts, never held by scroll position.
+// Dialogue Revision 002/003: one-shot thoughts, never held by scroll position.
 const BRIEF_DIALOGUE_SECONDS = 2.6;
 let briefChapter = '';
 let briefLine = '';
@@ -258,17 +258,16 @@ function resetOutsideDialogue() {
 
 /**
  * Arm one-shot outside conversations after "Please wake up." (Stairwells).
- * Never before that beat. Safe quiet windows only — no STEADY / end-card overlap intent.
+ * Never before that beat. Safe quiet windows only — no STEADY / combat / end-card overlap.
  */
 function maybeArmOutsideDialogue(chapter, progress, state) {
-  if (!state || ended || combatSession) return;
+  if (!state || ended || combatSession || steady?.isActive) return;
   const p = progress;
 
   if (chapter === 'stairwells') {
-    // After void snap + “Please wake up.” on the Floor 01 exit wall (~97%).
-    if (state.snapped && (state.phase === 'exit' || p >= 0.94)) {
-      outsideDialogue.arm(OUTSIDE_EVENTS.rain);
-    }
+    // Rain is reserved: wake sign only becomes readable near ~97%, with too
+    // little remaining rail for a natural hold before the chapter ends.
+    // Event text stays in OUTSIDE_EVENTS.rain for a later quiet window.
     return;
   }
 
@@ -281,38 +280,41 @@ function maybeArmOutsideDialogue(chapter, progress, state) {
       outsideDialogue.arm(OUTSIDE_EVENTS.dog);
     }
     // After rupture settles; before the densest red-hall stretch.
+    // Postpone while debug Bent combat is active or still pending in-window.
     if (state.ruptureArmed
         && state.direction === 'forward'
         && p >= 0.745 && p < 0.86
-        && !state.nightmareCleared) {
+        && !state.nightmareCleared
+        && !state.bentCombatStarted
+        && !(state.bentEnabled && !state.bentDefeated && !state.bentSkipped && p < 0.78)) {
       outsideDialogue.arm(OUTSIDE_EVENTS.quiet);
     }
     return;
   }
 
   if (chapter === 'unseen') {
-    // After primary threat subsides into silence — intimate almost-call.
+    // Quiet after the threat stops — almost-called only.
+    // "I'll come back tomorrow" stays defined but reserved for a future chapter.
     if (state.silence && p <= 0.192 && p > 0.135) {
       outsideDialogue.arm(OUTSIDE_EVENTS.almostCalled);
-    }
-    // Goodbye / promise after the final-click beat and once Event 04 has
-    // been armed — waits until that session ends so the two stay sequential.
-    if (state.silence
-        && state.finalClick
-        && p <= 0.145
-        && outsideDialogue.hasFired(OUTSIDE_EVENTS.almostCalled.id)) {
-      outsideDialogue.arm(OUTSIDE_EVENTS.comeBackTomorrow);
     }
   }
 }
 
-function showBriefDialogue(chapter, candidate, dt = 0) {
+/**
+ * @param {string} chapter
+ * @param {string} candidate  Display text (empty = no new thought).
+ * @param {number} dt
+ * @param {string} [eventId]  Stable one-shot key; falls back to candidate text.
+ */
+function showBriefDialogue(chapter, candidate, dt = 0, eventId = null) {
   if (briefChapter !== chapter) {
     resetBriefDialogue();
     briefChapter = chapter;
   }
-  if (candidate && !briefSeen.has(candidate)) {
-    briefSeen.add(candidate);
+  const key = eventId || candidate;
+  if (candidate && key && !briefSeen.has(key)) {
+    briefSeen.add(key);
     briefLine = candidate;
     briefRemaining = BRIEF_DIALOGUE_SECONDS;
   }
@@ -3207,18 +3209,33 @@ function updateNarrative(p, dt = 0) {
                 : inStairs ? stairwellsNarrative(p, state) : unseenNarrative(p, state);
 
   outsideDialogue.setReducedMotion(reduced);
-  maybeArmOutsideDialogue(chapterId, p, state);
-  const outside = outsideDialogue.tick(dt);
+  const dialogueBlocked = Boolean(combatSession || steady?.isActive);
+  if (!dialogueBlocked) maybeArmOutsideDialogue(chapterId, p, state);
+  // Pause outside timer during combat / STEADY so lines aren't burned unseen.
+  const outside = dialogueBlocked ? null : outsideDialogue.tick(dt);
+
+  const inUnseen = chapterId === 'unseen';
+  const useBriefDialogue = inCorridor || inOffice || inRecords || inNight
+    || inStairs || inThreshold || inUnseen;
 
   let displayedLine;
   let dialogueSource = narrative.source === 'outside' ? 'outside' : 'protagonist';
-  if (outside) {
+  if (dialogueBlocked) {
+    displayedLine = '';
+    dialogueSource = 'protagonist';
+  } else if (outside) {
     displayedLine = outside.line;
     dialogueSource = 'outside';
+  } else if (useBriefDialogue) {
+    displayedLine = showBriefDialogue(
+      chapterId,
+      narrative.line,
+      dt,
+      narrative.dialogueId || null,
+    );
+    dialogueSource = 'protagonist';
   } else {
-    displayedLine = (inCorridor || inOffice || inRecords || inNight)
-      ? showBriefDialogue(chapterId, narrative.line, dt)
-      : narrative.line;
+    displayedLine = narrative.line;
     dialogueSource = 'protagonist';
   }
 

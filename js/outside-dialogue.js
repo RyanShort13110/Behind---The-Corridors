@@ -8,6 +8,7 @@
 /** @typedef {{ id: string, lines: string[] }} OutsideEventDef */
 
 export const OUTSIDE_EVENTS = Object.freeze({
+  /** Reserved — Stairwells exit has too little rail after “Please wake up.” */
   rain: Object.freeze({
     id: 'outside-01-rain',
     lines: Object.freeze([
@@ -33,6 +34,7 @@ export const OUTSIDE_EVENTS = Object.freeze({
       'I guess I just forgot for a second.',
     ]),
   }),
+  /** Reserved — keep for a future quiet chapter; not auto-armed in Unseen. */
   comeBackTomorrow: Object.freeze({
     id: 'outside-05-tomorrow',
     lines: Object.freeze([
