@@ -2,12 +2,17 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
+import { createTheBent } from '../combat/enemies/the-bent.js';
+import {
+  BENT_WORLD_Z, BENT_NOTICE_PROGRESS, BENT_TRIGGER_PROGRESS,
+} from '../combat/encounters/the-bent.js';
 
 /**
  * Chapter 04 — The Night Shift.
  * Geometry only; no external textures, animated models, or shadows.
  * Early lounge is warm and almost domestic; later the wing cools and empties.
  * Signature beat: the floor lamp dies beside an empty, recently-used chair.
+ * Late hall hosts THE BENT (mandatory story combat) — after cold start, before exit.
  */
 export function createNightShift(scene) {
   const world = new THREE.Group();
@@ -424,16 +429,57 @@ export function createNightShift(scene) {
     cigaretteInteractable('cigarette-night', cigarette),
   ];
 
+  // Story encounter figure — visible when bentEnabled; blocks the rail until defeated.
+  const bent = createTheBent({
+    homePosition: new THREE.Vector3(0.05, 0, BENT_WORLD_Z),
+  });
+  bent.root.visible = false;
+  bent.setState(bent.BENT_STATES.hidden);
+  world.add(bent.root);
+
   let lampBase = 3.4;
   let lampFillBase = 1.1;
   let chairGlowBase = 0.85;
 
   return {
     interactables,
+    bent,
     update(progress, state, dt, reduced) {
       const warmth = state?.warmth ?? 1;
       const dying = Boolean(state?.lampDying);
       const out = Boolean(state?.lampOut);
+
+      // Pre-combat presence for the mandatory Bent encounter.
+      if (state?.bentEnabled && !state.bentDefeated && !state.bentSkipped) {
+        if (bent.state === bent.BENT_STATES.hidden) {
+          bent.reset(new THREE.Vector3(0.05, 0, BENT_WORLD_Z));
+          bent.setState(bent.BENT_STATES.idle);
+        }
+        if (!state.bentCombatStarted) {
+          if (progress >= BENT_NOTICE_PROGRESS
+              && progress < BENT_TRIGGER_PROGRESS
+              && state.direction === 'forward'
+              && bent.state === bent.BENT_STATES.idle) {
+            bent.setState(bent.BENT_STATES.noticing);
+            state.bentNoticed = true;
+          }
+          if (progress >= BENT_TRIGGER_PROGRESS
+              && bent.state !== bent.BENT_STATES.blocking
+              && bent.state !== bent.BENT_STATES.noticing) {
+            bent.setState(bent.BENT_STATES.blocking);
+          }
+          bent.update(dt);
+        }
+        // During active combat the in-world session owns bent.update.
+      } else if (state?.bentDefeated || state?.bentSkipped) {
+        if (bent.state !== bent.BENT_STATES.defeated
+            && bent.state !== bent.BENT_STATES.hidden) {
+          bent.setState(bent.BENT_STATES.defeated);
+        }
+        bent.update(dt);
+      } else if (bent.root.visible) {
+        bent.setState(bent.BENT_STATES.hidden);
+      }
 
       // Background / fog: warm domestic → cooler absence.
       const warmBg = new THREE.Color(0x1a1612);
@@ -483,12 +529,19 @@ export function createNightShift(scene) {
       }
 
       // Deep hall cools and thins as warmth falls.
+      // Near Bent, thin fixtures a little further so the silhouette reads — keep exit glow.
+      const bentApproach = state?.bentEnabled
+        && !state.bentDefeated
+        && !state.bentSkipped
+        && progress >= BENT_NOTICE_PROGRESS - 0.04
+        ? 0.78
+        : 1;
       for (const entry of hallLights) {
-        const target = entry.base * (0.45 + warmth * 0.55);
+        const target = entry.base * (0.45 + warmth * 0.55) * bentApproach;
         entry.light.intensity += (target - entry.light.intensity) * ease;
       }
       for (const material of hallFixtures) {
-        const intensity = 0.12 + warmth * 0.14;
+        const intensity = (0.12 + warmth * 0.14) * bentApproach;
         material.emissiveIntensity += (intensity - material.emissiveIntensity) * ease;
       }
 
@@ -511,8 +564,11 @@ export function createNightShift(scene) {
       ambient.color.setHex(0xc4b8a0);
       cigarette.visible = true;
       cigarette.userData.taken = false;
+      bent.reset(new THREE.Vector3(0.05, 0, BENT_WORLD_Z));
+      bent.setState(bent.BENT_STATES.hidden);
     },
     dispose() {
+      bent.dispose();
       cube.dispose();
       disposeCigaretteProp(cigarette);
       ownedGeometry.forEach(geometry => geometry.dispose());

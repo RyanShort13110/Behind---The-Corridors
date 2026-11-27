@@ -18,6 +18,12 @@ export const NIGHT_LAMP_OUT = 0.34;
 export const NIGHT_COLD_START = 0.62;
 /** Quiet stretch before the open exit. */
 export const NIGHT_HUSH = 0.88;
+/**
+ * Mandatory in-world combat (THE BENT) — late cold hall, before exit.
+ * See `js/combat/encounters/the-bent.js` for world Z / notice / retry.
+ * Debug bypass: ?debug=1&nocombat=1
+ */
+export const NIGHT_COMBAT_TRIGGER = 0.86;
 
 const MOVEMENT_EPSILON = 0.000018;
 const clamp01 = n => Math.max(0, Math.min(1, n));
@@ -37,6 +43,13 @@ export function createNightStory() {
     coldHall: false,
     hush: false,
     hushElapsed: 0,
+
+    /** Story Bent encounter — main syncs enabled/disabled (debug may bypass). */
+    bentEnabled: false,
+    bentNoticed: false,
+    bentCombatStarted: false,
+    bentDefeated: false,
+    bentSkipped: false,
 
     // Warmth 1 → 0 for lighting/audio (derived each observe)
     warmth: 1,
@@ -135,6 +148,11 @@ export function createNightStory() {
         coldHall: false,
         hush: false,
         hushElapsed: 0,
+        bentEnabled: false,
+        bentNoticed: false,
+        bentCombatStarted: false,
+        bentDefeated: false,
+        bentSkipped: false,
         warmth: 1,
         footstepHeard: false,
         footstepsStopped: false,

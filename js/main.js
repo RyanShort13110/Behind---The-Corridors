@@ -45,11 +45,14 @@ import {
   RECORDS_DOOR_HOLD,
 } from './levels/records-story.js?v=anom-1';
 import { recordsCameraPose } from './levels/records-route.js';
-import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS } from './levels/night-story.js';
+import {
+  createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
+  NIGHT_COMBAT_TRIGGER,
+} from './levels/night-story.js?v=night-bent-1';
 import {
   createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z,
-  THRESHOLD_END_PROGRESS, THRESHOLD_COMBAT_TRIGGER,
-} from './levels/threshold-story.js?v=bent-story-1';
+  THRESHOLD_END_PROGRESS,
+} from './levels/threshold-story.js?v=night-bent-1';
 import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js?v=dlg-003';
 import { unseenCameraPose } from './levels/unseen-route.js';
 import {
@@ -97,12 +100,12 @@ const TAPE_ID = DEBUG_MODE ? urlParams.get('tape') : null;
 const ENDING_ID = DEBUG_MODE ? urlParams.get('ending') : null;
 /**
  * Threshold Bent encounter is story-mandatory.
- * Debug bypass: ?debug=1&nocombat=1 or DEV TOOLS → DISABLE THRESHOLD COMBAT.
+ * Debug bypass: ?debug=1&nocombat=1 or DEV TOOLS → DISABLE NIGHT COMBAT.
  * ?debug=1&combat=1 still forces the encounter on after a bypass.
  */
-const THRESHOLD_COMBAT_FORCE = DEBUG_MODE && urlParams.get('combat') === '1';
-const THRESHOLD_COMBAT_OFF = DEBUG_MODE && urlParams.get('nocombat') === '1'
-  && !THRESHOLD_COMBAT_FORCE;
+const NIGHT_COMBAT_FORCE = DEBUG_MODE && urlParams.get('combat') === '1';
+const NIGHT_COMBAT_OFF = DEBUG_MODE && urlParams.get('nocombat') === '1'
+  && !NIGHT_COMBAT_FORCE;
 if (DEBUG_MODE) document.body.classList.add('debug-performance');
 const el = {
   intro: $('intro'), begin: $('begin'), topbar: $('topbar'), bottom: $('bottom'),
@@ -175,11 +178,11 @@ let combatSession = null;
 let combatResumeChapter = 'corridor';
 let combatExiting = false;
 /** Debug-only: when true, story Bent encounter is suppressed. */
-let thresholdCombatDisabled = Boolean(THRESHOLD_COMBAT_OFF);
+let nightCombatDisabled = Boolean(NIGHT_COMBAT_OFF);
 /** Progress frozen when in-world combat starts. */
-let thresholdCombatFrozenProgress = null;
+let bentCombatFrozenProgress = null;
 /** Base camera yaw at in-world combat start (look offset is applied on top). */
-let thresholdCombatBaseYaw = 0;
+let bentCombatBaseYaw = 0;
 /** Snapshot captured immediately before Bent combat (retry restore). */
 let bentPreEncounterSnapshot = null;
 /** Loadout frozen at Bent fight start for victory commit. */
@@ -289,13 +292,10 @@ function maybeArmOutsideDialogue(chapter, progress, state) {
       outsideDialogue.arm(OUTSIDE_EVENTS.dog);
     }
     // After rupture settles; before the densest red-hall stretch.
-    // Postpone while debug Bent combat is active or still pending in-window.
     if (state.ruptureArmed
         && state.direction === 'forward'
         && p >= 0.745 && p < 0.86
-        && !state.nightmareCleared
-        && !state.bentCombatStarted
-        && !(state.bentEnabled && !state.bentDefeated && !state.bentSkipped && p < 0.78)) {
+        && !state.nightmareCleared) {
       outsideDialogue.arm(OUTSIDE_EVENTS.quiet);
     }
     return;
@@ -371,12 +371,12 @@ function progressBounds() {
       max: hospitalReverseMaxProgress(hospitalReverseStory.state),
     };
   }
-  // The Bent blocks the Threshold rail until defeated (or debug-skipped).
-  if (chapterId === 'threshold'
-      && thresholdStory.state.bentEnabled
-      && !thresholdStory.state.bentDefeated
-      && !thresholdStory.state.bentSkipped) {
-    return { min: 0, max: THRESHOLD_COMBAT_TRIGGER };
+  // The Bent blocks the Night Shift rail until defeated (or debug-skipped).
+  if (chapterId === 'night'
+      && nightStory.state.bentEnabled
+      && !nightStory.state.bentDefeated
+      && !nightStory.state.bentSkipped) {
+    return { min: 0, max: NIGHT_COMBAT_TRIGGER };
   }
   return { min: 0, max: 1 };
 }
@@ -429,13 +429,13 @@ function forceProgress(p) {
   scrollTrigger?.update?.();
 }
 
-function syncThresholdCombatFlag() {
+function syncNightCombatFlag() {
   // Story default: enabled. Debug may disable for unrelated chapter testing.
-  thresholdStory.state.bentEnabled = !thresholdCombatDisabled;
+  nightStory.state.bentEnabled = !nightCombatDisabled;
 }
 
-function isThresholdCombatEnabled() {
-  return !thresholdCombatDisabled;
+function isNightCombatEnabled() {
+  return !nightCombatDisabled;
 }
 
 try {
@@ -792,19 +792,19 @@ async function endCombatPrototype() {
   }
 }
 
-function setThresholdCombatEnabled(on) {
+function setNightCombatEnabled(on) {
   if (!DEBUG_MODE) return false;
-  thresholdCombatDisabled = !on;
-  syncThresholdCombatFlag();
-  if (thresholdCombatDisabled) {
-    thresholdStory.state.bentNoticed = false;
-    thresholdStory.state.bentCombatStarted = false;
-    thresholdStory.state.bentSkipped = true;
+  nightCombatDisabled = !on;
+  syncNightCombatFlag();
+  if (nightCombatDisabled) {
+    nightStory.state.bentNoticed = false;
+    nightStory.state.bentCombatStarted = false;
+    nightStory.state.bentSkipped = true;
   } else {
-    thresholdStory.state.bentSkipped = false;
+    nightStory.state.bentSkipped = false;
   }
-  console.info(`[Behind. COMBAT] Threshold encounter ${!thresholdCombatDisabled ? 'ENABLED' : 'disabled'}.`);
-  return !thresholdCombatDisabled;
+  console.info(`[Behind. COMBAT] Night Shift encounter ${!nightCombatDisabled ? 'ENABLED' : 'disabled'}.`);
+  return !nightCombatDisabled;
 }
 
 function restoreExplorationHudAfterCombat() {
@@ -819,29 +819,29 @@ function restoreExplorationHudAfterCombat() {
 }
 
 /**
- * Story (and debug) in-world Bent fight — keeps Threshold scene + camera.
+ * Story (and debug) in-world Bent fight — keeps Night Shift scene + camera.
  * Uses real inventory / composure; commits results only on victory.
  */
-async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
-  if (!thresholdStory.state.bentEnabled && !debugArenaLoadout) return false;
-  if (!renderer || !scene || !camera || chapterId !== 'threshold') return false;
+async function startNightBentCombat({ debugArenaLoadout = false } = {}) {
+  if (!nightStory.state.bentEnabled && !debugArenaLoadout) return false;
+  if (!renderer || !scene || !camera || chapterId !== 'night') return false;
   if (combatSession || tapeSession || endingSession || transitioning) return false;
   if (steady?.isActive || outsideDialogue.isActive()) return false;
-  if (thresholdStory.state.bentDefeated || thresholdStory.state.bentCombatStarted) return false;
+  if (nightStory.state.bentDefeated || nightStory.state.bentCombatStarted) return false;
 
-  const module = director?.get?.('threshold');
+  const module = director?.get?.('night');
   const bent = module?.bent;
   if (!bent) {
-    console.warn('[Behind. COMBAT] Threshold Bent mesh missing.');
+    console.warn('[Behind. COMBAT] Night Shift Bent mesh missing.');
     return false;
   }
 
   transitioning = true;
-  thresholdCombatFrozenProgress = displayed;
+  bentCombatFrozenProgress = displayed;
   // Face the hallway; look.update returns absolute yaw, not a delta.
   look?.reset?.();
-  thresholdCombatBaseYaw = camera?.rotation?.y ?? 0;
-  thresholdStory.state.bentCombatStarted = true;
+  bentCombatBaseYaw = camera?.rotation?.y ?? 0;
+  nightStory.state.bentCombatStarted = true;
   interaction?.close?.();
   interaction?.clear?.();
   closeInventoryOverlays();
@@ -852,17 +852,17 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
   // Exact pre-fight snapshot for defeat retry (inventory + composure + rail).
   bentPreEncounterSnapshot = captureCheckpointSnapshot();
   checkpoints.saveLatest(bentPreEncounterSnapshot);
-  savedCheckpointKeys.add('threshold:threshold-pre-bent');
+  savedCheckpointKeys.add('night:night-pre-bent');
 
   try {
-    const { startInWorldCombat } = await import('./combat/in-world.js?v=bent-spin-1');
+    const { startInWorldCombat } = await import('./combat/in-world.js?v=night-bent-1');
     const { BENT_COMBAT_CONFIG } = await import(
-      './combat/encounters/the-bent.js?v=bent-spin-1'
+      './combat/encounters/the-bent.js?v=night-bent-1'
     );
     const {
       buildCombatLoadoutFromInventory,
       commitCombatResultToStory,
-    } = await import('./combat/story-loadout.js?v=bent-spin-1');
+    } = await import('./combat/story-loadout.js?v=night-bent-1');
 
     const storyLoadout = debugArenaLoadout
       ? {
@@ -890,10 +890,10 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
       reduced,
       showTutorial,
       storyMode: !debugArenaLoadout,
-      eyebrow: debugArenaLoadout ? 'THRESHOLD · THE BENT · DEBUG' : 'THRESHOLD · THE BENT',
+      eyebrow: debugArenaLoadout ? 'NIGHT SHIFT · THE BENT · DEBUG' : 'NIGHT SHIFT · THE BENT',
       onFrame: (dt) => {
-        const p = thresholdCombatFrozenProgress ?? displayed;
-        director?.update?.(p, thresholdStory.state, dt, reduced);
+        const p = bentCombatFrozenProgress ?? displayed;
+        director?.update?.(p, nightStory.state, dt, reduced);
       },
       onVictory: async ({ snapshot: endSnap } = {}) => {
         combatSession = null;
@@ -909,27 +909,27 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
         }
         bentFightStartLoadout = null;
         bentPreEncounterSnapshot = null;
-        thresholdStory.state.bentDefeated = true;
-        thresholdStory.state.bentCombatStarted = false;
-        thresholdCombatFrozenProgress = null;
+        nightStory.state.bentDefeated = true;
+        nightStory.state.bentCombatStarted = false;
+        bentCombatFrozenProgress = null;
         bent.setState(bent.BENT_STATES.defeated);
         restoreExplorationHudAfterCombat();
         bindChapterInteractables();
-        console.info('[Behind. COMBAT] Bent defeated — exploration resumed in place.');
+        console.info('[Behind. COMBAT] Bent defeated — Night Shift exploration resumed.');
       },
       onRetry: async () => {
         combatSession = null;
         bentFightStartLoadout = null;
-        thresholdCombatFrozenProgress = null;
-        thresholdStory.state.bentCombatStarted = false;
-        thresholdStory.state.bentNoticed = false;
-        thresholdStory.state.bentDefeated = false;
+        bentCombatFrozenProgress = null;
+        nightStory.state.bentCombatStarted = false;
+        nightStory.state.bentNoticed = false;
+        nightStory.state.bentDefeated = false;
         const snap = bentPreEncounterSnapshot || checkpoints.latest;
         if (snap) {
           await restoreCheckpoint(snap);
         } else {
           const { BENT_RETRY_PROGRESS } = await import(
-            './combat/encounters/the-bent.js?v=bent-story-1'
+            './combat/encounters/the-bent.js?v=night-bent-1'
           );
           bent.reset(bent.home);
           bent.setState(bent.BENT_STATES.idle);
@@ -937,7 +937,7 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
           restoreExplorationHudAfterCombat();
           bindChapterInteractables();
         }
-        syncThresholdCombatFlag();
+        syncNightCombatFlag();
         console.info('[Behind. COMBAT] Bent retry — restored pre-encounter checkpoint.');
       },
       onExit: async () => {
@@ -945,9 +945,9 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
         combatSession = null;
         bentFightStartLoadout = null;
         bentPreEncounterSnapshot = null;
-        thresholdStory.state.bentSkipped = true;
-        thresholdStory.state.bentCombatStarted = false;
-        thresholdCombatFrozenProgress = null;
+        nightStory.state.bentSkipped = true;
+        nightStory.state.bentCombatStarted = false;
+        bentCombatFrozenProgress = null;
         bent.setState(bent.BENT_STATES.hidden);
         restoreExplorationHudAfterCombat();
         bindChapterInteractables();
@@ -958,13 +958,13 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
     el.bottom?.classList.remove('active');
     el.inventory?.classList.remove('is-visible');
     el.inventory?.setAttribute('aria-hidden', 'true');
-    console.info('[Behind. COMBAT] In-world Bent encounter started.');
+    console.info('[Behind. COMBAT] In-world Bent encounter started (Night Shift).');
     return true;
   } catch (error) {
     console.error('[Behind. COMBAT] In-world boot failed:', error);
     combatSession = null;
-    thresholdStory.state.bentCombatStarted = false;
-    thresholdCombatFrozenProgress = null;
+    nightStory.state.bentCombatStarted = false;
+    bentCombatFrozenProgress = null;
     bentFightStartLoadout = null;
     restoreExplorationHudAfterCombat();
     return false;
@@ -973,21 +973,20 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
   }
 }
 
-function maybeStartThresholdBentCombat() {
-  if (chapterId !== 'threshold' || combatSession || transitioning) return;
+function maybeStartNightBentCombat() {
+  if (chapterId !== 'night' || combatSession || transitioning) return;
   if (gameOverActive || ended) return;
-  const s = thresholdStory.state;
+  const s = nightStory.state;
   if (!s.bentEnabled || s.bentDefeated || s.bentSkipped || s.bentCombatStarted) return;
   if (s.direction !== 'forward') return;
-  // Float easing can asymptote just under the rail max (e.g. 0.689999 < 0.69).
-  if (displayed + 1e-4 < THRESHOLD_COMBAT_TRIGGER) return;
-  if (!s.ruptureArmed) return;
+  // Float easing can asymptote just under the rail max (e.g. 0.859999 < 0.86).
+  if (displayed + 1e-4 < NIGHT_COMBAT_TRIGGER) return;
+  // Past the domestic lounge — cold hall must already be true for natural pacing.
+  if (!s.coldHall) return;
   if (steady?.isActive) return;
-  // Wait until rupture STEADY has resolved (or was never needed).
-  if (s.ruptureSteadyReady && !composureHits.has('threshold-rupture')) return;
   if (outsideDialogue.isActive()) return;
   if (inventoryMenu?.isOpen?.() || interaction?.isOpen || keypad?.isOpen) return;
-  void startThresholdBentCombat();
+  void startNightBentCombat();
 }
 
 async function startEndingPrototype(id) {
@@ -1099,7 +1098,7 @@ async function endCamcorderPlayback() {
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
+      const { createNightShift } = await import('./levels/night.js?v=night-bent-1');
       director.add('night', createNightShift(scene));
       el.location.textContent = 'SOUTH WING / NIGHT STAFF';
       look?.setMaxYaw(1.05); // face the kitchenette cork board from the rail
@@ -1112,7 +1111,7 @@ async function endCamcorderPlayback() {
       camera.updateProjectionMatrix();
       camera.rotation.order = 'YXZ';
     } else if (target === 'threshold') {
-      const { createThreshold } = await import('./levels/threshold.js?v=bent-story-1');
+      const { createThreshold } = await import('./levels/threshold.js?v=night-bent-1');
       director.add('threshold', createThreshold(scene));
       el.location.textContent = 'SOUTH WING / THE THRESHOLD';
       look?.setMaxYaw();
@@ -1600,6 +1599,7 @@ function captureCheckpointSnapshot() {
     office: { ...officeStory.state },
     records: { ...recordsStory.state },
     hospital: { ...hospitalReverseStory.state },
+    night: { ...nightStory.state },
     threshold: { ...thresholdStory.state },
     unseen: { ...unseenStory.state },
     stairwells: { ...stairwellsStory.state },
@@ -1630,7 +1630,7 @@ function applyInventorySnapshot(items = [], equippedWeaponId = null) {
 }
 
 function saveChapterStartCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   for (const key of [...savedCheckpointKeys]) {
     if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
   }
@@ -1640,7 +1640,7 @@ function saveChapterStartCheckpoint() {
 const savedCheckpointKeys = new Set();
 
 function saveSafeCheckpoint(reason = '') {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   if (gameOverActive || transitioning || steady?.isActive) return;
   if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
   checkpoints.saveLatest(captureCheckpointSnapshot());
@@ -1651,7 +1651,7 @@ function saveSafeCheckpoint(reason = '') {
 }
 
 function maybeAutoCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   if (chapterId === 'corridor' && story.state.reachedDeadEnd
       && !composureHits.has('corridor-cascade')) {
     saveSafeCheckpoint('corridor-dead-end');
@@ -1683,14 +1683,14 @@ function maybeAutoCheckpoint() {
       && !thresholdStory.state.ruptureArmed
       && !composureHits.has('threshold-rupture')) {
     saveSafeCheckpoint('threshold-pre-rupture');
-  } else if (chapterId === 'threshold'
-      && thresholdStory.state.ruptureArmed
-      && composureHits.has('threshold-rupture')
-      && !thresholdStory.state.bentDefeated
-      && !thresholdStory.state.bentCombatStarted
-      && progress >= 0.63
-      && progress < THRESHOLD_COMBAT_TRIGGER) {
-    saveSafeCheckpoint('threshold-pre-bent');
+  } else if (chapterId === 'night'
+      && nightStory.state.coldHall
+      && nightStory.state.lampOut
+      && !nightStory.state.bentDefeated
+      && !nightStory.state.bentCombatStarted
+      && progress >= 0.78
+      && progress < NIGHT_COMBAT_TRIGGER) {
+    saveSafeCheckpoint('night-pre-bent');
   } else if (chapterId === 'unseen' && unseenStory.state.ceilingRattle
       && !unseenStory.state.darkness
       && !composureHits.has('unseen-blackout')) {
@@ -1736,10 +1736,19 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       camera.far = 720;
       camera.updateProjectionMatrix();
       camera.rotation.order = 'YXZ';
+    } else if (target === 'night') {
+      Object.assign(nightStory.state, snapshot.night || {});
+      // Opt-in flag is session-scoped (URL / DEV TOOLS), not a story checkpoint.
+      syncNightCombatFlag();
+      director?.reset();
+      look?.setMaxYaw(1.05);
+      if (camera.far !== 65) {
+        camera.far = 65;
+        camera.updateProjectionMatrix();
+      }
+      camera.rotation.order = 'XYZ';
     } else if (target === 'threshold') {
       Object.assign(thresholdStory.state, snapshot.threshold || {});
-      // Opt-in flag is session-scoped (URL / DEV TOOLS), not a story checkpoint.
-      syncThresholdCombatFlag();
       director?.reset();
       look?.setMaxYaw();
       if (camera.far !== 65) {
@@ -2409,7 +2418,7 @@ function reset() {
   nightStory.reset();
   stairwellsStory.reset();
   thresholdStory.reset();
-  syncThresholdCombatFlag();
+  syncNightCombatFlag();
   bentTutorialPending = true;
   bentPreEncounterSnapshot = null;
   bentFightStartLoadout = null;
@@ -2554,7 +2563,7 @@ async function enterNightShift() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
+    const { createNightShift } = await import('./levels/night.js?v=night-bent-1');
     module = createNightShift(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -2565,6 +2574,7 @@ async function enterNightShift() {
     director.activate('night');
     chapterId = 'night';
     nightStory.reset();
+    syncNightCombatFlag();
     bindChapterInteractables();
     noteFogBase();
     syncComposureUi();
@@ -2577,9 +2587,10 @@ async function enterNightShift() {
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-      lastTime = performance.now();
+    lastTime = performance.now();
+    saveChapterStartCheckpoint();
     renderer.render(scene, camera);
-    console.info('[Behind.] Level 04 entered · no jump scares · 5.5 m/s cap');
+    console.info('[Behind.] Level 04 entered · Bent late-hall · 5.5 m/s cap');
   } catch (error) {
     if (chapterId === 'records') module?.dispose?.();
     console.error('[Behind.] Night Shift transition failed:', error);
@@ -2658,7 +2669,7 @@ async function enterThreshold() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createThreshold } = await import('./levels/threshold.js?v=bent-story-1');
+    const { createThreshold } = await import('./levels/threshold.js?v=night-bent-1');
     module = createThreshold(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -2670,7 +2681,7 @@ async function enterThreshold() {
     chapterId = 'threshold';
     stairwellsStory.reset();
     thresholdStory.reset();
-    syncThresholdCombatFlag();
+    syncNightCombatFlag();
     outsideDialogue.clearSession();
     el.line.classList.remove('is-outside');
     el.narrative.classList.remove('is-outside-voice');
@@ -2821,10 +2832,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createRecords } = await import('./levels/records.js?v=wpn-3');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
-      const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
+      const { createNightShift } = await import('./levels/night.js?v=night-bent-1');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
-      const { createThreshold } = await import('./levels/threshold.js?v=bent-story-1');
+      const { createThreshold } = await import('./levels/threshold.js?v=night-bent-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
       const { createMemoryWhite } = await import('./levels/memory-white.js');
@@ -2867,7 +2878,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     if (target !== 'records') recordsStory.reset();
     nightStory.reset();
     thresholdStory.reset();
-    syncThresholdCombatFlag();
+    syncNightCombatFlag();
     unseenStory.reset();
     if (target !== 'memory-white') memoryWhiteStory.reset();
     if (target !== 'memory-black') memoryBlackStory.reset();
@@ -3015,7 +3026,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=wpn-2').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=night-bent-1').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3139,22 +3150,31 @@ if (DEBUG_MODE) {
         if (combatSession) return true;
         return startCombatPrototypeSession();
       },
-      getThresholdCombatEnabled: () => isThresholdCombatEnabled(),
-      setThresholdCombatEnabled: (on) => setThresholdCombatEnabled(on),
+      getNightCombatEnabled: () => isNightCombatEnabled(),
+      setNightCombatEnabled: (on) => setNightCombatEnabled(on),
+      // Legacy aliases for older DEV panel builds.
+      getThresholdCombatEnabled: () => isNightCombatEnabled(),
+      setThresholdCombatEnabled: (on) => setNightCombatEnabled(on),
       async jumpToBentApproach() {
-        thresholdCombatDisabled = false;
-        syncThresholdCombatFlag();
-        const ok = await debugJumpToChapter('threshold', 'start');
+        nightCombatDisabled = false;
+        syncNightCombatFlag();
+        const ok = await debugJumpToChapter('night', 'start');
         if (!ok) return false;
-        // Past rupture arming, before Bent trigger — STEADY may still fire.
-        forceProgress(0.62);
-        // Seed rupture resolved so combat can begin without replaying STEADY when jumping.
-        thresholdStory.state.ruptureArmed = true;
-        thresholdStory.state.ruptureSteadyReady = false;
-        thresholdStory.state.bentSkipped = false;
-        thresholdStory.state.bentDefeated = false;
-        composureHits.add('threshold-rupture');
-        syncThresholdCombatFlag();
+        // Past lamp/cold hall, before Bent trigger.
+        forceProgress(0.78);
+        nightStory.state.absenceArmed = true;
+        nightStory.state.lampOut = true;
+        nightStory.state.lampDying = false;
+        nightStory.state.coldHall = true;
+        nightStory.state.hallDarkened = true;
+        nightStory.state.warmth = 0.35;
+        nightStory.state.bentSkipped = false;
+        nightStory.state.bentDefeated = false;
+        nightStory.state.bentCombatStarted = false;
+        nightStory.state.bentNoticed = false;
+        composureHits.add('night-first-step');
+        composureHits.add('night-cadence');
+        syncNightCombatFlag();
         return true;
       },
     });
@@ -3397,8 +3417,10 @@ function updateNarrative(p, dt = 0) {
     else if (p < 0.94 && ended) hideEndCard();
   } else if (inNight) {
     memory.extraStepHeard ||= state.absenceArmed || state.footstepHeard;
-    if (state.completed && p >= NIGHT_END_PROGRESS && !ended) showEndCard('night');
-    else if (p < NIGHT_END_PROGRESS - 0.035 && ended) hideEndCard();
+    if (state.completed && p >= NIGHT_END_PROGRESS && !ended
+        && (state.bentDefeated || state.bentSkipped || !state.bentEnabled)) {
+      showEndCard('night');
+    } else if (p < NIGHT_END_PROGRESS - 0.035 && ended) hideEndCard();
   } else if (inThreshold) {
     memory.keyPassed ||= state.reachedKey;
     if (state.completed && p >= THRESHOLD_END_PROGRESS && !ended) showEndCard('threshold');
@@ -3451,11 +3473,11 @@ function frame(now) {
       // Limited look only — scroll / interact stay blocked.
       // Must ASSIGN base+yaw (look returns absolute offset). += spun the camera.
       look?.setEnabled(true);
-      camera.rotation.y = thresholdCombatBaseYaw + (look?.update(dt, reduced) ?? 0);
+      camera.rotation.y = bentCombatBaseYaw + (look?.update(dt, reduced) ?? 0);
       // Hold scroll pin so the rail cannot drift under the fight.
-      if (thresholdCombatFrozenProgress != null) {
+      if (bentCombatFrozenProgress != null) {
         window.scrollTo({
-          top: scrollYFor(thresholdCombatFrozenProgress),
+          top: scrollYFor(bentCombatFrozenProgress),
           behavior: 'instant',
         });
       }
@@ -3524,12 +3546,12 @@ function frame(now) {
       if (!wasLampOut && nightStory.state.lampOut) {
         audio.playNightChairSettle?.();
       }
+      maybeStartNightBentCombat();
     } else if (chapterId === 'threshold') {
       thresholdStory.observe(previousDisplayed, p);
       if (director.get('threshold')?.consumeRuptureStarted?.()) {
         audio.playThresholdRupture?.();
       }
-      maybeStartThresholdBentCombat();
     } else if (isMemoryChapter()) {
       const mem = memoryStoryFor();
       const wasExitReady = mem.state.exitReady;

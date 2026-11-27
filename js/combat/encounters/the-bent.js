@@ -1,22 +1,25 @@
 /**
- * Threshold encounter — THE BENT.
- * Story-mandatory in Chapter 06. Debug arena / nocombat bypass remain available.
+ * Night Shift encounter — THE BENT.
+ * Story-mandatory in Chapter 04 (late cold hall). Debug arena / nocombat bypass remain.
  * Player stats come from story inventory + composure (see story-loadout.js).
  */
 
-export const BENT_ENCOUNTER_ID = 'threshold-bent';
+export const BENT_ENCOUNTER_ID = 'night-bent';
 
-/** Progress trigger (~68–70%). After rupture STEADY; before outside quiet line. */
-export const BENT_TRIGGER_PROGRESS = 0.69;
-/** Head-turn notice as the player closes distance. */
-export const BENT_NOTICE_PROGRESS = 0.655;
-/** Defeat retry — safe point before notice/trigger. */
-export const BENT_RETRY_PROGRESS = 0.64;
 /**
- * World Z for the figure (meters along Threshold rail).
- * Camera at trigger ≈ -56.1; entity ~6m ahead.
+ * Progress marks along the Night Shift rail (NIGHT_METERS = 72, START_Z = 4.6).
+ * After cold hall (0.62) and before exit (0.979); hush (0.88) still follows victory.
  */
-export const BENT_WORLD_Z = -62.2;
+export const BENT_TRIGGER_PROGRESS = 0.86;
+/** Head-turn notice as the player closes distance. */
+export const BENT_NOTICE_PROGRESS = 0.82;
+/** Defeat retry — safe point before notice/trigger. */
+export const BENT_RETRY_PROGRESS = 0.795;
+/**
+ * World Z for the figure (meters along Night Shift rail).
+ * Camera at trigger ≈ -57.3; entity ~6m ahead, short of exit doors (~-68.9).
+ */
+export const BENT_WORLD_Z = -63.4;
 
 /** Defaults for the isolated debug arena — story fights override via loadout. */
 export const BENT_COMBAT_CONFIG = Object.freeze({

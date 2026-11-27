@@ -1,5 +1,5 @@
 /**
- * Threshold Bent encounter config + blind-assault escalation.
+ * Night Shift Bent encounter config + blind-assault escalation.
  * Run: node js/combat/encounters/the-bent.test.js
  */
 
@@ -12,6 +12,7 @@ import {
   BENT_NOTICE_PROGRESS,
   BENT_RETRY_PROGRESS,
   BENT_ENCOUNTER_ID,
+  BENT_WORLD_Z,
 } from './the-bent.js';
 
 function test(name, fn) {
@@ -24,14 +25,17 @@ function test(name, fn) {
   }
 }
 
-console.log('threshold bent encounter');
+console.log('night bent encounter');
 
-test('placement sits after rupture and before outside quiet band', () => {
+test('placement sits in late Night Shift cold hall before exit', () => {
   assert.ok(BENT_NOTICE_PROGRESS < BENT_TRIGGER_PROGRESS);
   assert.ok(BENT_RETRY_PROGRESS < BENT_NOTICE_PROGRESS);
-  assert.ok(BENT_TRIGGER_PROGRESS > 0.605);
-  assert.ok(BENT_TRIGGER_PROGRESS < 0.745);
-  assert.equal(BENT_ENCOUNTER_ID, 'threshold-bent');
+  assert.ok(BENT_TRIGGER_PROGRESS > 0.62); // after NIGHT_COLD_START
+  assert.ok(BENT_TRIGGER_PROGRESS < 0.979); // before NIGHT_END
+  assert.ok(BENT_TRIGGER_PROGRESS < 0.92); // leave room before exit
+  assert.equal(BENT_ENCOUNTER_ID, 'night-bent');
+  // Camera at trigger ≈ -57.3; Bent ~6m ahead, short of exit doors (~-68.9).
+  assert.ok(BENT_WORLD_Z < -60 && BENT_WORLD_Z > -68);
 });
 
 test('Bent config loads without Waiting Thing attack ids', () => {
@@ -99,7 +103,6 @@ test('story loadout uses real composure and grants no free cigarettes', () => {
 });
 
 test('unarmed fight can clear Presence with OBSERVE openings + GUARD', () => {
-  // Post-rupture composure floor — no cigarettes, no weapons.
   const c = createCombatState(BENT_COMBAT_CONFIG, {
     composure: 55,
     cigarettes: 0,

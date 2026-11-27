@@ -6,10 +6,6 @@ import {
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
-import { createTheBent } from '../combat/enemies/the-bent.js';
-import {
-  BENT_WORLD_Z, BENT_NOTICE_PROGRESS, BENT_TRIGGER_PROGRESS,
-} from '../combat/encounters/the-bent.js';
 
 /**
  * Level 05 / The Threshold.
@@ -384,20 +380,11 @@ export function createThreshold(scene) {
     cigaretteInteractable('cigarette-threshold', cigarette),
   ];
 
-  // Story encounter figure — visible when bentEnabled; blocks the rail until defeated.
-  const bent = createTheBent({
-    homePosition: new THREE.Vector3(0.05, 0, BENT_WORLD_Z),
-  });
-  bent.root.visible = false;
-  bent.setState(bent.BENT_STATES.hidden);
-  world.add(bent.root);
-
   const doorStart=0; let doorAngle=doorStart; let pulseTime=0;
   let ruptureT = -1;
   let ruptureSfxPending = false;
   return {
     interactables,
-    bent,
     get doorAngle() { return doorAngle; },
     consumeRuptureStarted() {
       if (!ruptureSfxPending) return false;
@@ -406,37 +393,6 @@ export function createThreshold(scene) {
     },
     update(progress,state,dt,reduced) {
       pulseTime += dt;
-      // Pre-combat presence for the mandatory Bent encounter.
-      if (state?.bentEnabled && !state.bentDefeated && !state.bentSkipped) {
-        if (bent.state === bent.BENT_STATES.hidden) {
-          bent.reset(new THREE.Vector3(0.05, 0, BENT_WORLD_Z));
-          bent.setState(bent.BENT_STATES.idle);
-        }
-        if (!state.bentCombatStarted) {
-          if (progress >= BENT_NOTICE_PROGRESS
-              && progress < BENT_TRIGGER_PROGRESS
-              && state.direction === 'forward'
-              && bent.state === bent.BENT_STATES.idle) {
-            bent.setState(bent.BENT_STATES.noticing);
-            state.bentNoticed = true;
-          }
-          if (progress >= BENT_TRIGGER_PROGRESS
-              && bent.state !== bent.BENT_STATES.blocking
-              && bent.state !== bent.BENT_STATES.noticing) {
-            bent.setState(bent.BENT_STATES.blocking);
-          }
-          bent.update(dt);
-        }
-        // During active combat the in-world session owns bent.update.
-      } else if (state?.bentDefeated || state?.bentSkipped) {
-        if (bent.state !== bent.BENT_STATES.defeated
-            && bent.state !== bent.BENT_STATES.hidden) {
-          bent.setState(bent.BENT_STATES.defeated);
-        }
-        bent.update(dt);
-      } else if (bent.root.visible) {
-        bent.setState(bent.BENT_STATES.hidden);
-      }
       // A one-way latch. Once opened, it stays open even if player retreats.
       const targetAngle=state.doorOpened
         ? Math.PI*0.53*smoothstep(THRESHOLD_DOOR_START,THRESHOLD_DOOR_OPEN,
@@ -529,15 +485,12 @@ export function createThreshold(scene) {
       redAccent.intensity=0;
       cigarette.visible=true;
       cigarette.userData.taken=false;
-      bent.reset(new THREE.Vector3(0.05, 0, BENT_WORLD_Z));
-      bent.setState(bent.BENT_STATES.hidden);
       for (const actor of seamActors) {
         actor.mesh.position.set(actor.baseX, actor.baseY, actor.baseZ);
         actor.mesh.scale.set(actor.baseScaleX, actor.baseScaleY, actor.baseScaleZ);
       }
     },
     dispose() {
-      bent.dispose();
       scene.remove(ambient);
       scene.remove(world);
       disposeCigaretteProp(cigarette);

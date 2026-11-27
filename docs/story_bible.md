@@ -128,9 +128,13 @@ Equipping / unequipping is free in exploration (mid-combat switching deferred). 
 
 Combat commands remain ATTACK / OBSERVE / GUARD / ITEM. ITEM opens a selector (cigarettes; RELOAD when a firearm is equipped). Cancel costs no turn. OBSERVE Opening ~+18 for melee/unarmed; revolver uses a reduced +8 Opening bonus. Fire remains a reserved damage type for future use — the emergency flare was retired.
 
-### Chapter 06 — THE BENT (mandatory story combat)
+### Chapter 04 — THE BENT (mandatory story combat)
 
-**IMPLEMENTED (Combat Integration 004).** After the rupture STEADY (~60.5%), **THE BENT** becomes visible (~65.5%) and blocks the rail at ~69%. The player must win the turn-based encounter to continue. Uses **real inventory and composure** (no free weapons or smokes). Pre-fight checkpoint enables RETRY without replaying the whole chapter. Victory leaves the hallway clear; reverse scroll never respawns the figure. Debug bypass: `?debug=1&nocombat=1` or DEV TOOLS → **DISABLE THRESHOLD COMBAT**. Standalone arena **TEST COMBAT** remains available. The Unseen stays a retreat sequence with no combat.
+**IMPLEMENTED (Combat Relocation 005).** Late in Night Shift — after the lounge lamp/chair beat and cold hall (~62%) — **THE BENT** becomes noticeable (~82%) and blocks the rail at ~86%. The player must win the turn-based encounter to continue. Uses **real inventory and composure** (no free weapons or smokes). Pre-fight checkpoint enables RETRY without replaying the lounge. Victory leaves the hallway clear; reverse scroll never respawns the figure. Debug bypass: `?debug=1&nocombat=1` or DEV TOOLS → **DISABLE NIGHT COMBAT**. Jump: **JUMP TO BENT** / `?debug=1&level=night&combat=1`. Standalone arena **TEST COMBAT** remains available.
+
+### Chapter 06 — The Threshold (combat-free)
+
+Threshold is environmental horror only: freestanding door, organic corruption, rupture STEADY, outside dialogue, key, nightmare restoration. **No combat.** The Unseen stays a retreat sequence with no combat.
 
 ---
 
@@ -474,6 +478,8 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **Dialogue (Revision 002):** Two brief one-shot thoughts: **“This floor feels different.”** early and **“Much colder back here.”** in the later hall. The lamp, empty chair, and hush remain nonverbal. Never name a person, diagnose grief, or claim a haunting.
 
+**Combat — THE BENT (IMPLEMENTED, Relocation 005):** Late cold hall (~82% notice / ~86% trigger). Real inventory/composure. Pre-bent checkpoint + combat RETRY. No victory fanfare; path clears in place. Lounge lamp/chair sequence stays combat-free.
+
 **Pacing:** No mandatory backtrack, STEADY/QTEs, jumpscares, or chase. Forward path stays open. Atmospheric events deal **0** composure.
 
 **Outside-world intrusion (IMPLEMENTED):** A small handwritten note on the kitchenette cork board reads **“We're all here.”** Easy to miss; no interaction outline, inspect panel, dialogue, sound, or composure effect.
@@ -511,7 +517,7 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **STEADY — Threshold Rupture (IMPLEMENTED):** Around progress `0.605`, organic wall seams contract inward once with a deep groan and a brief light weaken; STEADY (`threshold-rupture`, 18/9/4) peaks with the contraction. No monster, sting, or new dialogue.
 
-**Combat — THE BENT (IMPLEMENTED):** Mandatory in-world fight at ~69% (after rupture). Real inventory/composure. Pre-bent checkpoint + combat RETRY. No victory fanfare; path clears in place.
+**Combat:** None in Threshold (relocated to Night Shift — Combat Relocation 005).
 
 ## Chapter 07: The Unseen — Prototype 006.0 / first playable pass (renumbered)
 
@@ -548,7 +554,7 @@ Environmental horror operates in descending backward-scroll beats: first taps, a
 | 01 Corridor | Orientation; first sensory doubt; “behind you” reveal | Scroll corridor + return changes + rear elevator seal / hall cascade | Vulnerability, spatial dread | **Retain** as Act I opener; keep sparse dialogue. |
 | 02 Office | Occupied absence; rationalizing emptiness; first inventory puzzles | Phone + keypad code exit; collectibles | Unease without recognition claims | **Retain**; may later feed Act II memory setup after Records. |
 | 03 Records | Avoidance; photograph as unreadable personal pressure | Optional backtrack; “Leave it.” | Intimacy without disclosure | **Retain**; candidate beat *before* white-dragon memory (Act II). Fob unlock **now implemented** (consumed on use). |
-| 04 Night Shift | Domestic lull; occupied absence | Lamp / empty chair; warm→cool hall | Soft grief without proof | **Retain** as Act II palate cleanser (footsteps redesign already applied). |
+| 04 Night Shift | Domestic lull → first fight | Lamp / empty chair; late-hall THE BENT | Soft grief then survival | **Retain**; first mandatory combat near exit (Relocation 005). |
 | 05 Stairwells | Compulsion to descend; architectural impossibility | Switchbacks → void → snap → exit | Quiet wrongness before overt rupture | **Retain** between Night and Threshold (inserted 2026-11). |
 | 06 Threshold | Overt reality rupture | Progressive corridor corruption; uncollected house key | Dread from visible wrongness | **Retain** late Act II; ensure it doesn’t undercut quieter memory horror. |
 | 07 Unseen | Proximity fear; forced retreat | Barrier + spatial scrape + side exit | Panic with empty evidence | **Retain / polish**; evaluate whether it should follow Threshold or a memory beat. |
@@ -580,4 +586,5 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Outside conversation dialogue:** Italic `#line` source vs roman protagonist; five ordinary→intimate one-shot conversations in Stairwells / Threshold / Unseen after “Please wake up.”; reserved “I know you can't hear me…” / “Please come back to me.”; no voice/Foley in this pass. |
 | 2026-11 | **Dialogue Revision 003 (L05–L07):** Brief one-shot protagonist thoughts for Stairwells / Threshold / Unseen; cut descriptive narration; rain + “come back tomorrow” outside lines reserved; STEADY/combat pause outside speech. |
 | 2026-11 | **Combat Integration 004:** The Bent becomes mandatory story combat in Threshold (~69%); real inventory/composure sync; pre-fight checkpoint retry; debug nocombat bypass. |
+| 2026-11 | **Combat Relocation 005:** Move THE BENT to late Night Shift (~86%); Threshold combat-free again; Night checkpoints + DEV jump; preserve camera yaw fix. |
 | 2026-11 | **Environmental anomaly Experiment 001 (Records):** Unmarked binder vanishes off-camera after first pass; dust-free counter trace remains; optional to notice; no dialogue/systems. |
