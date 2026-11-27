@@ -10,7 +10,7 @@
 
 import * as THREE from 'three';
 import { createStuffedDragon } from '../props/stuffed-dragon.js';
-import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-7';
+import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-8';
 
 /** @typedef {'present' | 'memory-white' | 'memory-black' | 'vhs'} ApartmentPreset */
 
@@ -31,7 +31,7 @@ export const APARTMENT_PRESETS = Object.freeze({
     objects: Object.freeze({
       lampOn: false,
       kitchenLightOn: false,
-      tvOn: false,
+      tvOn: true,
       curtainsOpen: true,
       bedroomDoorAjar: true,
       entranceDoorAjar: false,

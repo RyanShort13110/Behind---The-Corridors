@@ -74,8 +74,8 @@ import {
   apartmentNarrative,
   APARTMENT_METERS,
   APARTMENT_START_Z,
-} from './levels/apartment-story.js?v=apt-7';
-import { apartmentCameraPose } from './levels/apartment-route.js?v=apt-7';
+} from './levels/apartment-story.js?v=apt-8';
+import { apartmentCameraPose } from './levels/apartment-route.js?v=apt-8';
 import {
   createHospitalReverseStory,
   hospitalReverseNarrative,
@@ -293,6 +293,12 @@ const isHospitalReverse = (id = chapterId) => id === 'hospital-reverse';
 const isStairwells = (id = chapterId) => id === 'stairwells';
 const memoryStoryFor = (id = chapterId) =>
   (id === 'memory-black' ? memoryBlackStory : memoryWhiteStory);
+/** White memory on shared apartment geometry (legacy home via ?legacyMemory=1). */
+const memoryUsesApartment = (id = chapterId) => {
+  if (id !== 'memory-white') return false;
+  return director?.get?.(id)?.environment === 'apartment'
+    || memoryStoryFor(id)?.state?.environment === 'apartment';
+};
 const memoryDragonId = (id = chapterId) =>
   (id === 'memory-black' ? 'memory-black-dragon' : 'memory-white-dragon');
 const memoryItemId = (id = chapterId) =>
@@ -532,6 +538,7 @@ function chapterMeters() {
   if (chapterId === 'night') return NIGHT_METERS;
   if (chapterId === 'threshold') return THRESHOLD_METERS;
   if (isMemoryChapter()) {
+    if (memoryUsesApartment()) return APARTMENT_METERS;
     return memoryStoryFor().state.phase === 'memory'
       ? MEMORY_ROOM_METERS
       : MEMORY_STAGING_METERS;
@@ -1656,7 +1663,7 @@ async function endCamcorderPlayback() {
       director.add('unseen', createUnseen(scene));
       el.location.textContent = 'SERVICE LEVEL / MAINTENANCE';
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js');
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-1');
       director.add('memory-white', createMemoryWhite(scene));
     } else if (target === 'memory-black') {
       const { createMemoryBlack } = await import('./levels/memory-black.js');
@@ -1802,9 +1809,15 @@ async function enterMemoryChapter() {
   progress = displayed = 0;
   bindChapterInteractables();
   director.get(chapterId)?.syncPhase(memoryStoryFor().state);
-  const pose = memoryHomeCameraPose(0, 'memory');
-  camera.position.set(pose.x, 1.55, pose.z);
-  camera.rotation.set(pose.pitch, pose.yaw, 0);
+  if (memoryUsesApartment()) {
+    const pose = apartmentCameraPose(0);
+    camera.position.set(pose.x, 1.65, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+  } else {
+    const pose = memoryHomeCameraPose(0, 'memory');
+    camera.position.set(pose.x, 1.55, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+  }
   window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
   scrollTrigger?.update();
   if (chapterId === 'memory-black') audio.enterMemoryBlack();
@@ -1841,12 +1854,18 @@ async function exitMemoryChapter() {
     return;
   }
 
-  // Debug prototypes: return to the staging foyer.
+  // Debug prototypes: return to the staging foyer (or apartment start rail).
   bindChapterInteractables();
   director.get(chapterId)?.syncPhase(memoryStoryFor().state);
-  progress = displayed = 0.62;
-  camera.position.set(0, 1.7, MEMORY_STAGING_START_Z - progress * MEMORY_STAGING_METERS);
-  camera.rotation.set(0, 0, 0);
+  progress = displayed = memoryUsesApartment() ? 0.2 : 0.62;
+  if (memoryUsesApartment()) {
+    const pose = apartmentCameraPose(progress);
+    camera.position.set(pose.x, 1.65, pose.z);
+    camera.rotation.set(pose.pitch, pose.yaw, 0);
+  } else {
+    camera.position.set(0, 1.7, MEMORY_STAGING_START_Z - progress * MEMORY_STAGING_METERS);
+    camera.rotation.set(0, 0, 0);
+  }
   window.scrollTo({ top: scrollYFor(progress), behavior: 'instant' });
   scrollTrigger?.update();
   renderer.render(scene, camera);
@@ -1872,10 +1891,23 @@ async function enterMemoryFromApartment() {
   try {
     const mod = target === 'memory-black'
       ? await import('./levels/memory-black.js')
-      : await import('./levels/memory-white.js');
+      : await import('./levels/memory-white.js?v=mem-apt-1');
     const create = target === 'memory-black' ? mod.createMemoryBlack : mod.createMemoryWhite;
     module = create(scene);
+    // Keep the dragon the player just took — preserveCarryInventory otherwise drops it.
+    const dragonsKept = (inventory?.list() || []).filter(item =>
+      item.id === 'stuffed-dragon-white' || item.id === 'stuffed-dragon-black');
     preserveCarryInventory();
+    for (const item of dragonsKept) {
+      if (!inventory?.has(item.id)) {
+        inventory.add(item.id, {
+          label: item.label,
+          tooltip: item.tooltip,
+          previewColor: item.previewColor,
+        });
+      }
+    }
+    renderInventory();
     interaction?.clear();
     look?.reset();
     director.dispose();
@@ -1904,9 +1936,16 @@ async function enterMemoryFromApartment() {
       : 'MEMORY / WHITE DRAGON';
     look?.setMaxYaw(1.25);
     progress = displayed = 0;
-    const pose = memoryHomeCameraPose(0, 'memory');
-    camera.position.set(pose.x, 1.55, pose.z);
-    camera.rotation.set(pose.pitch, pose.yaw, 0);
+    if (target === 'memory-white' && module.environment === 'apartment') {
+      memStory.state.environment = 'apartment';
+      const pose = apartmentCameraPose(0);
+      camera.position.set(pose.x, 1.65, pose.z);
+      camera.rotation.set(pose.pitch, pose.yaw, 0);
+    } else {
+      const pose = memoryHomeCameraPose(0, 'memory');
+      camera.position.set(pose.x, 1.55, pose.z);
+      camera.rotation.set(pose.pitch, pose.yaw, 0);
+    }
     camera.far = 65;
     camera.updateProjectionMatrix();
     camera.rotation.order = 'XYZ';
@@ -3504,7 +3543,7 @@ async function enterApartmentFirst() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createApartment } = await import('./levels/apartment.js?v=apt-7');
+    const { createApartment } = await import('./levels/apartment.js?v=apt-8');
     apartmentStory.reset({ visit: 'first', lightingMode: 'warm' });
     module = createApartment(scene, {
       lightingMode: apartmentStory.state.lightingMode,
@@ -3566,7 +3605,7 @@ async function enterApartmentReturn() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createApartment } = await import('./levels/apartment.js?v=apt-7');
+    const { createApartment } = await import('./levels/apartment.js?v=apt-8');
     apartmentStory.reset({ visit: 'return', lightingMode: 'night' });
     module = createApartment(scene, {
       lightingMode: apartmentStory.state.lightingMode,
@@ -3822,7 +3861,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createThreshold } = await import('./levels/threshold.js?v=night-bent-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js');
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-1');
       memoryWhiteStory.reset();
       next.add('memory-white', createMemoryWhite(scene));
     } else if (target === 'memory-black') {
@@ -3830,11 +3869,17 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'apartment') {
-      const { createApartment } = await import('./levels/apartment.js?v=apt-7');
-      apartmentStory.reset({ visit: 'debug' });
+      const { createApartment } = await import('./levels/apartment.js?v=apt-8');
+      // Debug: ?visit=first|return loads the story dragon visit; default explores without.
+      let aptVisit = 'debug';
+      try {
+        const v = new URLSearchParams(location.search).get('visit');
+        if (v === 'first' || v === 'return') aptVisit = v;
+      } catch { /* ignore */ }
+      apartmentStory.reset({ visit: aptVisit });
       next.add('apartment', createApartment(scene, {
         lightingMode: apartmentStory.state.lightingMode,
-        visit: 'debug',
+        visit: aptVisit,
       }));
     } else if (target === 'hospital-reverse') {
       const { createHospitalReverse } = await import('./levels/hospital-reverse.js?v=ward-gurney-side-1');
@@ -3974,11 +4019,18 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const seek = mem.seekCheckpoint(checkpoint);
       director.get(target)?.syncPhase(mem.state);
       progress = displayed = seek.progress ?? 0;
+      const aptMem = memoryUsesApartment(target);
       if (seek.phase === 'memory') {
         look?.setMaxYaw(1.25); // wide enough to face the side window
-        const pose = memoryHomeCameraPose(progress, 'memory');
-        camera.position.set(pose.x, 1.55, pose.z);
-        camera.rotation.set(pose.pitch, pose.yaw, 0);
+        if (aptMem) {
+          const pose = apartmentCameraPose(progress);
+          camera.position.set(pose.x, 1.65, pose.z);
+          camera.rotation.set(pose.pitch, pose.yaw, 0);
+        } else {
+          const pose = memoryHomeCameraPose(progress, 'memory');
+          camera.position.set(pose.x, 1.55, pose.z);
+          camera.rotation.set(pose.pitch, pose.yaw, 0);
+        }
         inventory?.add(memoryItemId(target), {
           label: memoryItemLabel(target),
           tooltip: target === 'memory-black'
@@ -3989,6 +4041,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
         renderInventory();
         if (target === 'memory-black') audio.enterMemoryBlack();
         else audio.enterMemoryWhite();
+      } else if (aptMem) {
+        const pose = apartmentCameraPose(progress);
+        camera.position.set(pose.x, 1.65, pose.z);
+        camera.rotation.set(pose.pitch, pose.yaw, 0);
       } else {
         camera.position.set(0, 1.7, MEMORY_STAGING_START_Z - progress * MEMORY_STAGING_METERS);
       }
@@ -4536,6 +4592,9 @@ function updateNarrative(p, dt = 0) {
   } else if (inStairs) {
     if (state.completed && !ended) showEndCard('stairwells');
     else if (p < (STAIRWELLS_MARKS.exitStart ?? 0.98) - 0.025 && ended) hideEndCard();
+  } else if (inMemory || inApartment) {
+    // Story memory exit shows its own end card (apartment-first / return).
+    // Do not auto-hide it via Unseen's progress latch.
   } else {
     if (state.completed && p <= UNSEEN_EXIT_PROGRESS && !ended) showEndCard('unseen');
     else if (p > 0.037 && ended) hideEndCard();
@@ -4622,7 +4681,8 @@ function frame(now) {
         : chapterId === 'records' ? RECORDS_START_Z
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
-              : isMemoryChapter() ? MEMORY_STAGING_START_Z
+              : isMemoryChapter()
+                ? (memoryUsesApartment() ? APARTMENT_START_Z : MEMORY_STAGING_START_Z)
                 : isApartment() ? APARTMENT_START_Z
                 : isHospitalReverse() ? HOSPITAL_REVERSE_START_Z
                   : isStairwells() ? STAIRWELLS_START.z : UNSEEN_START_Z;
@@ -4847,6 +4907,10 @@ function frame(now) {
         route.yaw + (reduced ? 0 : Math.sin(p * 5) * 0.01),
         sway && !reduced ? Math.sin(now * 0.0014) * 0.003 * sway : 0,
       );
+    } else if (isMemoryChapter() && memoryUsesApartment()) {
+      const route = apartmentCameraPose(p);
+      camera.position.set(route.x, 1.65, route.z);
+      camera.rotation.set(route.pitch, route.yaw, 0);
     } else if (isMemoryChapter() && memoryStoryFor().state.phase === 'memory') {
       const route = memoryHomeCameraPose(p, 'memory');
       camera.position.set(route.x, 1.55, route.z);

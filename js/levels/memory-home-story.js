@@ -55,6 +55,8 @@ export function createMemoryHomeStory(variant = 'white') {
       if (state.phase !== 'memory') return;
       state.furthestMemory = Math.max(state.furthestMemory, current);
       const step = Math.max(0, dt);
+      // Apartment rail is longer; remap white coffee / hallway beats to landmarks.
+      const apt = state.environment === 'apartment';
 
       if (!isBlack && state.introLine === 1) {
         state.introElapsed += step;
@@ -65,16 +67,20 @@ export function createMemoryHomeStory(variant = 'white') {
       }
 
       // Coffee-table zone (table sits in front of the couch on the early rail).
-      if (!isBlack && current >= 0.18 && current <= 0.34) {
+      const coffeeLo = apt ? 0.24 : 0.18;
+      const coffeeHi = apt ? 0.38 : 0.34;
+      if (!isBlack && current >= coffeeLo && current <= coffeeHi) {
         state.remoteSeen = true;
       }
       // After leaving that zone, the remote is already on the shelf (one-way snap).
-      if (!isBlack && state.remoteSeen && current >= 0.40) {
+      const remoteMoveAt = apt ? 0.46 : 0.40;
+      if (!isBlack && state.remoteSeen && current >= remoteMoveAt) {
         state.remoteMoved = true;
       }
 
       // White: unfinished line near hallway — once, then fades.
-      if (!isBlack && !state.unfinishedSaid && current >= 0.78) {
+      const unfinishedAt = apt ? 0.72 : 0.78;
+      if (!isBlack && !state.unfinishedSaid && current >= unfinishedAt) {
         state.unfinishedSaid = true;
         state.unfinishedElapsed = 0;
       }
@@ -221,6 +227,7 @@ export function createMemoryHomeStory(variant = 'white') {
       state.completed = false;
       state.furthestMemory = 0;
       state._consumeDoorSound = false;
+      state.environment = undefined;
     },
   };
 }
