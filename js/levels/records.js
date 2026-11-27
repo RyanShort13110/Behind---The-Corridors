@@ -2,8 +2,6 @@ import * as THREE from 'three';
 import {
   createCigarettePack, disposeCigaretteProp, cigaretteInteractable,
 } from '../composure.js';
-import { createCrowbarProp, disposeCrowbarProp, crowbarInteractable } from '../props/crowbar.js?v=wpn-3';
-
 /**
  * Behind. / Level 03 — The Records.
  * One forward axis, two different eras of office furniture, no jumpscares.
@@ -392,13 +390,7 @@ export function createRecords(scene) {
   cigarette.rotation.set(0, 0.4, 0.08);
   world.add(cigarette);
 
-  // Crowbar leaning on the right filing cabinets (row 1) — look right mid-aisle.
-  // Shaft is local +X; tip (+X / claw) rests up against the carcass, grip on the floor.
-  const crowbar = createCrowbarProp({ name: 'Records crowbar' });
-  crowbar.position.set(2.70, 0.44, -13.55);
-  crowbar.rotation.set(0.06, 0.12, Math.PI / 2 - 0.38);
-  world.add(crowbar);
-  // Worn machete deferred to a later chapter (Unseen) — not placed here.
+  // Crowbar lives in the Service Wing workshop now — not Records.
 
   const interactables = [
     {
@@ -409,7 +401,6 @@ export function createRecords(scene) {
       body: 'No.',
     },
     cigaretteInteractable('cigarette-records', cigarette),
-    crowbarInteractable(crowbar),
     {
       id: 'records-fob-reader',
       object: reader,
@@ -573,8 +564,6 @@ export function createRecords(scene) {
       if (readerLed) readerLed.material = mat.readerLedOff;
       cigarette.visible = true;
       cigarette.userData.taken = false;
-      crowbar.visible = true;
-      crowbar.userData.taken = false;
       anomalyBinder.visible = true;
       anomalyTrace.visible = false;
       dartPlaying = false;
@@ -594,7 +583,6 @@ export function createRecords(scene) {
       // Independent photo/drawer meshes also share that cube geometry.
       cube.dispose();
       disposeCigaretteProp(cigarette);
-      disposeCrowbarProp(crowbar);
       peekTex.dispose();
       peekMat.dispose();
       readerHit.geometry.dispose();

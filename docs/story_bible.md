@@ -1,6 +1,6 @@
 # BEHIND. — Living Story Bible
 
-**Status:** Working draft / synchronized with playable Chapters 01–07 (Corridor → Unseen), November 2026. Stairwells is Chapter 05 between Night Shift and Threshold. Records exit requires the Office key fob (consumed on use). Narrative direction updated November 2026 (grief of separation; outside-world motif; player discovery may precede protagonist recognition — private facts stay in `docs/writer-only/`).  
+**Status:** Working draft / synchronized with playable Chapters 01–07 (Corridor → Unseen), November 2026. **Service Wing** (`maintenance`) sits between Office and Records without renumbering later chapters. Stairwells is Chapter 05 between Night Shift and Threshold. Records exit requires the Office key fob (consumed on use). Narrative direction updated November 2026 (grief of separation; outside-world motif; player discovery may precede protagonist recognition — private facts stay in `docs/writer-only/`).  
 **Genre:** Interactive first-person psychological horror web film  
 **Target:** Approximately 10 chapters, 45–60+ minutes in its eventual complete form  
 **Creative rule:** *The building doesn't chase you. It waits for you to look away.*  
@@ -118,7 +118,7 @@ Full-screen inventory (`I`, on-screen **INVENTORY**, or touch control). Categori
 
 | Item | Where | Notes |
 |---|---|---|
-| Rusted crowbar | Records (leaning on right filing cabinets) | Permanent melee · blunt · ~23 · stagger-ready tags |
+| Rusted crowbar | Service Wing workshop (beside open electrical cabinet) | Permanent melee · blunt · ~23 · stagger-ready tags |
 | Worn machete | Reserved — Unseen (not placed yet) | Permanent melee · slash · ~29 · anti-organic tags |
 | Old revolver | Debug only (not in story yet) | Ballistic · ~42 · 6-round cylinder + reserve |
 | Revolver rounds | Debug only | Reserve ammunition; no chapter placement yet |
@@ -153,7 +153,7 @@ Threshold is environmental horror only: freestanding door, organic corruption, r
 ### Orange key fob
 
 **ESTABLISHED CANON:** Plain orange plastic fob with a worn metal ring. Collectible without implying the protagonist worked here or owned it.  
-**IMPLEMENTED (L02→L03):** Takeable in the Office (`key-fob`). Inspect: “Orange plastic. The metal ring is worn.” Inventory is preserved into Records. Office cannot complete / leave for Records without taking the fob (softlock prevention). In Records, the fob unlocks a wall card reader at the far exit door and is **consumed on use**. No lore explains why it works.
+**IMPLEMENTED (L02→Service Wing→L03):** Takeable in the Office (`key-fob`). Inspect: “Orange plastic. The metal ring is worn.” Inventory is preserved through the Service Wing into Records. Office cannot complete / leave without taking the fob (softlock prevention). In Records, the fob unlocks a wall card reader at the far exit door and is **consumed on use**. No lore explains why it works.
 
 ### Brass key (Level 01)
 
@@ -388,7 +388,18 @@ The dead-end, return, and elevator movement instructions remain independent of d
 
 **Emotion (ESTABLISHED CANON):** Occupied absence; rationalizing emptiness; quiet doubt. No workplace recognition claims.
 
-**Entry / traversal / exit (IMPLEMENTED):** Elevator veil into a wider aisle. Same scroll motion. Far Records door stays locked. Exit is the side service passage after retreat cue + keypad unlock with the sticky-note code.
+**Entry / traversal / exit (IMPLEMENTED):** Elevator veil into a wider aisle. Same scroll motion. Far Records door stays locked. Exit is the side service passage after retreat cue + keypad unlock with the sticky-note code — leads into the **Service Wing**, then Records.
+
+## Chapter 02B: The Service Wing
+
+**IMPLEMENTED** · chapter id `maintenance`
+
+Short maintenance corridors between Office and Records. Narrow halls, exposed pipes, electrical cabinets, tool shelves, and a small workshop. No combat, no STEADY.
+
+- **Crowbar:** Optional pickup beside a partially opened electrical cabinet in the workshop. Inventory id remains `crowbar`; carries into Records and Night Shift.
+- **Discrepancy:** A tool cart shifts after the player passes it; visible on reverse scroll / lookback. Persistent until chapter reset. No dialogue, QTE, or jumpscare.
+- **Dialogue:** One brief line near the workshop (“Still warm.”) — otherwise silence.
+- **Progression:** Office → Service Wing → Records. Office keypad + key fob preserved; Records fob exit preserved.
 
 ### Physical anchors (IMPLEMENTED)
 
@@ -553,6 +564,7 @@ Environmental horror operates in descending backward-scroll beats: first taps, a
 |---|---|---|---|---|
 | 01 Corridor | Orientation; first sensory doubt; “behind you” reveal | Scroll corridor + return changes + rear elevator seal / hall cascade | Vulnerability, spatial dread | **Retain** as Act I opener; keep sparse dialogue. |
 | 02 Office | Occupied absence; rationalizing emptiness; first inventory puzzles | Phone + keypad code exit; collectibles | Unease without recognition claims | **Retain**; may later feed Act II memory setup after Records. |
+| 02B Service Wing | Abandoned maintenance; optional crowbar; reverse-only cart move | Quiet transit; industrial props | Prefer silence | **Retain** as Office→Records bridge. |
 | 03 Records | Avoidance; photograph as unreadable personal pressure | Optional backtrack; “Leave it.” | Intimacy without disclosure | **Retain**; candidate beat *before* white-dragon memory (Act II). Fob unlock **now implemented** (consumed on use). |
 | 04 Night Shift | Domestic lull → first fight | Lamp / empty chair; late-hall THE BENT | Soft grief then survival | **Retain**; first mandatory combat near exit (Relocation 005). |
 | 05 Stairwells | Compulsion to descend; architectural impossibility | Switchbacks → void → snap → exit | Quiet wrongness before overt rupture | **Retain** between Night and Threshold (inserted 2026-11). |
@@ -588,3 +600,4 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Combat Integration 004:** The Bent becomes mandatory story combat in Threshold (~69%); real inventory/composure sync; pre-fight checkpoint retry; debug nocombat bypass. |
 | 2026-11 | **Combat Relocation 005:** Move THE BENT to late Night Shift (~86%); Threshold combat-free again; Night checkpoints + DEV jump; preserve camera yaw fix. |
 | 2026-11 | **Environmental anomaly Experiment 001 (Records):** Unmarked binder vanishes off-camera after first pass; dust-free counter trace remains; optional to notice; no dialogue/systems. |
+| 2026-11 | **Service Wing (02B):** New `maintenance` chapter between Office and Records; crowbar moved to workshop cabinet; reverse-only tool-cart discrepancy; Records/Night numbers unchanged. |

@@ -5,6 +5,7 @@
 const OPTIONS = [
   ['corridor', '01 — The Corridor', '01'],
   ['office', '02 — The Office', '02'],
+  ['maintenance', '02B — The Service Wing', 'maintenance'],
   ['records', '03 — The Records', '03'],
   ['night', '04 — The Night Shift', '04'],
   ['stairwells', '05 — The Stairwells', '05'],

@@ -45,9 +45,11 @@ export function disposeCrowbarProp(root) {
   for (const m of root?.userData?._crowbarMats || []) m.dispose?.();
 }
 
-export function crowbarInteractable(object) {
+export function crowbarInteractable(object, {
+  id = 'maintenance-crowbar',
+} = {}) {
   return {
-    id: 'records-crowbar',
+    id,
     object,
     radius: 4.4,
     takeable: true,

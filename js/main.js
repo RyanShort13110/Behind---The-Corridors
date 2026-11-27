@@ -46,6 +46,10 @@ import {
 } from './levels/records-story.js?v=anom-1';
 import { recordsCameraPose } from './levels/records-route.js';
 import {
+  createMaintenanceStory, maintenanceNarrative, MAINTENANCE_METERS, MAINTENANCE_START_Z,
+} from './levels/maintenance-story.js?v=svc-1';
+import { maintenanceCameraPose } from './levels/maintenance-route.js?v=svc-1';
+import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
 } from './levels/night-story.js?v=night-bent-1';
@@ -150,6 +154,7 @@ const clamp = v => Math.max(0, Math.min(1, v));
 const reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const story = createStory();
 const officeStory = createOfficeStory();
+const maintenanceStory = createMaintenanceStory();
 const recordsStory = createRecordsStory();
 const nightStory = createNightStory();
 const thresholdStory = createThresholdStory();
@@ -385,6 +390,7 @@ function progressBounds() {
 function chapterMeters() {
   if (chapterId === 'corridor') return CORRIDOR_METERS;
   if (chapterId === 'office') return OFFICE_METERS;
+  if (chapterId === 'maintenance') return MAINTENANCE_METERS;
   if (chapterId === 'records') return RECORDS_METERS;
   if (chapterId === 'night') return NIGHT_METERS;
   if (chapterId === 'threshold') return THRESHOLD_METERS;
@@ -1093,8 +1099,12 @@ async function endCamcorderPlayback() {
       const { createOffice } = await import('./levels/office.js?v=note-size-2');
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
+    } else if (target === 'maintenance') {
+      const { createMaintenance } = await import('./levels/maintenance.js?v=svc-1');
+      director.add('maintenance', createMaintenance(scene));
+      el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=wpn-3');
+      const { createRecords } = await import('./levels/records.js?v=svc-1');
       director.add('records', createRecords(scene));
       el.location.textContent = 'EAST ANNEX / RECORDS';
     } else if (target === 'night') {
@@ -1597,6 +1607,7 @@ function captureCheckpointSnapshot() {
     },
     story: { ...story.state },
     office: { ...officeStory.state },
+    maintenance: { ...maintenanceStory.state },
     records: { ...recordsStory.state },
     hospital: { ...hospitalReverseStory.state },
     night: { ...nightStory.state },
@@ -1630,7 +1641,7 @@ function applyInventorySnapshot(items = [], equippedWeaponId = null) {
 }
 
 function saveChapterStartCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   for (const key of [...savedCheckpointKeys]) {
     if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
   }
@@ -1640,7 +1651,7 @@ function saveChapterStartCheckpoint() {
 const savedCheckpointKeys = new Set();
 
 function saveSafeCheckpoint(reason = '') {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   if (gameOverActive || transitioning || steady?.isActive) return;
   if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
   checkpoints.saveLatest(captureCheckpointSnapshot());
@@ -1651,7 +1662,7 @@ function saveSafeCheckpoint(reason = '') {
 }
 
 function maybeAutoCheckpoint() {
-  if (!['corridor', 'office', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   if (chapterId === 'corridor' && story.state.reachedDeadEnd
       && !composureHits.has('corridor-cascade')) {
     saveSafeCheckpoint('corridor-dead-end');
@@ -1720,6 +1731,9 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       director?.reset();
     } else if (target === 'office') {
       Object.assign(officeStory.state, snapshot.office);
+      director?.reset();
+    } else if (target === 'maintenance') {
+      Object.assign(maintenanceStory.state, snapshot.maintenance || {});
       director?.reset();
     } else if (target === 'records') {
       Object.assign(recordsStory.state, snapshot.records);
@@ -1867,6 +1881,10 @@ async function restartCurrentChapterFromStart() {
     progress = displayed = START_PROGRESS;
   } else if (chapterId === 'office') {
     officeStory.reset();
+    director?.reset();
+    progress = displayed = 0;
+  } else if (chapterId === 'maintenance') {
+    maintenanceStory.reset();
     director?.reset();
     progress = displayed = 0;
   } else if (chapterId === 'records') {
@@ -2328,7 +2346,13 @@ function setEndCard(which) {
   } else if (which === 'office') {
     el.endingEyebrow.textContent = 'LEVEL 02 COMPLETE · THE OFFICE';
     el.endingTitle.innerHTML = 'WHAT WAS<br>LEFT BEHIND.';
-    el.endingCopy.textContent = 'The service passage leads toward Records.';
+    el.endingCopy.textContent = 'The service passage leads into the maintenance wing.';
+    el.continue.textContent = 'CONTINUE INTO THE SERVICE WING ↑';
+    el.continue.hidden = false;
+  } else if (which === 'maintenance') {
+    el.endingEyebrow.textContent = 'SERVICE WING COMPLETE';
+    el.endingTitle.innerHTML = 'STILL<br>WARM.';
+    el.endingCopy.textContent = 'The corridor continues toward Records.';
     el.continue.textContent = 'CONTINUE INTO THE RECORDS ↑';
     el.continue.hidden = false;
   } else if (which === 'records') {
@@ -2372,12 +2396,13 @@ function showEndCard(which) {
   ended = true;
   const id = which === 'corridor' ? '01'
     : which === 'office' ? '02'
-      : which === 'records' ? '03'
-        : which === 'night' ? '04'
-          : which === 'stairwells' ? '05'
-            : which === 'threshold' ? '06'
-              : which === 'hospital-reverse' ? 'ward'
-                : '07';
+      : which === 'maintenance' ? '02b'
+        : which === 'records' ? '03'
+          : which === 'night' ? '04'
+            : which === 'stairwells' ? '05'
+              : which === 'threshold' ? '06'
+                : which === 'hospital-reverse' ? 'ward'
+                  : '07';
   if (!memory.chaptersCompleted.includes(id)) memory.chaptersCompleted.push(id);
   setEndCard(which);
   el.ending.classList.add('is-visible');
@@ -2414,6 +2439,7 @@ function reset() {
   closeInventoryOverlays();
   story.reset();
   officeStory.reset();
+  maintenanceStory.reset();
   recordsStory.reset();
   nightStory.reset();
   stairwellsStory.reset();
@@ -2501,23 +2527,68 @@ async function enterOffice() {
 }
 
 /**
- * The Office's far door leads directly into the Records. Keep the frame
- * covered while the previous floor is unloaded; do not create a second
- * renderer, canvas or scroll-controller.
+ * Office service passage → The Service Wing (maintenance).
  */
-async function enterRecords() {
+async function enterMaintenance() {
   if (!ended || chapterId !== 'office' || transitioning) return;
   transitioning = true;
   el.veil.classList.add('is-active');
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createRecords } = await import('./levels/records.js?v=wpn-3');
-    module = createRecords(scene);
-    // Build succeeds before discarding the polished office.
+    const { createMaintenance } = await import('./levels/maintenance.js?v=svc-1');
+    module = createMaintenance(scene);
     preserveCarryInventory();
     interaction?.clear();
-    look?.reset(); // Clear sticky A/D look from Office so Records faces forward.
+    look?.reset();
+    director.dispose();
+    director = createSceneDirector();
+    director.add('maintenance', module);
+    director.activate('maintenance');
+    chapterId = 'maintenance';
+    maintenanceStory.reset();
+    bindChapterInteractables();
+    noteFogBase();
+    syncComposureUi();
+    audio.enterRecords(); // Quiet industrial bed until a dedicated bed exists.
+    hideEndCard();
+    el.location.textContent = 'EAST ANNEX / SERVICE WING';
+    progress = displayed = 0;
+    camera.position.set(0, 1.7, MAINTENANCE_START_Z);
+    camera.rotation.set(0, 0, 0);
+    window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
+    scrollTrigger?.update();
+    lastTime = performance.now();
+    saveChapterStartCheckpoint();
+    renderer.render(scene, camera);
+    console.info('[Behind.] Service Wing entered · optional crowbar · no combat');
+  } catch (error) {
+    if (chapterId === 'office') module?.dispose?.();
+    console.error('[Behind.] Service Wing transition failed:', error);
+    el.fallback.hidden = false;
+    el.fallback.textContent = `The Service Wing could not be loaded: ${error.message}`;
+  } finally {
+    transitioning = false;
+    el.veil.classList.remove('is-active');
+  }
+}
+
+/**
+ * Service Wing → Records. Keep the frame covered while the previous floor
+ * is unloaded; do not create a second renderer, canvas or scroll-controller.
+ */
+async function enterRecords() {
+  if (!ended || chapterId !== 'maintenance' || transitioning) return;
+  transitioning = true;
+  el.veil.classList.add('is-active');
+  await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
+  let module = null;
+  try {
+    const { createRecords } = await import('./levels/records.js?v=svc-1');
+    module = createRecords(scene);
+    preserveCarryInventory();
+    interaction?.clear();
+    look?.reset();
     director.dispose();
     director = createSceneDirector();
     director.add('records', module);
@@ -2535,14 +2606,12 @@ async function enterRecords() {
     camera.rotation.set(0, 0, 0);
     window.scrollTo({ top: scrollYFor(0), behavior: 'instant' });
     scrollTrigger?.update();
-      lastTime = performance.now();
+    lastTime = performance.now();
     saveChapterStartCheckpoint();
     renderer.render(scene, camera);
     console.info('[Behind.] Level 03 entered · key-fob exit · no forced return');
   } catch (error) {
-    // If construction failed while the office was still present, discard only
-    // the new module and keep the player's current chapter state available.
-    if (chapterId === 'office') module?.dispose?.();
+    if (chapterId === 'maintenance') module?.dispose?.();
     console.error('[Behind.] Records transition failed:', error);
     el.fallback.hidden = false;
     el.fallback.textContent = `The Records could not be loaded: ${error.message}`;
@@ -2776,6 +2845,7 @@ async function enterUnseen() {
 const DEV_CHAPTER_CONFIG = {
   corridor:  { start: START_PROGRESS, z: REAR_CABIN_CAMERA_Z, location: ORIGINAL_LOCATION_HTML },
   office:    { start: 0, z: OFFICE_START_Z, location: 'EAST ANNEX / OFFICE FLOOR' },
+  maintenance: { start: 0, z: MAINTENANCE_START_Z, location: 'EAST ANNEX / SERVICE WING' },
   records:   { start: 0, z: RECORDS_START_Z, location: 'EAST ANNEX / RECORDS' },
   night:     { start: 0, z: NIGHT_START_Z, location: 'SOUTH WING / NIGHT STAFF' },
   threshold: { start: 0, z: THRESHOLD_START_Z, location: 'SOUTH WING / THE THRESHOLD' },
@@ -2828,8 +2898,12 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createOffice } = await import('./levels/office.js?v=note-size-2');
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
+    } else if (target === 'maintenance') {
+      const { createMaintenance } = await import('./levels/maintenance.js?v=svc-1');
+      maintenanceStory.reset();
+      next.add('maintenance', createMaintenance(scene));
     } else if (target === 'records') {
-      const { createRecords } = await import('./levels/records.js?v=wpn-3');
+      const { createRecords } = await import('./levels/records.js?v=svc-1');
       next.add('records', createRecords(scene));
     } else if (target === 'night') {
       const { createNightShift } = await import('./levels/night.js?v=night-bent-1');
@@ -2875,6 +2949,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     // Office already rolled its keypad code before createOffice above.
     story.reset();
     if (target !== 'office') officeStory.reset();
+    if (target !== 'maintenance') maintenanceStory.reset();
     if (target !== 'records') recordsStory.reset();
     nightStory.reset();
     thresholdStory.reset();
@@ -2895,7 +2970,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     audio.cancelWardDelayedSfx?.();
     audio.reset();
     if (target === 'office') audio.enterOffice();
-    else if (target === 'records') audio.enterRecords();
+    else if (target === 'maintenance' || target === 'records') audio.enterRecords();
     else if (target === 'night') audio.enterNight();
     else if (target === 'threshold') audio.enterThreshold();
     else if (target === 'unseen') audio.enterUnseen();
@@ -2989,6 +3064,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     monitor?.reset();
     director.update(progress,
       target === 'corridor' ? story.state : target === 'office' ? officeStory.state
+        : target === 'maintenance' ? maintenanceStory.state
         : target === 'records' ? recordsStory.state : target === 'night' ? nightStory.state
           : target === 'threshold' ? thresholdStory.state
             : isMemoryChapter(target) ? memoryStoryFor(target).state
@@ -3016,7 +3092,8 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
 
 function continueChapter() {
   if (chapterId === 'corridor') return enterOffice();
-  if (chapterId === 'office') return enterRecords();
+  if (chapterId === 'office') return enterMaintenance();
+  if (chapterId === 'maintenance') return enterRecords();
   if (chapterId === 'records') return enterNightShift();
   if (chapterId === 'night') return enterStairwells();
   if (chapterId === 'stairwells') return enterThreshold();
@@ -3299,6 +3376,7 @@ function narrativeFor(p, state) {
 function updateNarrative(p, dt = 0) {
   const inCorridor = chapterId === 'corridor';
   const inOffice = chapterId === 'office';
+  const inMaintenance = chapterId === 'maintenance';
   const inRecords = chapterId === 'records';
   const inNight = chapterId === 'night';
   const inThreshold = chapterId === 'threshold';
@@ -3306,20 +3384,23 @@ function updateNarrative(p, dt = 0) {
   const inWard = isHospitalReverse();
   const inStairs = isStairwells();
   const state = inCorridor ? story.state
-    : inOffice ? officeStory.state : inRecords ? recordsStory.state
-      : inNight ? nightStory.state
-        : inThreshold ? thresholdStory.state
-          : inMemory ? memoryStoryFor().state
-            : inWard ? hospitalReverseStory.state
-              : inStairs ? stairwellsStory.state : unseenStory.state;
+    : inOffice ? officeStory.state
+      : inMaintenance ? maintenanceStory.state
+        : inRecords ? recordsStory.state
+          : inNight ? nightStory.state
+            : inThreshold ? thresholdStory.state
+              : inMemory ? memoryStoryFor().state
+                : inWard ? hospitalReverseStory.state
+                  : inStairs ? stairwellsStory.state : unseenStory.state;
   const narrative = inCorridor ? narrativeFor(p, state)
     : inOffice ? officeNarrative(p, state)
-      : inRecords ? recordsNarrative(p, state)
-        : inNight ? nightNarrative(p, state)
-          : inThreshold ? thresholdNarrative(p, state)
-            : inMemory ? memoryHomeNarrative(p, state)
-              : inWard ? hospitalReverseNarrative(p, state)
-                : inStairs ? stairwellsNarrative(p, state) : unseenNarrative(p, state);
+      : inMaintenance ? maintenanceNarrative(p, state)
+        : inRecords ? recordsNarrative(p, state)
+          : inNight ? nightNarrative(p, state)
+            : inThreshold ? thresholdNarrative(p, state)
+              : inMemory ? memoryHomeNarrative(p, state)
+                : inWard ? hospitalReverseNarrative(p, state)
+                  : inStairs ? stairwellsNarrative(p, state) : unseenNarrative(p, state);
 
   outsideDialogue.setReducedMotion(reduced);
   const dialogueBlocked = Boolean(combatSession || steady?.isActive);
@@ -3328,7 +3409,7 @@ function updateNarrative(p, dt = 0) {
   const outside = dialogueBlocked ? null : outsideDialogue.tick(dt);
 
   const inUnseen = chapterId === 'unseen';
-  const useBriefDialogue = inCorridor || inOffice || inRecords || inNight
+  const useBriefDialogue = inCorridor || inOffice || inMaintenance || inRecords || inNight
     || inStairs || inThreshold || inUnseen;
 
   let displayedLine;
@@ -3369,7 +3450,7 @@ function updateNarrative(p, dt = 0) {
     if (near.kind === 'keypad') instruction = 'CLICK TO ENTER CODE · A / D OR SWIPE TO LOOK';
     else if (near.takeable && !near.taken) instruction = 'CLICK TO INSPECT · TAKE';
     else instruction = 'CLICK TO INSPECT · A / D OR SWIPE TO LOOK';
-  } else if ((inRecords || inNight || inThreshold || inWard || chapterId === 'unseen')
+  } else if ((inMaintenance || inRecords || inNight || inThreshold || inWard || chapterId === 'unseen')
       && interaction?.nearest && !interaction.isOpen && !ended) {
     const near = interaction.nearest;
     if (near._usable) {
@@ -3411,6 +3492,9 @@ function updateNarrative(p, dt = 0) {
     memory.keyFobEncountered ||= state.keyFobInspected;
     if (state.completed && !ended) showEndCard('office');
     else if (p < OFFICE_EXIT_PROGRESS - 0.035 && ended) hideEndCard();
+  } else if (inMaintenance) {
+    if (state.completed && !ended) showEndCard('maintenance');
+    else if (p < 0.92 && ended) hideEndCard();
   } else if (inRecords) {
     memory.photographPassed ||= state.photoPassed;
     if (state.completed && !ended) showEndCard('records');
@@ -3510,6 +3594,7 @@ function frame(now) {
     const eased = (progress - displayed) * (reduced ? 1 : 1 - Math.exp(-dt * 5));
     const startZ = chapterId === 'corridor' ? REAR_CABIN_CAMERA_Z
       : chapterId === 'office' ? OFFICE_START_Z
+        : chapterId === 'maintenance' ? MAINTENANCE_START_Z
         : chapterId === 'records' ? RECORDS_START_Z
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
@@ -3525,7 +3610,9 @@ function frame(now) {
     if (bounds.min > 0 && displayed < bounds.min + 1e-4) displayed = bounds.min;
     const p = displayed;
     if (chapterId === 'corridor') story.observe(previousDisplayed, p);
-    else if (chapterId === 'office') {
+    else if (chapterId === 'maintenance') {
+      maintenanceStory.observe(previousDisplayed, p, dt);
+    } else if (chapterId === 'office') {
       const previouslyTriggered = officeStory.state.soundTriggered;
       officeStory.observe(previousDisplayed, p, dt);
       // A one-shot mechanical latch, never replayed at this progress value.
@@ -3677,6 +3764,12 @@ function frame(now) {
       camera.position.x += route.x;
       camera.position.z = route.z;
       camera.rotation.y += route.yaw;
+    } else if (chapterId === 'maintenance') {
+      const route = maintenanceCameraPose(p);
+      camera.position.x = route.x;
+      camera.position.z = route.z;
+      camera.rotation.y = route.yaw ?? 0;
+      camera.rotation.x = route.pitch ?? 0;
     } else if (chapterId === 'office') {
       const route = officeCameraPose(
         p,
@@ -3735,6 +3828,7 @@ function frame(now) {
     camera.rotation.y += look?.update(dt, reduced) ?? 0;
     const interactStory = chapterId === 'corridor' ? story.state
       : chapterId === 'office' ? officeStory.state
+        : chapterId === 'maintenance' ? maintenanceStory.state
         : chapterId === 'records' ? recordsStory.state
           : chapterId === 'night' ? nightStory.state
             : chapterId === 'threshold' ? thresholdStory.state
@@ -3802,6 +3896,9 @@ function frame(now) {
         audio.playOfficeChairScrape?.();
       }
       audio.updateOffice(p, officeStory.state);
+    } else if (chapterId === 'maintenance') {
+      director.update(p, maintenanceStory.state, dt, reduced);
+      audio.updateRecords(p, maintenanceStory.state);
     } else if (chapterId === 'records') {
       director.update(p, recordsStory.state, dt, reduced);
       audio.updateRecords(p, recordsStory.state);
