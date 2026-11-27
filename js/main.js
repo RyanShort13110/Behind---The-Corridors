@@ -51,8 +51,8 @@ import {
 import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-7';
 import {
   createInterludeStory, interludeNarrative, INTERLUDE_METERS, INTERLUDE_START_Z,
-} from './levels/interlude-story.js?v=ib-7';
-import { interludeCameraPose } from './levels/interlude-route.js?v=ib-7';
+} from './levels/interlude-story.js?v=ib-8';
+import { interludeCameraPose } from './levels/interlude-route.js?v=ib-8';
 import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
@@ -96,7 +96,8 @@ import {
 import {
   readProcgenBootConfig,
   createProcgenSession,
-} from './procgen/index.js?v=proc-5';
+  resolveProceduralEncounter,
+} from './procgen/index.js?v=proc-6';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -130,11 +131,16 @@ const procgenSession = createProcgenSession({
   enabled: PROCGEN_BOOT.enabled,
   seed: PROCGEN_BOOT.seed ?? (Date.now() >>> 0),
   theme: PROCGEN_BOOT.theme ?? 'maintenance',
+  encounterMode: PROCGEN_BOOT.encounterMode ?? null,
+  encounterEnemy: PROCGEN_BOOT.encounterEnemy ?? null,
 });
 if (procgenSession.enabled) {
   console.info(
     `[Behind. PROCGEN] enabled · seed=${procgenSession.seed}`
-    + ` · theme=${procgenSession.theme}`,
+    + ` · theme=${procgenSession.theme}`
+    + (procgenSession.encounterMode
+      ? ` · encounter=${procgenSession.encounterMode}`
+      : ''),
   );
 }
 /**
@@ -153,7 +159,7 @@ function rollPlaythroughSeed() {
   } else {
     procgenSession.setSeed((Date.now() ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0);
   }
-  void import('./levels/interlude.js?v=ib-7')
+  void import('./levels/interlude.js?v=ib-8')
     .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
     .catch(() => {});
 }
@@ -242,14 +248,16 @@ let bentFightStartLoadout = null;
 /** Show first-encounter tutorial once per page load for Bent fights. */
 let bentTutorialPending = true;
 /**
- * Optional reverse-ambush style for procedural chapters (In-Between).
- * Opt-in: ?debug=1&ambush=1 (often with level=interlude&procgen=1).
+ * Procedural encounter mode override for In-Between.
+ * Opt-in: ?encounter=forward|reverse|auto|none  (ambush=1 → reverse).
+ * Interlude defaults to none (combat-free) without an override.
  */
-const REVERSE_AMBUSH_URL = DEBUG_MODE && urlParams.get('ambush') === '1';
-let reverseAmbushEnabled = REVERSE_AMBUSH_URL;
-/** Pre-grab snapshot for reverse-ambush defeat retry. */
+let proceduralEncounterOverride = procgenSession.encounterMode;
+/** Active resolved encounter for the current interlude build. */
+let activeProceduralEncounter = null;
+/** Pre-fight snapshot for procedural encounter defeat retry. */
 let ambushPreEncounterSnapshot = null;
-/** Loadout frozen at reverse-ambush fight start. */
+/** Loadout frozen at procedural fight start. */
 let ambushFightStartLoadout = null;
 /** Abort in-flight grab transition on chapter leave / restore. */
 let ambushGrabAbort = null;
@@ -442,8 +450,8 @@ function progressBounds() {
       && !nightStory.state.bentSkipped) {
     return { min: 0, max: NIGHT_COMBAT_TRIGGER };
   }
-  // Reverse-ambush seals the forward end of The In-Between until resolved.
-  if (chapterId === 'interlude' && interludeStory.state.ambushEnabled) {
+  // Procedural forward/reverse encounters seal forward progress until resolved.
+  if (chapterId === 'interlude' && interludeStory.state.encounterEnabled) {
     return { min: 0, max: interludeStory.forwardMax() };
   }
   return { min: 0, max: 1 };
@@ -465,23 +473,35 @@ function bindMaintenanceLayout(module) {
   else maintenanceStory.clearLayoutMarkers();
 }
 
-/** Bind In-Between section layout for HUD / progress (+ optional ambush). */
-function bindInterludeLayout(module) {
-  if (module?.plan) interludeStory.setLayout(module.plan);
-  else interludeStory.clearLayout();
-  if (module?.ambushPlacement && module?.plan) {
-    interludeStory.armReverseAmbush(module.plan, true);
-  } else {
-    interludeStory.disarmReverseAmbush();
-  }
+function refreshActiveProceduralEncounter(chapterId = 'interlude') {
+  activeProceduralEncounter = resolveProceduralEncounter({
+    seed: procgenSession.seed,
+    chapterId,
+    modeOverride: proceduralEncounterOverride,
+    enemyOverride: procgenSession.encounterEnemy,
+  });
+  return activeProceduralEncounter;
 }
 
 function interludeCreateOpts() {
+  const encounter = refreshActiveProceduralEncounter('interlude');
   return {
     procgen: procgenSession,
-    reverseAmbush: reverseAmbushEnabled,
+    encounter,
     reduced,
   };
+}
+
+/** Bind In-Between section layout for HUD / progress (+ optional encounter). */
+function bindInterludeLayout(module) {
+  if (module?.plan) interludeStory.setLayout(module.plan);
+  else interludeStory.clearLayout();
+  const enc = module?.encounter || activeProceduralEncounter;
+  if (enc && enc.mode && enc.mode !== 'none' && module?.plan) {
+    interludeStory.armEncounter(enc, module.plan);
+  } else {
+    interludeStory.disarmEncounter();
+  }
 }
 
 /** Active rail length for walk-speed / scroll-lead. Bedroom uses its own meters. */
@@ -1156,7 +1176,7 @@ async function startReverseAmbushCombat() {
 
   try {
     audio.cancelReverseAmbushSfx?.();
-    const enemy = await module.ensureAmbushEnemy?.();
+    const enemy = await module.ensureEncounterEnemy?.();
     if (!enemy) throw new Error('ambush enemy missing');
 
     const {
@@ -1185,7 +1205,7 @@ async function startReverseAmbushCombat() {
 
     if (ambushGrabAbort?.signal?.aborted) {
       clearReverseAmbushVeil(el.veil);
-      interludeStory.prepareAmbushRetry();
+      interludeStory.prepareEncounterRetry();
       return false;
     }
 
@@ -1225,7 +1245,7 @@ async function startReverseAmbushCombat() {
         }
         ambushFightStartLoadout = null;
         ambushPreEncounterSnapshot = null;
-        interludeStory.markAmbushDefeated();
+        interludeStory.markEncounterDefeated();
         bentCombatFrozenProgress = null;
         enemy.setState(enemy.BENT_STATES.defeated);
         restoreExplorationHudAfterCombat();
@@ -1238,8 +1258,8 @@ async function startReverseAmbushCombat() {
         bentCombatFrozenProgress = null;
         audio.cancelReverseAmbushSfx?.();
         clearReverseAmbushVeil(el.veil);
-        module.hideAmbushEnemy?.();
-        interludeStory.prepareAmbushRetry();
+        module.hideEncounterEnemy?.();
+        interludeStory.prepareEncounterRetry();
         const retrySnap = ambushPreEncounterSnapshot || checkpoints.latest;
         if (retrySnap) {
           await restoreCheckpoint(retrySnap);
@@ -1264,8 +1284,8 @@ async function startReverseAmbushCombat() {
     bentCombatFrozenProgress = null;
     ambushFightStartLoadout = null;
     audio.cancelReverseAmbushSfx?.();
-    interludeStory.prepareAmbushRetry();
-    module?.hideAmbushEnemy?.();
+    interludeStory.prepareEncounterRetry();
+    module?.hideEncounterEnemy?.();
     el.veil?.classList.remove('is-active', 'reverse-ambush-veil');
     restoreExplorationHudAfterCombat();
     return false;
@@ -1277,14 +1297,185 @@ async function startReverseAmbushCombat() {
 function maybeStartReverseAmbushCombat() {
   if (chapterId !== 'interlude' || combatSession || transitioning) return;
   if (gameOverActive || ended) return;
-  if (!interludeStory.state.ambushEnabled) return;
-  if (interludeStory.state.ambushDefeated || interludeStory.state.ambushSkipped) return;
-  if (interludeStory.state.ambushCombatStarted || interludeStory.state.ambushGrab) return;
+  if (interludeStory.state.encounterMode !== 'reverse') return;
+  if (!interludeStory.state.encounterEnabled) return;
+  if (interludeStory.state.encounterDefeated || interludeStory.state.encounterSkipped) return;
+  if (interludeStory.state.encounterCombatStarted || interludeStory.state.ambushGrab) return;
   if (!interludeStory.shouldStartAmbushGrab()) return;
   if (steady?.isActive) return;
   if (outsideDialogue.isActive()) return;
   if (inventoryMenu?.isOpen?.() || interaction?.isOpen || keypad?.isOpen) return;
   void startReverseAmbushCombat();
+}
+
+/**
+ * Procedural forward-block: enemy ahead → approach → normal in-world combat.
+ */
+async function startForwardBlockCombat() {
+  if (chapterId !== 'interlude') return false;
+  if (interludeStory.state.encounterMode !== 'forward') return false;
+  if (!interludeStory.state.encounterEnabled) return false;
+  if (!renderer || !scene || !camera) return false;
+  if (combatSession || tapeSession || endingSession || transitioning) return false;
+  if (steady?.isActive || outsideDialogue.isActive()) return false;
+  if (interludeStory.state.encounterDefeated || interludeStory.state.encounterSkipped) return false;
+  if (interludeStory.state.encounterCombatStarted) return false;
+  if (!interludeStory.shouldStartForwardCombat()) return false;
+
+  const module = director?.get?.('interlude');
+  const placement = module?.encounterPlacement || interludeStory.encounterPlacement;
+  if (!module || !placement) {
+    console.warn('[Behind. COMBAT] Forward encounter placement missing.');
+    return false;
+  }
+
+  transitioning = true;
+  bentCombatFrozenProgress = displayed;
+  look?.reset?.();
+  bentCombatBaseYaw = camera?.rotation?.y ?? 0;
+  interaction?.close?.();
+  interaction?.clear?.();
+  closeInventoryOverlays();
+  closeItemDetail();
+  inventoryMenu?.close?.();
+  keypad?.close?.();
+
+  const snap = captureCheckpointSnapshot();
+  snap.progress = placement.retryProgress;
+  snap.displayed = placement.retryProgress;
+  if (snap.interlude) {
+    snap.interlude = {
+      ...snap.interlude,
+      encounterCombatStarted: false,
+      encounterNoticed: false,
+      ambushCombatStarted: false,
+    };
+  }
+  ambushPreEncounterSnapshot = snap;
+  checkpoints.saveLatest(snap);
+  savedCheckpointKeys.add('interlude:pre-forward-block');
+
+  if (!interludeStory.beginForwardCombat()) {
+    transitioning = false;
+    bentCombatFrozenProgress = null;
+    return false;
+  }
+
+  try {
+    const enemy = await module.ensureEncounterEnemy?.();
+    if (!enemy) throw new Error('forward encounter enemy missing');
+    module.revealEncounterEnemy?.('blocking');
+
+    const { startInWorldCombat } = await import('./combat/in-world.js?v=ra-2');
+    const { BENT_COMBAT_CONFIG } = await import('./combat/encounters/the-bent.js?v=ra-2');
+    const { FORWARD_BLOCK_ENCOUNTER_ID } = await import(
+      './combat/encounters/forward-block.js?v=ra-2'
+    );
+    const {
+      buildCombatLoadoutFromInventory,
+      commitCombatResultToStory,
+    } = await import('./combat/story-loadout.js?v=ra-2');
+
+    const storyLoadout = buildCombatLoadoutFromInventory(inventory, composure.value);
+    ambushFightStartLoadout = storyLoadout;
+
+    combatSession = await startInWorldCombat({
+      scene,
+      camera,
+      enemy,
+      config: BENT_COMBAT_CONFIG,
+      loadout: storyLoadout,
+      reduced,
+      showTutorial: bentTutorialPending,
+      storyMode: true,
+      encounterId: FORWARD_BLOCK_ENCOUNTER_ID,
+      eyebrow: 'THE IN-BETWEEN · FORWARD',
+      onFrame: (dt) => {
+        const p = bentCombatFrozenProgress ?? displayed;
+        director?.update?.(p, interludeStory.state, dt, reduced);
+      },
+      onVictory: async ({ snapshot: endSnap } = {}) => {
+        combatSession = null;
+        if (endSnap && ambushFightStartLoadout) {
+          commitCombatResultToStory({
+            inventory,
+            composure,
+            startLoadout: ambushFightStartLoadout,
+            endSnap,
+          });
+          renderInventory();
+          syncComposureUi();
+        }
+        ambushFightStartLoadout = null;
+        ambushPreEncounterSnapshot = null;
+        interludeStory.markEncounterDefeated();
+        bentCombatFrozenProgress = null;
+        enemy.setState(enemy.BENT_STATES.defeated);
+        restoreExplorationHudAfterCombat();
+        bindChapterInteractables();
+        console.info('[Behind. COMBAT] Forward encounter cleared — In-Between open.');
+      },
+      onRetry: async () => {
+        combatSession = null;
+        ambushFightStartLoadout = null;
+        bentCombatFrozenProgress = null;
+        module.hideEncounterEnemy?.();
+        interludeStory.prepareEncounterRetry();
+        const retrySnap = ambushPreEncounterSnapshot || checkpoints.latest;
+        if (retrySnap) {
+          await restoreCheckpoint(retrySnap);
+        } else {
+          forceProgress(placement.retryProgress);
+          restoreExplorationHudAfterCombat();
+          bindChapterInteractables();
+        }
+        console.info('[Behind. COMBAT] Forward encounter retry — restored pre-fight checkpoint.');
+      },
+    });
+
+    bentTutorialPending = false;
+    el.bottom?.classList.remove('active');
+    el.inventory?.classList.remove('is-visible');
+    el.inventory?.setAttribute('aria-hidden', 'true');
+    console.info('[Behind. COMBAT] Forward block → in-world combat.');
+    return true;
+  } catch (error) {
+    console.error('[Behind. COMBAT] Forward encounter failed:', error);
+    combatSession = null;
+    bentCombatFrozenProgress = null;
+    ambushFightStartLoadout = null;
+    interludeStory.prepareEncounterRetry();
+    module?.hideEncounterEnemy?.();
+    restoreExplorationHudAfterCombat();
+    return false;
+  } finally {
+    transitioning = false;
+  }
+}
+
+function maybeStartForwardBlockCombat() {
+  if (chapterId !== 'interlude' || combatSession || transitioning) return;
+  if (gameOverActive || ended) return;
+  if (interludeStory.state.encounterMode !== 'forward') return;
+  if (!interludeStory.state.encounterEnabled) return;
+  if (interludeStory.state.encounterDefeated || interludeStory.state.encounterSkipped) return;
+  if (interludeStory.state.encounterCombatStarted) return;
+  if (!interludeStory.shouldStartForwardCombat()) return;
+  if (steady?.isActive) return;
+  if (outsideDialogue.isActive()) return;
+  if (inventoryMenu?.isOpen?.() || interaction?.isOpen || keypad?.isOpen) return;
+  void startForwardBlockCombat();
+}
+
+async function maybeRevealForwardEncounterEnemy() {
+  if (chapterId !== 'interlude') return;
+  if (interludeStory.state.encounterMode !== 'forward') return;
+  if (!interludeStory.state.encounterNoticed) return;
+  if (interludeStory.state.encounterDefeated || interludeStory.state.encounterCombatStarted) return;
+  const module = director?.get?.('interlude');
+  if (!module) return;
+  await module.ensureEncounterEnemy?.();
+  module.revealEncounterEnemy?.('blocking');
 }
 
 async function startEndingPrototype(id) {
@@ -1398,7 +1589,7 @@ async function endCamcorderPlayback() {
       bindMaintenanceLayout(maintenanceModule);
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-7');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-8');
       const interludeModule = createInterlude(scene, interludeCreateOpts());
       director.add('interlude', interludeModule);
       bindInterludeLayout(interludeModule);
@@ -2043,16 +2234,22 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       audio.cancelReverseAmbushSfx?.();
       el.veil?.classList.remove('reverse-ambush-veil');
       const interludeMod = director?.get?.('interlude');
-      if (snapshot.interlude?.ambushEnabled && interludeMod?.plan) {
-        interludeStory.armReverseAmbush(interludeMod.plan, true);
-        if (snapshot.interlude.ambushDefeated) {
-          interludeStory.markAmbushDefeated();
+      const snapMode = snapshot.interlude?.encounterMode
+        || (snapshot.interlude?.ambushEnabled ? 'reverse' : 'none');
+      const snapEnemy = snapshot.interlude?.encounterEnemyId || 'bent';
+      if (snapMode && snapMode !== 'none' && interludeMod?.plan) {
+        interludeStory.armEncounter(
+          { mode: snapMode, enemyId: snapEnemy },
+          interludeMod.plan,
+        );
+        if (snapshot.interlude.encounterDefeated || snapshot.interlude.ambushDefeated) {
+          interludeStory.markEncounterDefeated();
         } else {
-          interludeStory.prepareAmbushRetry();
+          interludeStory.prepareEncounterRetry();
         }
-        interludeMod.hideAmbushEnemy?.();
+        interludeMod.hideEncounterEnemy?.();
       } else {
-        interludeStory.disarmReverseAmbush();
+        interludeStory.disarmEncounter();
       }
       director?.reset();
     } else if (target === 'records') {
@@ -2781,7 +2978,8 @@ function reset() {
   maintenanceStory.reset();
   interludeStory.reset();
   interludeStory.clearLayout();
-  interludeStory.disarmReverseAmbush();
+  interludeStory.disarmEncounter();
+  activeProceduralEncounter = null;
   ambushGrabAbort?.abort?.();
   audio.cancelReverseAmbushSfx?.();
   ambushPreEncounterSnapshot = null;
@@ -2886,7 +3084,7 @@ async function enterInterlude() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createInterlude } = await import('./levels/interlude.js?v=ib-7');
+    const { createInterlude } = await import('./levels/interlude.js?v=ib-8');
     module = createInterlude(scene, interludeCreateOpts());
     preserveCarryInventory();
     interaction?.clear();
@@ -2924,7 +3122,10 @@ async function enterInterlude() {
       `[Behind.] Level 05B entered · In-Between · theme=${procgenSession.theme}`
       + ` · seed=${procgenSession.seed}`
       + ` · ${module.rail?.meters?.toFixed?.(1) ?? '?'} m`
-      + (reverseAmbushEnabled ? ' · reverseAmbush' : ''),
+      + ` · encounter=${activeProceduralEncounter?.mode || 'none'}`
+      + (activeProceduralEncounter?.enemyId
+        ? ` · enemy=${activeProceduralEncounter.enemyId}`
+        : ''),
     );
   } catch (error) {
     if (chapterId === 'stairwells') module?.dispose?.();
@@ -3323,7 +3524,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-7');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-8');
       interludeStory.reset();
       const interludeModule = createInterlude(scene, interludeCreateOpts());
       next.add('interlude', interludeModule);
@@ -3554,7 +3755,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=ib-7').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=ib-8').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3711,7 +3912,7 @@ if (DEBUG_MODE) {
       get theme() { return procgenSession.theme; },
       setTheme(next) {
         procgenSession.setTheme(next);
-        void import('./levels/interlude.js?v=ib-7')
+        void import('./levels/interlude.js?v=ib-8')
           .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
           .catch(() => {});
         return procgenSession.theme;
@@ -3728,16 +3929,34 @@ if (DEBUG_MODE) {
       getStatus() {
         const skip = interludeSkip ? ' · story interlude SKIPPED' : '';
         const theme = ` · theme=${procgenSession.theme}`;
-        const ambush = reverseAmbushEnabled ? ' · ambush' : '';
+        const enc = activeProceduralEncounter || refreshActiveProceduralEncounter();
+        const encounter = ` · encounter=${enc?.mode || 'none'}`
+          + (enc?.enemyId ? `/${enc.enemyId}` : '');
         if (!procgenSession.enabled) {
-          return `Procgen debug: off · seed=${procgenSession.seed}${theme}${ambush}${skip}`;
+          return `Procgen debug: off · seed=${procgenSession.seed}${theme}${encounter}${skip}`;
         }
-        return `Procgen: ON · seed=${procgenSession.seed}${theme}${ambush}${skip}`;
+        return `Procgen: ON · seed=${procgenSession.seed}${theme}${encounter}${skip}`;
       },
-      get reverseAmbush() { return reverseAmbushEnabled; },
+      get encounterMode() {
+        return activeProceduralEncounter?.mode || proceduralEncounterOverride || 'none';
+      },
+      get encounterEnemy() {
+        return activeProceduralEncounter?.enemyId || null;
+      },
+      setEncounterMode(mode) {
+        proceduralEncounterOverride = mode;
+        procgenSession.setEncounterMode?.(mode);
+        refreshActiveProceduralEncounter();
+        void import('./levels/interlude.js?v=ib-8')
+          .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
+          .catch(() => {});
+        return this.encounterMode;
+      },
+      get reverseAmbush() {
+        return (activeProceduralEncounter?.mode || proceduralEncounterOverride) === 'reverse';
+      },
       setReverseAmbush(on) {
-        reverseAmbushEnabled = Boolean(on);
-        return reverseAmbushEnabled;
+        return this.setEncounterMode(on ? 'reverse' : 'none');
       },
     });
   }).catch(error => console.warn('[Behind. DEV] Unable to mount chapter selector:', error));
@@ -4108,6 +4327,10 @@ function frame(now) {
       maintenanceStory.observe(previousDisplayed, p, dt);
     } else if (chapterId === 'interlude') {
       interludeStory.observe(previousDisplayed, p, dt);
+      if (interludeStory.state.encounterNoticed) {
+        void maybeRevealForwardEncounterEnemy();
+      }
+      maybeStartForwardBlockCombat();
       maybeStartReverseAmbushCombat();
     } else if (chapterId === 'office') {
       const previouslyTriggered = officeStory.state.soundTriggered;

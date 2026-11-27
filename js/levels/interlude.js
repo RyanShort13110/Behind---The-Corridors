@@ -2,11 +2,13 @@
  * The In-Between — story chapter between The Stairwells and The Threshold.
  * Falls back to a known-good layout if generation fails.
  * Plans are cached per playthrough seed + theme so retries / re-entry never reshuffle.
- * Optional reverse-ambush enemy is spawned only when explicitly armed.
+ *
+ * Procedural combat is opt-in via encounter descriptor (none|forward|reverse).
+ * Exactly one mode + one enemy when combat is armed.
  */
 
 import * as THREE from 'three';
-import { createSeededRng } from '../procgen/index.js?v=ib-7';
+import { createSeededRng } from '../procgen/index.js?v=ib-8';
 import {
   assembleInterludePlan,
   validateInterludePlan,
@@ -14,13 +16,18 @@ import {
   normalizeInterludeThemeId,
   getInterludeTheme,
   DEFAULT_INTERLUDE_THEME_ID,
-} from './interlude-plan.js?v=ib-7';
-import { buildInterludeWorld } from './interlude-build.js?v=ib-7';
-import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-7';
+} from './interlude-plan.js?v=ib-8';
+import { buildInterludeWorld } from './interlude-build.js?v=ib-8';
+import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-8';
 import {
   placeReverseAmbush,
   ambushCombatWorldZ,
-} from '../combat/encounters/reverse-ambush.js?v=ra-1';
+} from '../combat/encounters/reverse-ambush.js?v=ra-2';
+import {
+  placeForwardBlock,
+  forwardCombatWorldZ,
+} from '../combat/encounters/forward-block.js?v=ra-2';
+import { normalizeEncounterMode } from '../procgen/encounter.js?v=ra-2';
 
 /** @type {Map<string, object>} */
 const planCache = new Map();
@@ -74,13 +81,15 @@ function resolvePlan(procgen) {
 /**
  * @param {import('three').Scene} scene
  * @param {{
- *   procgen?: { enabled?: boolean, rng?: Function, seed?: number, theme?: string } | null,
+ *   procgen?: object | null,
+ *   encounter?: { mode?: string, enemyId?: string | null } | null,
  *   reverseAmbush?: boolean | object,
  *   reduced?: boolean,
  * }} [opts]
  */
 export function createInterlude(scene, {
   procgen = null,
+  encounter = null,
   reverseAmbush = false,
   reduced = false,
 } = {}) {
@@ -88,14 +97,27 @@ export function createInterlude(scene, {
   const theme = getInterludeTheme(themeId);
   const { plan, usedFallback, fromCache } = resolvePlan(procgen);
 
+  // Back-compat: reverseAmbush boolean → encounter reverse.
+  let encounterDesc = encounter;
+  if (!encounterDesc && reverseAmbush) {
+    encounterDesc = {
+      mode: 'reverse',
+      enemyId: 'bent',
+      ...(typeof reverseAmbush === 'object' ? reverseAmbush : null),
+    };
+  }
+  const mode = normalizeEncounterMode(encounterDesc?.mode);
+  const enemyId = mode === 'none' ? null : (encounterDesc?.enemyId || 'bent');
+
   console.info(
     `[Behind. PROCGEN] In-Between · theme=${plan.theme || themeId}`
     + ` · seed=${procgen?.seed ?? plan.seed}`
     + ` · modules=${plan.pieces.length}`
     + ` · meters=${plan.len.toFixed(1)}`
+    + ` · encounter=${mode}`
+    + (enemyId ? ` · enemy=${enemyId}` : '')
     + (usedFallback || plan.fallback ? ' · FALLBACK' : '')
     + (fromCache ? ' · cached' : '')
-    + (reverseAmbush ? ' · reverseAmbush' : '')
     + ` · chain=${plan.pieces.map((p) => p.type).join('→')}`,
   );
 
@@ -104,15 +126,13 @@ export function createInterlude(scene, {
   const ambientBase = theme.fog.ambientIntensity;
   const rail = built.rail || { meters: plan.len, startZ: theme.dims.startZ || INTERLUDE_START_Z };
 
-  let ambushEnemy = null;
-  let ambushPlacement = null;
-  const ambushOpts = reverseAmbush && typeof reverseAmbush === 'object'
-    ? reverseAmbush
-    : {};
+  let encounterEnemy = null;
+  let encounterPlacement = null;
 
-  if (reverseAmbush) {
-    ambushPlacement = placeReverseAmbush(plan, ambushOpts);
-    // Enemy is created lazily by main (dynamic import) to keep quiet runs light.
+  if (mode === 'forward') {
+    encounterPlacement = placeForwardBlock(plan);
+  } else if (mode === 'reverse') {
+    encounterPlacement = placeReverseAmbush(plan);
   }
 
   return {
@@ -121,32 +141,56 @@ export function createInterlude(scene, {
     plan,
     theme: themeId,
     markers: { end: 0.96 },
-    ambushPlacement,
-    get ambushEnemy() { return ambushEnemy; },
-    async ensureAmbushEnemy() {
-      if (!ambushPlacement) return null;
-      if (ambushEnemy) return ambushEnemy;
-      const { createTheBent } = await import('../combat/enemies/the-bent.js?v=ib-7');
-      const z = ambushCombatWorldZ(
-        ambushPlacement.grabProgress,
-        rail,
-        ambushPlacement.combatLeadMeters,
-      );
-      ambushEnemy = createTheBent({
+    encounter: { mode, enemyId },
+    encounterPlacement,
+    /** @deprecated Use encounterPlacement */
+    get ambushPlacement() {
+      return mode === 'reverse' ? encounterPlacement : null;
+    },
+    get ambushEnemy() { return encounterEnemy; },
+    get encounterEnemy() { return encounterEnemy; },
+    async ensureEncounterEnemy() {
+      if (mode === 'none' || !encounterPlacement) return null;
+      if (encounterEnemy) return encounterEnemy;
+      const { createTheBent } = await import('../combat/enemies/the-bent.js?v=ib-8');
+      const progress = mode === 'forward'
+        ? encounterPlacement.triggerProgress
+        : encounterPlacement.grabProgress;
+      const lead = encounterPlacement.combatLeadMeters;
+      const z = mode === 'forward'
+        ? forwardCombatWorldZ(progress, rail, lead)
+        : ambushCombatWorldZ(progress, rail, lead);
+      encounterEnemy = createTheBent({
         reduced,
         homePosition: new THREE.Vector3(0, 0, z),
       });
-      ambushEnemy.setState(ambushEnemy.BENT_STATES.hidden);
-      scene.add(ambushEnemy.root);
-      return ambushEnemy;
+      // Forward: hidden until notice; reverse: hidden until grab peak.
+      encounterEnemy.setState(encounterEnemy.BENT_STATES.hidden);
+      scene.add(encounterEnemy.root);
+      return encounterEnemy;
+    },
+    /** @deprecated */
+    async ensureAmbushEnemy() {
+      return this.ensureEncounterEnemy();
+    },
+    revealEncounterEnemy(pose = 'idle') {
+      if (!encounterEnemy) return;
+      encounterEnemy.reset(encounterEnemy.home);
+      const st = pose === 'blocking'
+        ? encounterEnemy.BENT_STATES.blocking
+        : pose === 'noticing'
+          ? encounterEnemy.BENT_STATES.noticing
+          : encounterEnemy.BENT_STATES.idle;
+      encounterEnemy.setState(st);
     },
     revealAmbushEnemy() {
-      if (!ambushEnemy) return;
-      ambushEnemy.reset(ambushEnemy.home);
-      ambushEnemy.setState(ambushEnemy.BENT_STATES.idle);
+      this.revealEncounterEnemy('idle');
+    },
+    hideEncounterEnemy() {
+      encounterEnemy?.setState?.(encounterEnemy.BENT_STATES.hidden);
     },
     hideAmbushEnemy() {
-      ambushEnemy?.setState?.(ambushEnemy.BENT_STATES.hidden);
+      this.hideEncounterEnemy();
     },
     update(progress, state, dt, isReduced) {
       const cool = Math.min(1, Math.max(0, (progress - 0.2) / 0.7));
@@ -154,20 +198,33 @@ export function createInterlude(scene, {
       if (built.ambient) {
         built.ambient.intensity = isReduced ? ambientBase * 0.86 : ambientBase - cool * 0.08;
       }
-      if (ambushEnemy && state?.ambushCombatStarted) {
-        ambushEnemy.update?.(dt, isReduced);
+      // Forward notice: show enemy blocking ahead before combat starts.
+      if (
+        mode === 'forward'
+        && encounterEnemy
+        && state?.encounterNoticed
+        && !state?.encounterCombatStarted
+        && !state?.encounterDefeated
+      ) {
+        if (encounterEnemy.root && !encounterEnemy.root.visible) {
+          this.revealEncounterEnemy('blocking');
+        }
+        encounterEnemy.update?.(dt, isReduced);
+      }
+      if (encounterEnemy && state?.encounterCombatStarted) {
+        encounterEnemy.update?.(dt, isReduced);
       }
     },
     reset() {
       if (scene.fog) scene.fog.density = fogBase;
       if (built.ambient) built.ambient.intensity = ambientBase;
-      this.hideAmbushEnemy();
+      this.hideEncounterEnemy();
     },
     dispose() {
-      if (ambushEnemy) {
-        scene.remove(ambushEnemy.root);
-        ambushEnemy.dispose?.();
-        ambushEnemy = null;
+      if (encounterEnemy) {
+        scene.remove(encounterEnemy.root);
+        encounterEnemy.dispose?.();
+        encounterEnemy = null;
       }
       scene.remove(built.world);
       scene.remove(built.ambient);

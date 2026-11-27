@@ -1,6 +1,7 @@
 /**
  * The In-Between — story chapter between The Stairwells and The Threshold.
- * Quiet by default. Optional reverse-ambush encounter when explicitly armed.
+ * Quiet by default (encounterMode = none). Optional forward/reverse combat
+ * when a procedural encounter descriptor is armed.
  */
 
 import {
@@ -8,6 +9,12 @@ import {
   placeReverseAmbush,
   AMBUSH_PHASE,
 } from '../combat/encounters/reverse-ambush.js';
+import {
+  createForwardBlockController,
+  placeForwardBlock,
+  FORWARD_PHASE,
+} from '../combat/encounters/forward-block.js';
+import { normalizeEncounterMode } from '../procgen/encounter.js';
 
 export const INTERLUDE_START_Z = 3.95;
 /** Fallback meters when no module rail is active (matches fallback plan 115). */
@@ -21,13 +28,23 @@ export function createInterludeStory() {
     completed: false,
     sectionIndex: 0,
     sectionName: '',
-    // Reverse-ambush mirrors (kept on state for checkpoints / narrative).
-    ambushEnabled: false,
-    ambushPhase: AMBUSH_PHASE.idle,
+    // Unified procedural encounter (checkpoints preserve these).
+    encounterMode: 'none',
+    encounterEnemyId: null,
+    encounterEnabled: false,
+    encounterPhase: 'idle',
+    encounterDefeated: false,
+    encounterCombatStarted: false,
+    encounterSkipped: false,
+    encounterNoticed: false,
+    // Reverse-mode mirrors
     reachedSeal: false,
     reverseFromSeal: false,
     ambushApproach: false,
     ambushGrab: false,
+    // Back-compat aliases used by existing main.js reverse path
+    ambushEnabled: false,
+    ambushPhase: AMBUSH_PHASE.idle,
     ambushCombatStarted: false,
     ambushDefeated: false,
     ambushSkipped: false,
@@ -36,37 +53,89 @@ export function createInterludeStory() {
   /** @type {{ end: number, pieces: object[], meters: number }} */
   let layout = { end: INTERLUDE_END_PROGRESS, pieces: [], meters: INTERLUDE_METERS };
   /** @type {ReturnType<typeof createReverseAmbushController> | null} */
-  let ambush = null;
+  let reverseCtrl = null;
+  /** @type {ReturnType<typeof createForwardBlockController> | null} */
+  let forwardCtrl = null;
+  /** @type {object | null} */
+  let activePlacement = null;
 
-  function syncAmbushMirrors() {
-    if (!ambush) {
+  function clearEncounterMirrors() {
+    state.encounterMode = 'none';
+    state.encounterEnemyId = null;
+    state.encounterEnabled = false;
+    state.encounterPhase = 'idle';
+    state.encounterDefeated = false;
+    state.encounterCombatStarted = false;
+    state.encounterSkipped = false;
+    state.encounterNoticed = false;
+    state.reachedSeal = false;
+    state.reverseFromSeal = false;
+    state.ambushApproach = false;
+    state.ambushGrab = false;
+    state.ambushEnabled = false;
+    state.ambushPhase = AMBUSH_PHASE.idle;
+    state.ambushCombatStarted = false;
+    state.ambushDefeated = false;
+    state.ambushSkipped = false;
+  }
+
+  function syncEncounterMirrors() {
+    if (!reverseCtrl && !forwardCtrl) {
+      clearEncounterMirrors();
+      return;
+    }
+    if (forwardCtrl) {
+      const s = forwardCtrl.state;
+      state.encounterMode = 'forward';
+      state.encounterEnabled = s.enabled;
+      state.encounterPhase = s.phase;
+      state.encounterDefeated = s.defeated;
+      state.encounterCombatStarted = s.combatStarted;
+      state.encounterSkipped = s.skipped;
+      state.encounterNoticed = s.noticed;
       state.ambushEnabled = false;
       state.ambushPhase = AMBUSH_PHASE.idle;
+      state.ambushCombatStarted = false;
+      state.ambushDefeated = false;
+      state.ambushSkipped = false;
       state.reachedSeal = false;
       state.reverseFromSeal = false;
       state.ambushApproach = false;
       state.ambushGrab = false;
-      state.ambushCombatStarted = false;
-      state.ambushDefeated = false;
-      state.ambushSkipped = false;
       return;
     }
-    const s = ambush.state;
-    state.ambushEnabled = s.enabled;
-    state.ambushPhase = s.phase;
+    const s = reverseCtrl.state;
+    state.encounterMode = 'reverse';
+    state.encounterEnabled = s.enabled;
+    state.encounterPhase = s.phase;
+    state.encounterDefeated = s.defeated;
+    state.encounterCombatStarted = s.combatStarted;
+    state.encounterSkipped = s.skipped;
+    state.encounterNoticed = false;
     state.reachedSeal = s.reachedSeal;
     state.reverseFromSeal = s.reverseFromSeal;
     state.ambushApproach = s.approachArmed;
     state.ambushGrab = s.grabStarted;
+    state.ambushEnabled = s.enabled;
+    state.ambushPhase = s.phase;
     state.ambushCombatStarted = s.combatStarted;
     state.ambushDefeated = s.defeated;
     state.ambushSkipped = s.skipped;
   }
 
+  function disarmAll() {
+    reverseCtrl = null;
+    forwardCtrl = null;
+    activePlacement = null;
+    syncEncounterMirrors();
+  }
+
   return {
     state,
     get layout() { return layout; },
-    get ambush() { return ambush; },
+    get ambush() { return reverseCtrl; },
+    get forward() { return forwardCtrl; },
+    get encounterPlacement() { return activePlacement; },
     setLayout(plan) {
       layout = {
         end: INTERLUDE_END_PROGRESS,
@@ -78,24 +147,49 @@ export function createInterludeStory() {
       layout = { end: INTERLUDE_END_PROGRESS, pieces: [], meters: INTERLUDE_METERS };
     },
     /**
-     * Opt-in reverse ambush for this playthrough of the interlude.
-     * Pass null/false to disarm (default quiet passage).
+     * Arm exactly one encounter mode for this playthrough.
+     * @param {{ mode?: string, enemyId?: string | null }} encounter
+     * @param {object} plan
+     * @param {object} [opts]
      */
-    armReverseAmbush(plan, enabled = true, opts = {}) {
-      if (!enabled || !plan) {
-        ambush = null;
-        syncAmbushMirrors();
+    armEncounter(encounter, plan, opts = {}) {
+      disarmAll();
+      const mode = normalizeEncounterMode(encounter?.mode);
+      state.encounterEnemyId = encounter?.enemyId || null;
+      if (!plan || mode === 'none') {
+        syncEncounterMirrors();
         return null;
       }
-      const placement = placeReverseAmbush(plan, opts);
-      ambush = createReverseAmbushController(placement);
-      ambush.enable(true);
-      syncAmbushMirrors();
-      return placement;
+      if (mode === 'forward') {
+        activePlacement = placeForwardBlock(plan, opts);
+        forwardCtrl = createForwardBlockController(activePlacement);
+        forwardCtrl.enable(true);
+        syncEncounterMirrors();
+        return activePlacement;
+      }
+      if (mode === 'reverse') {
+        activePlacement = placeReverseAmbush(plan, opts);
+        reverseCtrl = createReverseAmbushController(activePlacement);
+        reverseCtrl.enable(true);
+        syncEncounterMirrors();
+        return activePlacement;
+      }
+      syncEncounterMirrors();
+      return null;
+    },
+    /** @deprecated Prefer armEncounter — kept for older call sites. */
+    armReverseAmbush(plan, enabled = true, opts = {}) {
+      if (!enabled || !plan) {
+        disarmAll();
+        return null;
+      }
+      return this.armEncounter({ mode: 'reverse', enemyId: 'bent' }, plan, opts);
     },
     disarmReverseAmbush() {
-      ambush = null;
-      syncAmbushMirrors();
+      disarmAll();
+    },
+    disarmEncounter() {
+      disarmAll();
     },
     observe(previous, current, _dt = 0) {
       if (current > previous + 0.0001) state.direction = 'forward';
@@ -113,11 +207,17 @@ export function createInterludeStory() {
         state.sectionName = part.name;
       }
 
-      if (ambush?.state.enabled) {
-        ambush.observe(previous, current);
-        syncAmbushMirrors();
-        // Do not mark chapter complete while an unresolved ambush seals the end.
-        if (!ambush.state.defeated && !ambush.state.skipped) {
+      if (forwardCtrl?.state.enabled) {
+        forwardCtrl.observe(previous, current);
+        syncEncounterMirrors();
+        if (!forwardCtrl.state.defeated && !forwardCtrl.state.skipped) {
+          state.completed = false;
+          return;
+        }
+      } else if (reverseCtrl?.state.enabled) {
+        reverseCtrl.observe(previous, current);
+        syncEncounterMirrors();
+        if (!reverseCtrl.state.defeated && !reverseCtrl.state.skipped) {
           state.completed = false;
           return;
         }
@@ -126,33 +226,51 @@ export function createInterludeStory() {
       if (current >= layout.end) state.completed = true;
     },
     forwardMax() {
-      if (ambush?.state.enabled) return ambush.forwardMax();
+      if (forwardCtrl?.state.enabled) return forwardCtrl.forwardMax();
+      if (reverseCtrl?.state.enabled) return reverseCtrl.forwardMax();
       return 1;
     },
+    shouldStartForwardCombat() {
+      return Boolean(forwardCtrl?.shouldStartCombat?.());
+    },
+    beginForwardCombat() {
+      const ok = Boolean(forwardCtrl?.beginCombat?.());
+      syncEncounterMirrors();
+      return ok;
+    },
     shouldStartAmbushGrab() {
-      return Boolean(ambush?.shouldStartGrab?.());
+      return Boolean(reverseCtrl?.shouldStartGrab?.());
     },
     beginAmbushGrab() {
-      const ok = Boolean(ambush?.beginGrab?.());
-      syncAmbushMirrors();
+      const ok = Boolean(reverseCtrl?.beginGrab?.());
+      syncEncounterMirrors();
       return ok;
     },
     beginAmbushCombat() {
-      const ok = Boolean(ambush?.beginCombat?.());
-      syncAmbushMirrors();
+      const ok = Boolean(reverseCtrl?.beginCombat?.());
+      syncEncounterMirrors();
       return ok;
     },
+    markEncounterDefeated() {
+      forwardCtrl?.markDefeated?.();
+      reverseCtrl?.markDefeated?.();
+      syncEncounterMirrors();
+    },
     markAmbushDefeated() {
-      ambush?.markDefeated?.();
-      syncAmbushMirrors();
+      this.markEncounterDefeated();
     },
     markAmbushSkipped() {
-      ambush?.markSkipped?.();
-      syncAmbushMirrors();
+      forwardCtrl?.markSkipped?.();
+      reverseCtrl?.markSkipped?.();
+      syncEncounterMirrors();
+    },
+    prepareEncounterRetry() {
+      forwardCtrl?.prepareRetry?.();
+      reverseCtrl?.prepareRetry?.();
+      syncEncounterMirrors();
     },
     prepareAmbushRetry() {
-      ambush?.prepareRetry?.();
-      syncAmbushMirrors();
+      this.prepareEncounterRetry();
     },
     reset() {
       state.direction = 'forward';
@@ -160,12 +278,24 @@ export function createInterludeStory() {
       state.completed = false;
       state.sectionIndex = 0;
       state.sectionName = layout.pieces[0]?.name || '';
-      if (ambush) {
-        const wasEnabled = ambush.state.enabled;
-        ambush.reset();
-        if (wasEnabled) ambush.enable(true);
+      const enemyId = state.encounterEnemyId;
+      const mode = state.encounterMode;
+      if (forwardCtrl) {
+        const was = forwardCtrl.state.enabled;
+        forwardCtrl.reset();
+        if (was) forwardCtrl.enable(true);
       }
-      syncAmbushMirrors();
+      if (reverseCtrl) {
+        const was = reverseCtrl.state.enabled;
+        reverseCtrl.reset();
+        if (was) reverseCtrl.enable(true);
+      }
+      syncEncounterMirrors();
+      if (mode !== 'none') {
+        state.encounterMode = mode;
+        state.encounterEnemyId = enemyId;
+        state.encounterEnabled = true;
+      }
     },
   };
 }
@@ -175,8 +305,8 @@ export function interludeNarrative(progress, state) {
     ? ` · ${state.sectionName}`
     : '';
 
-  if (state.ambushEnabled && !state.ambushDefeated && !state.ambushSkipped) {
-    if (state.ambushCombatStarted || state.ambushGrab) {
+  if (state.encounterEnabled && !state.encounterDefeated && !state.encounterSkipped) {
+    if (state.encounterCombatStarted || state.ambushGrab) {
       return {
         chapter: `05B — THE IN-BETWEEN${section}`,
         line: '',
@@ -184,20 +314,30 @@ export function interludeNarrative(progress, state) {
         instruction: '',
       };
     }
-    if (state.reachedSeal && !state.reverseFromSeal) {
-      return {
-        chapter: `05B — THE IN-BETWEEN${section}`,
-        line: '',
-        dialogueId: '',
-        instruction: 'THE WAY AHEAD IS SEALED · SCROLL DOWN TO RETRACE ↓',
-      };
+    if (state.encounterMode === 'reverse') {
+      if (state.reachedSeal && !state.reverseFromSeal) {
+        return {
+          chapter: `05B — THE IN-BETWEEN${section}`,
+          line: '',
+          dialogueId: '',
+          instruction: 'THE WAY AHEAD IS SEALED · SCROLL DOWN TO RETRACE ↓',
+        };
+      }
+      if (state.reverseFromSeal || state.ambushApproach) {
+        return {
+          chapter: `05B — THE IN-BETWEEN${section}`,
+          line: '',
+          dialogueId: '',
+          instruction: 'SCROLL DOWN TO RETRACE ↓',
+        };
+      }
     }
-    if (state.reverseFromSeal || state.ambushApproach) {
+    if (state.encounterMode === 'forward' && state.encounterNoticed) {
       return {
         chapter: `05B — THE IN-BETWEEN${section}`,
         line: '',
         dialogueId: '',
-        instruction: 'SCROLL DOWN TO RETRACE ↓',
+        instruction: 'SOMETHING BLOCKS THE PASSAGE ↑',
       };
     }
   }
@@ -211,3 +351,5 @@ export function interludeNarrative(progress, state) {
       : 'SCROLL UP TO CONTINUE ↑',
   };
 }
+
+export { FORWARD_PHASE, AMBUSH_PHASE };

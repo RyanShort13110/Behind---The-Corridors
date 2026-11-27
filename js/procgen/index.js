@@ -25,3 +25,14 @@ export {
   flushWallLabelX,
   wallFacingRotationY,
 } from './label-mount.js';
+
+export {
+  ENCOUNTER_MODES,
+  PROCEDURAL_ENEMY_IDS,
+  CHAPTER_ENCOUNTER_POLICY,
+  normalizeEncounterMode,
+  resolveEncounterMode,
+  resolveEncounterEnemy,
+  resolveProceduralEncounter,
+  readEncounterBootConfig,
+} from './encounter.js';

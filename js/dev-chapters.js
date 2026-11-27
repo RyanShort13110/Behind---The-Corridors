@@ -176,7 +176,15 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
         <option value="maintenance">maintenance</option>
         <option value="residential">residential</option>
       </select>
+      <label for="dev-interlude-encounter" class="dev-chapters__inline-label">ENCOUNTER</label>
+      <select id="dev-interlude-encounter" title="Procedural encounter mode">
+        <option value="none">none</option>
+        <option value="forward">forward</option>
+        <option value="reverse">reverse</option>
+        <option value="auto">auto (seed)</option>
+      </select>
     </div>
+    <p class="dev-chapters__status" id="dev-encounter-status" aria-live="polite">Encounter: none</p>
     <p class="dev-chapters__status" id="dev-chapter-status" aria-live="polite">Current: 01 — The Corridor</p>
     </div>
   `;
@@ -511,8 +519,10 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   refreshCombatStatus();
 
   const procgenStatus = panel.querySelector('#dev-procgen-status');
+  const encounterStatus = panel.querySelector('#dev-encounter-status');
   const skipInterludeBtn = panel.querySelector('#dev-skip-interlude');
   const themePicker = panel.querySelector('#dev-interlude-theme');
+  const encounterPicker = panel.querySelector('#dev-interlude-encounter');
   const refreshProcgenStatus = () => {
     if (!procgenStatus) return;
     const status = procgenApi?.getStatus?.();
@@ -530,6 +540,17 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
     if (themePicker && procgenApi?.theme) {
       themePicker.value = procgenApi.theme;
     }
+    const mode = procgenApi?.encounterMode || 'none';
+    const enemy = procgenApi?.encounterEnemy;
+    if (encounterPicker) {
+      const opt = [...encounterPicker.options].some((o) => o.value === mode) ? mode : 'none';
+      encounterPicker.value = opt;
+    }
+    if (encounterStatus) {
+      encounterStatus.textContent = enemy
+        ? `Encounter: ${mode} · enemy=${enemy}`
+        : `Encounter: ${mode}`;
+    }
   };
   skipInterludeBtn?.addEventListener('click', () => {
     procgenApi?.toggleSkipInterlude?.();
@@ -537,6 +558,10 @@ export function mountDevChapters(jump, getCurrentChapter, composureApi = null, a
   });
   themePicker?.addEventListener('change', () => {
     procgenApi?.setTheme?.(themePicker.value);
+    refreshProcgenStatus();
+  });
+  encounterPicker?.addEventListener('change', () => {
+    procgenApi?.setEncounterMode?.(encounterPicker.value);
     refreshProcgenStatus();
   });
   refreshProcgenStatus();

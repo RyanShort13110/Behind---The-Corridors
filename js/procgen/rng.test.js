@@ -80,7 +80,13 @@ test('hashStringToSeed is stable', () => {
 test('boot config stays disabled without debug or procgen', () => {
   assert.deepEqual(
     readProcgenBootConfig('procgen=1&seed=12345', { debug: false }),
-    { enabled: false, seed: 12345, theme: 'maintenance' },
+    {
+      enabled: false,
+      seed: 12345,
+      theme: 'maintenance',
+      encounterMode: null,
+      encounterEnemy: null,
+    },
   );
   assert.equal(
     readProcgenBootConfig('debug=1&level=maintenance', { debug: true }).enabled,

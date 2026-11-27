@@ -5,6 +5,7 @@
  */
 
 import { createSeededRng, normalizeSeed } from './rng.js';
+import { readEncounterBootConfig, parseEncounterModeOverride } from './encounter.js';
 
 const DEFAULT_THEME = 'maintenance';
 const KNOWN_THEMES = new Set(['maintenance', 'residential']);
@@ -37,7 +38,14 @@ export function readProcgenBootConfig(search = '', { debug = false } = {}) {
     ? normalizeSeed(raw)
     : null;
   const theme = normalizeProcgenTheme(params.get('theme'));
-  return { enabled, seed, theme };
+  const encounter = readEncounterBootConfig(params);
+  return {
+    enabled,
+    seed,
+    theme,
+    encounterMode: encounter.modeOverride,
+    encounterEnemy: encounter.enemyOverride,
+  };
 }
 
 /**
@@ -47,10 +55,14 @@ export function createProcgenSession({
   enabled = false,
   seed = null,
   theme = DEFAULT_THEME,
+  encounterMode = null,
+  encounterEnemy = null,
 } = {}) {
   let _enabled = Boolean(enabled);
   let _seed = normalizeSeed(seed ?? (Date.now() >>> 0));
   let _theme = normalizeProcgenTheme(theme);
+  let _encounterMode = parseEncounterModeOverride(encounterMode);
+  let _encounterEnemy = encounterEnemy || null;
 
   return {
     get enabled() { return _enabled; },
@@ -59,6 +71,10 @@ export function createProcgenSession({
     setSeed(next) { _seed = normalizeSeed(next); },
     get theme() { return _theme; },
     setTheme(next) { _theme = normalizeProcgenTheme(next); },
+    get encounterMode() { return _encounterMode; },
+    setEncounterMode(next) { _encounterMode = parseEncounterModeOverride(next); },
+    get encounterEnemy() { return _encounterEnemy; },
+    setEncounterEnemy(next) { _encounterEnemy = next || null; },
 
     /** Root or scoped stream. Safe to call when disabled (still deterministic). */
     rng(scope = 'root') {
@@ -68,11 +84,17 @@ export function createProcgenSession({
 
     /** JSON-serializable checkpoint payload. */
     snapshot() {
-      return { enabled: _enabled, seed: _seed, theme: _theme };
+      return {
+        enabled: _enabled,
+        seed: _seed,
+        theme: _theme,
+        encounterMode: _encounterMode,
+        encounterEnemy: _encounterEnemy,
+      };
     },
 
     /**
-     * Restore seed / theme (and optional enabled flag) from a checkpoint.
+     * Restore seed / theme / encounter overrides from a checkpoint.
      * Missing payload is a no-op so older saves stay compatible.
      */
     restore(payload) {
@@ -80,6 +102,12 @@ export function createProcgenSession({
       if (payload.seed != null) _seed = normalizeSeed(payload.seed);
       if (typeof payload.enabled === 'boolean') _enabled = payload.enabled;
       if (payload.theme != null) _theme = normalizeProcgenTheme(payload.theme);
+      if ('encounterMode' in payload) {
+        _encounterMode = parseEncounterModeOverride(payload.encounterMode);
+      }
+      if ('encounterEnemy' in payload) {
+        _encounterEnemy = payload.encounterEnemy || null;
+      }
     },
   };
 }
