@@ -51,8 +51,8 @@ import {
 import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-7';
 import {
   createInterludeStory, interludeNarrative, INTERLUDE_METERS, INTERLUDE_START_Z,
-} from './levels/interlude-story.js?v=ib-8';
-import { interludeCameraPose } from './levels/interlude-route.js?v=ib-8';
+} from './levels/interlude-story.js?v=ib-9';
+import { interludeCameraPose } from './levels/interlude-route.js?v=ib-9';
 import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
@@ -159,7 +159,7 @@ function rollPlaythroughSeed() {
   } else {
     procgenSession.setSeed((Date.now() ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0);
   }
-  void import('./levels/interlude.js?v=ib-8')
+  void import('./levels/interlude.js?v=ib-9')
     .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
     .catch(() => {});
 }
@@ -1182,18 +1182,19 @@ async function startReverseAmbushCombat() {
     const {
       playReverseAmbushGrabTransition,
       clearReverseAmbushVeil,
-    } = await import('./combat/transitions/reverse-ambush.js?v=ra-1');
-    const { startInWorldCombat } = await import('./combat/in-world.js?v=ra-1');
-    const { BENT_COMBAT_CONFIG } = await import('./combat/encounters/the-bent.js?v=ra-1');
+    } = await import('./combat/transitions/reverse-ambush.js?v=ra-3');
+    const { startInWorldCombat } = await import('./combat/in-world.js?v=ra-3');
+    const { BENT_COMBAT_CONFIG } = await import('./combat/encounters/the-bent.js?v=ra-3');
     const { REVERSE_AMBUSH_ENCOUNTER_ID } = await import(
-      './combat/encounters/reverse-ambush.js?v=ra-1'
+      './combat/encounters/reverse-ambush.js?v=ra-3'
     );
     const {
       buildCombatLoadoutFromInventory,
       commitCombatResultToStory,
-    } = await import('./combat/story-loadout.js?v=ra-1');
+    } = await import('./combat/story-loadout.js?v=ra-3');
 
     await playReverseAmbushGrabTransition({
+      scene,
       camera,
       reduced,
       durationMs: placement.grabDurationMs,
@@ -1248,6 +1249,12 @@ async function startReverseAmbushCombat() {
         interludeStory.markEncounterDefeated();
         bentCombatFrozenProgress = null;
         enemy.setState(enemy.BENT_STATES.defeated);
+        // Dissolve needs director updates; force-hide if it stalls.
+        window.setTimeout(() => {
+          if (enemy.state === enemy.BENT_STATES.defeated) {
+            module.hideEncounterEnemy?.();
+          }
+        }, 1800);
         restoreExplorationHudAfterCombat();
         bindChapterInteractables();
         console.info('[Behind. COMBAT] Reverse ambush cleared — In-Between open.');
@@ -1366,15 +1373,15 @@ async function startForwardBlockCombat() {
     if (!enemy) throw new Error('forward encounter enemy missing');
     module.revealEncounterEnemy?.('blocking');
 
-    const { startInWorldCombat } = await import('./combat/in-world.js?v=ra-2');
-    const { BENT_COMBAT_CONFIG } = await import('./combat/encounters/the-bent.js?v=ra-2');
+    const { startInWorldCombat } = await import('./combat/in-world.js?v=ra-3');
+    const { BENT_COMBAT_CONFIG } = await import('./combat/encounters/the-bent.js?v=ra-3');
     const { FORWARD_BLOCK_ENCOUNTER_ID } = await import(
-      './combat/encounters/forward-block.js?v=ra-2'
+      './combat/encounters/forward-block.js?v=ra-3'
     );
     const {
       buildCombatLoadoutFromInventory,
       commitCombatResultToStory,
-    } = await import('./combat/story-loadout.js?v=ra-2');
+    } = await import('./combat/story-loadout.js?v=ra-3');
 
     const storyLoadout = buildCombatLoadoutFromInventory(inventory, composure.value);
     ambushFightStartLoadout = storyLoadout;
@@ -1411,6 +1418,11 @@ async function startForwardBlockCombat() {
         interludeStory.markEncounterDefeated();
         bentCombatFrozenProgress = null;
         enemy.setState(enemy.BENT_STATES.defeated);
+        window.setTimeout(() => {
+          if (enemy.state === enemy.BENT_STATES.defeated) {
+            module.hideEncounterEnemy?.();
+          }
+        }, 1800);
         restoreExplorationHudAfterCombat();
         bindChapterInteractables();
         console.info('[Behind. COMBAT] Forward encounter cleared — In-Between open.');
@@ -1589,7 +1601,7 @@ async function endCamcorderPlayback() {
       bindMaintenanceLayout(maintenanceModule);
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-8');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-9');
       const interludeModule = createInterlude(scene, interludeCreateOpts());
       director.add('interlude', interludeModule);
       bindInterludeLayout(interludeModule);
@@ -3084,7 +3096,7 @@ async function enterInterlude() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createInterlude } = await import('./levels/interlude.js?v=ib-8');
+    const { createInterlude } = await import('./levels/interlude.js?v=ib-9');
     module = createInterlude(scene, interludeCreateOpts());
     preserveCarryInventory();
     interaction?.clear();
@@ -3524,7 +3536,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-8');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-9');
       interludeStory.reset();
       const interludeModule = createInterlude(scene, interludeCreateOpts());
       next.add('interlude', interludeModule);
@@ -3755,7 +3767,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=ib-8').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=ib-9').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3912,7 +3924,7 @@ if (DEBUG_MODE) {
       get theme() { return procgenSession.theme; },
       setTheme(next) {
         procgenSession.setTheme(next);
-        void import('./levels/interlude.js?v=ib-8')
+        void import('./levels/interlude.js?v=ib-9')
           .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
           .catch(() => {});
         return procgenSession.theme;
@@ -3947,7 +3959,7 @@ if (DEBUG_MODE) {
         proceduralEncounterOverride = mode;
         procgenSession.setEncounterMode?.(mode);
         refreshActiveProceduralEncounter();
-        void import('./levels/interlude.js?v=ib-8')
+        void import('./levels/interlude.js?v=ib-9')
           .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
           .catch(() => {});
         return this.encounterMode;

@@ -312,7 +312,14 @@ export function createTheBent({
   if (!forceProcedural) void tryAttachGltf();
 
   function setState(next) {
-    if (state === BENT_STATES.defeated && next !== BENT_STATES.defeated) return;
+    // Allow defeated → hidden so procedural cleanup can clear the figure.
+    if (
+      state === BENT_STATES.defeated
+      && next !== BENT_STATES.defeated
+      && next !== BENT_STATES.hidden
+    ) {
+      return;
+    }
     if (state === BENT_STATES.hidden && next === BENT_STATES.hidden) return;
     state = next;
     stateT = 0;

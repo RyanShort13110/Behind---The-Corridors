@@ -8,7 +8,7 @@
  */
 
 import * as THREE from 'three';
-import { createSeededRng } from '../procgen/index.js?v=ib-8';
+import { createSeededRng } from '../procgen/index.js?v=ib-9';
 import {
   assembleInterludePlan,
   validateInterludePlan,
@@ -16,18 +16,18 @@ import {
   normalizeInterludeThemeId,
   getInterludeTheme,
   DEFAULT_INTERLUDE_THEME_ID,
-} from './interlude-plan.js?v=ib-8';
-import { buildInterludeWorld } from './interlude-build.js?v=ib-8';
-import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-8';
+} from './interlude-plan.js?v=ib-9';
+import { buildInterludeWorld } from './interlude-build.js?v=ib-9';
+import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-9';
 import {
   placeReverseAmbush,
   ambushCombatWorldZ,
-} from '../combat/encounters/reverse-ambush.js?v=ra-2';
+} from '../combat/encounters/reverse-ambush.js?v=ra-3';
 import {
   placeForwardBlock,
   forwardCombatWorldZ,
-} from '../combat/encounters/forward-block.js?v=ra-2';
-import { normalizeEncounterMode } from '../procgen/encounter.js?v=ra-2';
+} from '../combat/encounters/forward-block.js?v=ra-3';
+import { normalizeEncounterMode } from '../procgen/encounter.js?v=ra-3';
 
 /** @type {Map<string, object>} */
 const planCache = new Map();
@@ -152,7 +152,7 @@ export function createInterlude(scene, {
     async ensureEncounterEnemy() {
       if (mode === 'none' || !encounterPlacement) return null;
       if (encounterEnemy) return encounterEnemy;
-      const { createTheBent } = await import('../combat/enemies/the-bent.js?v=ib-8');
+      const { createTheBent } = await import('../combat/enemies/the-bent.js?v=ib-9');
       const progress = mode === 'forward'
         ? encounterPlacement.triggerProgress
         : encounterPlacement.grabProgress;
@@ -198,10 +198,11 @@ export function createInterlude(scene, {
       if (built.ambient) {
         built.ambient.intensity = isReduced ? ambientBase * 0.86 : ambientBase - cool * 0.08;
       }
+      if (!encounterEnemy) return;
+
       // Forward notice: show enemy blocking ahead before combat starts.
       if (
         mode === 'forward'
-        && encounterEnemy
         && state?.encounterNoticed
         && !state?.encounterCombatStarted
         && !state?.encounterDefeated
@@ -210,9 +211,21 @@ export function createInterlude(scene, {
           this.revealEncounterEnemy('blocking');
         }
         encounterEnemy.update?.(dt, isReduced);
+        return;
       }
-      if (encounterEnemy && state?.encounterCombatStarted) {
+
+      // Keep animating through combat and the defeated dissolve (needs ~1.6s of updates).
+      if (state?.encounterCombatStarted || state?.encounterDefeated || state?.ambushCombatStarted) {
         encounterEnemy.update?.(dt, isReduced);
+        // Soft cleanup once the dissolve finishes.
+        if (
+          (state?.encounterDefeated || state?.ambushDefeated)
+          && encounterEnemy.root
+          && !encounterEnemy.root.visible
+          && encounterEnemy.state === encounterEnemy.BENT_STATES.defeated
+        ) {
+          // already hidden by defeated pose — leave it
+        }
       }
     },
     reset() {
