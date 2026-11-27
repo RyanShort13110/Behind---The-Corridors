@@ -2,12 +2,28 @@ import * as THREE from 'three';
 import {
   createCrowbarProp, disposeCrowbarProp, crowbarInteractable,
 } from '../props/crowbar.js?v=wpn-4';
+import { resolveMaintenanceDecor } from './maintenance-layout.js?v=proc-2';
 
 /**
  * The Service Wing — narrow maintenance corridors between Office and Records.
  * Geometry only; no shadows, combat, or STEADY. Optional crowbar in the workshop.
+ * Optional procgen varies wall shelves / cabinets / clutter from safe slots only.
+ *
+ * @param {THREE.Scene} scene
+ * @param {{ procgen?: { enabled?: boolean, rng?: Function, seed?: number } | null }} [opts]
  */
-export function createMaintenance(scene) {
+export function createMaintenance(scene, { procgen = null } = {}) {
+  const decorRng = procgen?.enabled
+    ? (procgen.rng?.('maintenance-decor') ?? null)
+    : null;
+  const decor = resolveMaintenanceDecor(decorRng);
+  if (decorRng) {
+    console.info(
+      `[Behind. PROCGEN] Service Wing decor · seed=${procgen.seed ?? decorRng.seed}`
+      + ` · shelves=${decor.shelves.map((z) => z.toFixed(1)).join(',')}`
+      + ` · cabinets=${decor.cabinets.map((z) => z.toFixed(1)).join(',')}`,
+    );
+  }
   const world = new THREE.Group();
   world.name = 'The Service Wing';
   scene.add(world);
@@ -109,24 +125,27 @@ export function createMaintenance(scene) {
     add(0.03, 0.06, 0.08, 2.98, 1.6, z + 0.12, mat.metal);
   }
 
-  // Tool shelves — left mid-hall.
-  for (const z of [-7.2, -8.0, -8.8]) {
+  // Tool shelves — left wall (authored or procgen slots).
+  for (const z of decor.shelves) {
     add(0.55, 1.85, 0.7, -2.55, 0.95, z, mat.wood);
     add(0.52, 0.04, 0.66, -2.55, 0.55, z, mat.darkMetal);
     add(0.52, 0.04, 0.66, -2.55, 1.15, z, mat.darkMetal);
     add(0.52, 0.04, 0.66, -2.55, 1.7, z, mat.darkMetal);
   }
-  // Shelf clutter.
-  add(0.22, 0.18, 0.18, -2.45, 1.28, -7.3, mat.metal);
-  add(0.12, 0.35, 0.12, -2.5, 1.45, -8.05, mat.dark);
-  add(0.28, 0.08, 0.2, -2.4, 1.78, -8.7, mat.rust);
+  // Shelf / floor clutter + loose tools (safe slots only).
+  for (const item of decor.clutter) {
+    add(item.w, item.h, item.d, item.x, item.y, item.z, mat[item.mat] || mat.metal);
+  }
+  for (const item of decor.tools) {
+    add(item.w, item.h, item.d, item.x, item.y, item.z, mat[item.mat] || mat.metal);
+  }
 
-  // Electrical cabinets — right wall before workshop.
-  add(0.42, 1.7, 0.7, 2.7, 0.95, -12.2, mat.cabinet);
-  add(0.04, 1.5, 0.55, 2.48, 0.95, -12.2, mat.darkMetal);
-  add(0.06, 0.12, 0.08, 2.45, 1.35, -12.05, mat.metal);
-  add(0.42, 1.7, 0.7, 2.7, 0.95, -13.1, mat.cabinet);
-  add(0.04, 1.5, 0.55, 2.48, 0.95, -13.1, mat.darkMetal);
+  // Electrical cabinets — right wall (authored or procgen slots).
+  for (const z of decor.cabinets) {
+    add(0.42, 1.7, 0.7, 2.7, 0.95, z, mat.cabinet);
+    add(0.04, 1.5, 0.55, 2.48, 0.95, z, mat.darkMetal);
+    add(0.06, 0.12, 0.08, 2.45, 1.35, z + 0.15, mat.metal);
+  }
 
   // ── Maintenance cart (discrepancy prop) ──────────────────────────────
   // Starts tucked left; after pass, eases a half-meter into the aisle.

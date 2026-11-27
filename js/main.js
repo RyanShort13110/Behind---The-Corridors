@@ -1118,8 +1118,8 @@ async function endCamcorderPlayback() {
       director.add('office', createOffice(scene, { keypadCode: snap.office?.keypadCode || officeStory.state.keypadCode }));
       el.location.textContent = 'EAST ANNEX / OFFICE FLOOR';
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=svc-3');
-      director.add('maintenance', createMaintenance(scene));
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-2');
+      director.add('maintenance', createMaintenance(scene, { procgen: procgenSession }));
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'records') {
       const { createRecords } = await import('./levels/records.js?v=svc-1');
@@ -2557,8 +2557,8 @@ async function enterMaintenance() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createMaintenance } = await import('./levels/maintenance.js?v=svc-3');
-    module = createMaintenance(scene);
+    const { createMaintenance } = await import('./levels/maintenance.js?v=proc-2');
+    module = createMaintenance(scene, { procgen: procgenSession });
     preserveCarryInventory();
     interaction?.clear();
     look?.reset();
@@ -2920,9 +2920,9 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       officeStory.reset();
       next.add('office', createOffice(scene, { keypadCode: officeStory.state.keypadCode }));
     } else if (target === 'maintenance') {
-      const { createMaintenance } = await import('./levels/maintenance.js?v=svc-3');
+      const { createMaintenance } = await import('./levels/maintenance.js?v=proc-2');
       maintenanceStory.reset();
-      next.add('maintenance', createMaintenance(scene));
+      next.add('maintenance', createMaintenance(scene, { procgen: procgenSession }));
     } else if (target === 'records') {
       const { createRecords } = await import('./levels/records.js?v=svc-1');
       next.add('records', createRecords(scene));
