@@ -21,7 +21,7 @@ export const APARTMENT_PRESETS = Object.freeze({
       lampOn: true,
       kitchenLightOn: true,
       tvOn: false,
-      curtainsOpen: true,
+      curtainsOpen: false,
       bedroomDoorAjar: true,
       entranceDoorAjar: false,
     }),
@@ -162,9 +162,10 @@ export function createApartment(scene, {
   add(2.6, 0.12, vestDepth, 0, -0.06, vestMidZ, materials.floor, hallway);
   add(2.6, 0.12, vestDepth, 0, 2.88, vestMidZ, materials.ceiling, hallway);
 
-  // Kitchen floor (right bay, open to living + vestibule)
-  add(3.0, 0.12, vestDepth + 0.2, 2.55, -0.06, vestMidZ, materials.floorTile, kitchen);
-  add(3.0, 0.12, vestDepth + 0.2, 2.55, 2.88, vestMidZ, materials.ceiling, kitchen);
+  // Kitchen floor (right bay) — raised tile, inset so it doesn't z-fight the
+  // living/vest wood (same Y + overlapping X/Z was flickering at the seam).
+  add(2.7, 0.1, vestDepth - 0.08, 2.7, -0.02, vestMidZ, materials.floorTile, kitchen);
+  add(2.7, 0.12, vestDepth - 0.08, 2.7, 2.88, vestMidZ, materials.ceiling, kitchen);
 
   // Hall floor/ceiling
   const hallDepth = HALL_NEAR_Z - DOOR_WALL_Z;
@@ -216,9 +217,12 @@ export function createApartment(scene, {
 
   // Living far divider: left pier only — center aisle + kitchen stay open
   add(2.1, 2.95, 0.14, -2.2, 1.42, LIVING_FAR_Z, materials.wall, livingRoom);
-  // Baseboards
+  // Baseboards — long side walls + far pier. Overlap the corner so the
+  // window-wall board and pier board meet cleanly (no notch).
   add(0.12, 0.14, livingDepth, 3.22, 0.07, livingMidZ, materials.trim, livingRoom);
-  add(0.12, 0.14, livingDepth, -3.22, 0.07, livingMidZ, materials.trim, livingRoom);
+  add(0.12, 0.14, livingDepth + 0.16, -3.22, 0.07, livingMidZ - 0.08, materials.trim, livingRoom);
+  add(2.16, 0.14, 0.12, -2.2, 0.07, LIVING_FAR_Z + 0.08, materials.trim, livingRoom);
+  add(2.16, 0.14, 0.12, -2.2, 0.07, LIVING_FAR_Z - 0.08, materials.trim, livingRoom);
 
   // Window trim + glass + curtains — landmark parent
   const window = new THREE.Group();
@@ -236,12 +240,16 @@ export function createApartment(scene, {
   const curtainL = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z + 0.55, materials.curtain, window);
   const curtainR = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z - 0.55, materials.curtain, window);
 
-  // Soft exterior wash (no free-walk outdoor)
+  // Soft exterior wash (no free-walk outdoor).
+  // Yard runs far past the window in ±Z so angled looks never hit a hard edge.
   const outside = new THREE.Group();
   outside.name = 'apartment/exterior';
   livingRoom.add(outside);
-  add(8, 0.1, 10, -7.5, -0.2, WIN_Z, materials.exteriorGround, outside);
-  add(0.2, 6, 12, -11, 2.5, WIN_Z, materials.exteriorSky, outside);
+  // Near edge sits just outside the wall (−3.3); spans deep −X and long ±Z.
+  add(16, 0.12, 28, -11.2, -0.18, -3.5, materials.exteriorGround, outside);
+  add(0.2, 10, 30, -18, 3.5, -3.5, materials.exteriorSky, outside);
+  add(14, 10, 0.2, -11, 3.5, 8.5, materials.exteriorSky, outside);
+  add(14, 10, 0.2, -11, 3.5, -15.5, materials.exteriorSky, outside);
 
   // Rug + living furniture (clear of center aisle |x| < ~1.1)
   add(2.5, 0.03, 4.8, 0, 0.01, -1.6, materials.rug, livingRoom);
@@ -346,10 +354,11 @@ export function createApartment(scene, {
   add(0.05, 0.72, 0.05, 1.7, 0.38, -6.8, materials.wood, kitchen);
   add(0.05, 0.72, 0.05, 2.2, 0.38, -6.8, materials.wood, kitchen);
   addCyl(0.05, 0.1, 1.95, 0.88, -6.55, materials.mug, kitchen);
-  // Kitchen pendant
-  add(0.12, 0.08, 0.12, 2.55, 2.55, -7.5, materials.metal, kitchen);
+  // Kitchen pendant — one continuous fixture (canopy → stem → shade).
+  add(0.2, 0.04, 0.2, 2.55, 2.9, -7.5, materials.metal, kitchen);
+  add(0.07, 0.32, 0.07, 2.55, 2.72, -7.5, materials.metal, kitchen);
+  add(0.52, 0.1, 0.52, 2.55, 2.52, -7.5, materials.lampShade, kitchen);
   const kitchenLamp = addLight(0xffe8c8, 0.95, 6.5, 2.55, 2.35, -7.5, kitchen);
-  add(0.8, 0.04, 0.8, 2.55, 2.72, -7.5, materials.lampShade, kitchen);
 
   // ——— Vestibule side walls + hallway ———
   // Left wall continuous from living far through vestibule into hall
@@ -359,6 +368,11 @@ export function createApartment(scene, {
 
   add(0.14, 2.95, hallDepth, -1.25, 1.42, hallMidZ, materials.wall, hallway);
   add(0.14, 2.95, hallDepth, 1.25, 1.42, hallMidZ, materials.wall, hallway);
+  // Vestibule / hall baseboards
+  add(0.12, 0.14, vestDepth, -1.17, 0.07, vestMidZ, materials.trim, hallway);
+  add(0.12, 0.14, 1.4, 1.17, 0.07, HALL_NEAR_Z + 0.7, materials.trim, hallway);
+  add(0.12, 0.14, hallDepth, -1.17, 0.07, hallMidZ, materials.trim, hallway);
+  add(0.12, 0.14, hallDepth, 1.17, 0.07, hallMidZ, materials.trim, hallway);
   // Hall mouth trim (opening on center)
   add(0.7, 2.95, 0.1, -0.9, 1.42, HALL_NEAR_Z, materials.trim, hallway);
   add(0.7, 2.95, 0.1, 0.9, 1.42, HALL_NEAR_Z, materials.trim, hallway);
