@@ -10,7 +10,7 @@
  */
 
 import * as THREE from 'three';
-import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-3';
+import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-5';
 
 /**
  * @param {THREE.Scene} scene
@@ -175,12 +175,12 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   addCyl(0.05, 0.09, 1.82, 0.48, -1.22, materials.mugDark, livingRoom);
   add(0.12, 0.02, 0.18, 1.65, 0.44, -1.35, materials.book, livingRoom);
 
-  // Side plant + shelf
+  // Side plant + shelf (right wall — long along Z, shallow into the room)
   add(0.2, 0.24, 0.2, -2.9, 0.14, -3.55, materials.pot, livingRoom);
   add(0.22, 0.38, 0.22, -2.88, 0.45, -3.55, materials.plant, livingRoom);
-  add(0.7, 0.05, 0.28, 2.85, 1.15, -4.15, materials.wood, livingRoom);
-  add(0.08, 0.22, 0.16, 2.7, 1.28, -4.15, materials.book, livingRoom);
-  add(0.08, 0.2, 0.15, 2.9, 1.27, -4.12, materials.bookBlue, livingRoom);
+  add(0.28, 0.05, 0.7, 3.12, 1.15, -4.15, materials.wood, livingRoom);
+  add(0.16, 0.22, 0.08, 3.05, 1.28, -3.95, materials.book, livingRoom);
+  add(0.15, 0.2, 0.08, 3.05, 1.27, -4.2, materials.bookBlue, livingRoom);
 
   // Wall art
   add(0.05, 0.78, 1.05, 3.22, 1.65, -1.35, materials.frame, livingRoom);
@@ -257,19 +257,37 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
   add(0.02, 0.32, 0.26, 1.14, 1.7, -12.1, materials.photoSoft, hallway);
 
   // ——— Bedroom entrance (rail stops short; door stays readable) ———
-  add(2.5, 2.95, 0.14, 0, 1.42, DOOR_WALL_Z, materials.wall, bedroomEntrance);
-  // Door leaf hinged on the left, slightly ajar — keeps the center aisle clear at rail end
-  const bedroomDoor = add(0.07, 2.2, 0.92, -0.35, 1.15, DOOR_WALL_Z + 0.06, materials.door, bedroomEntrance);
-  bedroomDoor.rotation.y = -0.38;
-  add(0.05, 0.08, 0.05, -0.55, 1.15, DOOR_WALL_Z + 0.18, materials.metal, bedroomEntrance);
+  // Punch a real doorway — a solid end-wall made the "opening" read as same-color wall.
+  const DOOR_OPEN_W = 1.0;
+  const DOOR_OPEN_H = 2.2;
+  const endPierW = (2.5 - DOOR_OPEN_W) * 0.5; // 0.75
+  add(endPierW, 2.95, 0.14, -(DOOR_OPEN_W + endPierW) * 0.5, 1.42, DOOR_WALL_Z, materials.wall, bedroomEntrance);
+  add(endPierW, 2.95, 0.14, (DOOR_OPEN_W + endPierW) * 0.5, 1.42, DOOR_WALL_Z, materials.wall, bedroomEntrance);
+  add(DOOR_OPEN_W + 0.04, 2.95 - DOOR_OPEN_H, 0.14, 0, DOOR_OPEN_H + (2.95 - DOOR_OPEN_H) * 0.5, DOOR_WALL_Z, materials.wall, bedroomEntrance);
   // Doorframe
-  add(0.1, 2.35, 0.1, -0.55, 1.2, DOOR_WALL_Z + 0.05, materials.trim, bedroomEntrance);
-  add(0.1, 2.35, 0.1, 0.55, 1.2, DOOR_WALL_Z + 0.05, materials.trim, bedroomEntrance);
-  add(1.2, 0.1, 0.1, 0, 2.35, DOOR_WALL_Z + 0.05, materials.trim, bedroomEntrance);
-  // Dim bedroom glow beyond the ajar door (suggests a room without building it)
-  const bedGlow = addLight(0xffe0b8, 0.28, 3.2, 0, 1.6, DOOR_WALL_Z - 0.65, bedroomEntrance);
-  add(1.6, 2.4, 0.08, 0, 1.3, DOOR_WALL_Z - 0.85, materials.wallDim, bedroomEntrance);
-  add(0.55, 0.08, 0.7, 0.55, 0.45, DOOR_WALL_Z - 0.6, materials.fabric, bedroomEntrance);
+  add(0.08, DOOR_OPEN_H + 0.12, 0.1, -DOOR_OPEN_W * 0.5, DOOR_OPEN_H * 0.5, DOOR_WALL_Z + 0.04, materials.trim, bedroomEntrance);
+  add(0.08, DOOR_OPEN_H + 0.12, 0.1, DOOR_OPEN_W * 0.5, DOOR_OPEN_H * 0.5, DOOR_WALL_Z + 0.04, materials.trim, bedroomEntrance);
+  add(DOOR_OPEN_W + 0.16, 0.08, 0.1, 0, DOOR_OPEN_H + 0.02, DOOR_WALL_Z + 0.04, materials.trim, bedroomEntrance);
+  // Door leaf — hinged on left jamb, face toward hall, slightly ajar
+  const doorHinge = new THREE.Group();
+  doorHinge.position.set(-DOOR_OPEN_W * 0.5 + 0.02, 0, DOOR_WALL_Z + 0.05);
+  bedroomEntrance.add(doorHinge);
+  const bedroomDoor = add(0.92, 2.12, 0.05, 0.46, 1.1, 0, materials.door, doorHinge);
+  doorHinge.rotation.y = -0.55; // ~31° into the hall — center aisle stays clear
+  add(0.04, 0.08, 0.04, 0.82, 1.1, 0.02, materials.metal, doorHinge);
+  // Shallow bedroom pocket beyond the opening (darker so it reads as another room)
+  const bedZ = DOOR_WALL_Z - 1.15;
+  add(1.5, 0.1, 2.0, 0, -0.02, bedZ, materials.bedroomFloor, bedroomEntrance);
+  add(1.5, 0.1, 2.0, 0, 2.75, bedZ, materials.bedroomCeil, bedroomEntrance);
+  add(0.1, 2.7, 2.0, -0.75, 1.3, bedZ, materials.bedroomWall, bedroomEntrance);
+  add(0.1, 2.7, 2.0, 0.75, 1.3, bedZ, materials.bedroomWall, bedroomEntrance);
+  add(1.6, 2.7, 0.1, 0, 1.3, DOOR_WALL_Z - 2.1, materials.bedroomWall, bedroomEntrance);
+  // Bed silhouette + soft lamp so the gap isn't an empty void
+  add(1.05, 0.32, 0.7, 0.05, 0.28, DOOR_WALL_Z - 1.55, materials.fabric, bedroomEntrance);
+  add(0.35, 0.14, 0.22, -0.25, 0.52, DOOR_WALL_Z - 1.3, materials.pillow, bedroomEntrance);
+  add(0.06, 0.55, 0.06, 0.55, 0.9, DOOR_WALL_Z - 1.85, materials.dark, bedroomEntrance);
+  add(0.2, 0.14, 0.2, 0.55, 1.2, DOOR_WALL_Z - 1.85, materials.lampShade, bedroomEntrance);
+  const bedGlow = addLight(0xffd8a8, 0.55, 3.8, 0.4, 1.35, DOOR_WALL_Z - 1.7, bedroomEntrance);
 
   // Entry console on the wall behind the camera
   add(0.9, 0.06, 0.35, 1.6, 0.85, ENTRY_Z - 0.25, materials.wood, livingRoom);
@@ -321,7 +339,7 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       hallSconceA.intensity = 0.4;
       hallSconceB.intensity = 0.35;
       vestFill.intensity = 0.18;
-      bedGlow.intensity = 0.22;
+      bedGlow.intensity = objectState.bedroomDoorAjar ? 0.4 : 0.04;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.4 : 0.02;
       materials.exteriorSky.color.set(0x152030);
       materials.exteriorSky.emissive.set(0x0a1218);
@@ -338,7 +356,7 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       hallSconceA.intensity = 0.28;
       hallSconceB.intensity = 0.25;
       vestFill.intensity = 0.22;
-      bedGlow.intensity = 0.15;
+      bedGlow.intensity = objectState.bedroomDoorAjar ? 0.25 : 0.04;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.2 : 0.02;
       materials.exteriorSky.color.set(0xc8e4f6);
       materials.exteriorSky.emissive.set(0x8eb8d8);
@@ -356,7 +374,7 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
       hallSconceA.intensity = 0.45;
       hallSconceB.intensity = 0.4;
       vestFill.intensity = 0.35;
-      bedGlow.intensity = 0.28;
+      bedGlow.intensity = objectState.bedroomDoorAjar ? 0.55 : 0.04;
       materials.lampShade.emissiveIntensity = objectState.lampOn ? 0.35 : 0.02;
       materials.exteriorSky.color.set(0xb8d0e0);
       materials.exteriorSky.emissive.set(0x6a90a8);
@@ -383,9 +401,9 @@ export function createApartment(scene, { lightingMode = 'warm' } = {}) {
     curtainR.position.z = objectState.curtainsOpen ? WIN_Z - 0.55 : WIN_Z - 0.18;
     curtainL.scale.z = objectState.curtainsOpen ? 1 : 2.2;
     curtainR.scale.z = objectState.curtainsOpen ? 1 : 2.2;
-    bedroomDoor.rotation.y = objectState.bedroomDoorAjar ? -0.22 : 0;
+    doorHinge.rotation.y = objectState.bedroomDoorAjar ? -0.55 : 0;
     bedGlow.intensity = objectState.bedroomDoorAjar
-      ? (currentLighting === 'night' ? 0.22 : 0.35)
+      ? (currentLighting === 'night' ? 0.4 : currentLighting === 'day' ? 0.25 : 0.55)
       : 0.04;
   }
 
@@ -450,6 +468,9 @@ function createApartmentMaterials() {
     floorTile: new THREE.MeshStandardMaterial({ color: 0xb8aea0, roughness: 0.88 }),
     wall: new THREE.MeshStandardMaterial({ color: 0xf0e6d4, roughness: 0.95 }),
     wallDim: new THREE.MeshStandardMaterial({ color: 0xd8cbb8, roughness: 0.96 }),
+    bedroomWall: new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.94 }),
+    bedroomFloor: new THREE.MeshStandardMaterial({ color: 0x5a4a38, roughness: 0.92 }),
+    bedroomCeil: new THREE.MeshStandardMaterial({ color: 0x3a342c, roughness: 0.96 }),
     ceiling: new THREE.MeshStandardMaterial({ color: 0xe8dcc8, roughness: 0.98 }),
     trim: new THREE.MeshStandardMaterial({ color: 0xddd0b8, roughness: 0.88 }),
     wood: new THREE.MeshStandardMaterial({ color: 0x8a6a45, roughness: 0.78 }),
