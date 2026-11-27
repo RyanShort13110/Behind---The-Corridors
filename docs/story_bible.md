@@ -128,9 +128,9 @@ Equipping / unequipping is free in exploration (mid-combat switching deferred). 
 
 Combat commands remain ATTACK / OBSERVE / GUARD / ITEM. ITEM opens a selector (cigarettes; RELOAD when a firearm is equipped). Cancel costs no turn. OBSERVE Opening ~+18 for melee/unarmed; revolver uses a reduced +8 Opening bonus. Fire remains a reserved damage type for future use — the emergency flare was retired.
 
-### Debug in-world Threshold combat (**EXPERIMENT** — not mandatory)
+### Chapter 06 — THE BENT (mandatory story combat)
 
-Optional debug encounter with **THE BENT** inside Chapter 06 (~69% progress), after the rupture STEADY and before the outside-world quiet line. Activation: `?debug=1&combat=1` or DEV TOOLS → **ENABLE THRESHOLD COMBAT** / **JUMP TO BENT**. Uses the live Threshold hallway and camera (no arena teleport). Isolated debug loadout. Victory resumes exploration in place; the figure does not respawn. **Not** part of normal story progression. The Unseen remains a retreat sequence with no conventional combat.
+**IMPLEMENTED (Combat Integration 004).** After the rupture STEADY (~60.5%), **THE BENT** becomes visible (~65.5%) and blocks the rail at ~69%. The player must win the turn-based encounter to continue. Uses **real inventory and composure** (no free weapons or smokes). Pre-fight checkpoint enables RETRY without replaying the whole chapter. Victory leaves the hallway clear; reverse scroll never respawns the figure. Debug bypass: `?debug=1&nocombat=1` or DEV TOOLS → **DISABLE THRESHOLD COMBAT**. Standalone arena **TEST COMBAT** remains available. The Unseen stays a retreat sequence with no combat.
 
 ---
 
@@ -511,6 +511,8 @@ Do not explain the Polaroid lines. Avoid recognizable images, names, case number
 
 **STEADY — Threshold Rupture (IMPLEMENTED):** Around progress `0.605`, organic wall seams contract inward once with a deep groan and a brief light weaken; STEADY (`threshold-rupture`, 18/9/4) peaks with the contraction. No monster, sting, or new dialogue.
 
+**Combat — THE BENT (IMPLEMENTED):** Mandatory in-world fight at ~69% (after rupture). Real inventory/composure. Pre-bent checkpoint + combat RETRY. No victory fanfare; path clears in place.
+
 ## Chapter 07: The Unseen — Prototype 006.0 / first playable pass (renumbered)
 
 **Emotion:** Fear of proximity without visible evidence. A deliberately quiet, ordinary environment after Chapter 06's organic nightmare.
@@ -577,4 +579,5 @@ Historical note: an earlier draft of this table numbered Threshold as 05 and Uns
 | 2026-11 | **Narrative direction update (continuity):** Public bible reframes grief as separation/absence; formalizes player-discovery-before-protagonist; expands outside-world restraint and reserved later lines. Private revised backstory kept only in gitignored writer-only notes (superseded prior private outline marked there — not rewritten into historical public entries). |
 | 2026-11 | **Outside conversation dialogue:** Italic `#line` source vs roman protagonist; five ordinary→intimate one-shot conversations in Stairwells / Threshold / Unseen after “Please wake up.”; reserved “I know you can't hear me…” / “Please come back to me.”; no voice/Foley in this pass. |
 | 2026-11 | **Dialogue Revision 003 (L05–L07):** Brief one-shot protagonist thoughts for Stairwells / Threshold / Unseen; cut descriptive narration; rain + “come back tomorrow” outside lines reserved; STEADY/combat pause outside speech. |
+| 2026-11 | **Combat Integration 004:** The Bent becomes mandatory story combat in Threshold (~69%); real inventory/composure sync; pre-fight checkpoint retry; debug nocombat bypass. |
 | 2026-11 | **Environmental anomaly Experiment 001 (Records):** Unmarked binder vanishes off-camera after first pass; dust-free counter trace remains; optional to notice; no dialogue/systems. |

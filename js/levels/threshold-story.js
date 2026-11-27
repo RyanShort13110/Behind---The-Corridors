@@ -14,8 +14,9 @@ export const THRESHOLD_DOOR_OPEN = 0.204;
 /** Organic wall contraction + STEADY — unmistakable corruption beat. */
 export const THRESHOLD_RUPTURE_PROGRESS = 0.605;
 /**
- * Debug-only in-world combat (THE BENT) — after rupture, before outside quiet.
+ * Mandatory in-world combat (THE BENT) — after rupture, before outside quiet.
  * See `js/combat/encounters/the-bent.js` for world Z / notice / retry.
+ * Debug bypass: ?debug=1&nocombat=1
  */
 export const THRESHOLD_COMBAT_TRIGGER = 0.69;
 
@@ -44,7 +45,7 @@ export function createThresholdStory() {
     nightmareCleared: false, // one-way reveal; backtracking cannot restart it
     ruptureArmed: false,
     ruptureSteadyReady: false,
-    /** Debug Threshold combat — set by main when experiment is armed. */
+    /** Story Bent encounter — main syncs enabled/disabled (debug may bypass). */
     bentEnabled: false,
     bentNoticed: false,
     bentCombatStarted: false,

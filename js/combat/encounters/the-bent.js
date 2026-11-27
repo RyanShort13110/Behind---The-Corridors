@@ -1,6 +1,7 @@
 /**
- * Debug Threshold encounter — THE BENT.
- * Isolated combat config; does not alter Waiting Thing arena balance.
+ * Threshold encounter — THE BENT.
+ * Story-mandatory in Chapter 06. Debug arena / nocombat bypass remain available.
+ * Player stats come from story inventory + composure (see story-loadout.js).
  */
 
 export const BENT_ENCOUNTER_ID = 'threshold-bent';
@@ -17,6 +18,7 @@ export const BENT_RETRY_PROGRESS = 0.64;
  */
 export const BENT_WORLD_Z = -62.2;
 
+/** Defaults for the isolated debug arena — story fights override via loadout. */
 export const BENT_COMBAT_CONFIG = Object.freeze({
   player: Object.freeze({
     composureMax: 100,
@@ -26,34 +28,35 @@ export const BENT_COMBAT_CONFIG = Object.freeze({
     guardMitigation: 0.68,
     observeMitigation: 0.2,
     cigaretteRestore: 40,
-    cigaretteCount: 2,
-    startWithCrowbarEquipped: true,
-    startEquippedWeaponId: 'crowbar',
-    revolverCylinderLoaded: 6,
-    revolverAmmoReserve: 6,
+    cigaretteCount: 0,
+    startWithCrowbarEquipped: false,
+    startEquippedWeaponId: null,
+    revolverCylinderLoaded: 0,
+    revolverAmmoReserve: 0,
     revolverCylinderCapacity: 6,
   }),
   enemy: Object.freeze({
     name: 'THE BENT',
-    presenceMax: 95,
-    presenceStart: 95,
+    // First real fight: two unarmed Opening hits (36×2) clear it; still lethal if ignored.
+    presenceMax: 72,
+    presenceStart: 72,
     /** Slightly different rhythm from The Waiting Thing. */
     pattern: Object.freeze(['twist', 'twist', 'wrench', 'twist', 'wrench']),
     attacks: Object.freeze({
       twist: Object.freeze({
         id: 'twist',
         label: 'Its joints fold the wrong way.',
-        damage: 13,
+        damage: 9,
         telegraph: false,
-        observeLabel: 'A jointed twist — 13 composure. Watching reveals how it loads weight.',
+        observeLabel: 'A jointed twist — 9 composure. Watching reveals how it loads weight.',
       }),
       wrench: Object.freeze({
         id: 'wrench',
         label: 'It wrenches itself forward.',
-        damage: 26,
+        damage: 20,
         telegraph: true,
         telegraphLabel: 'The shoulders hitch. Something heavier is about to tear free.',
-        observeLabel: 'A wrenching lunge — 26 composure if undefended. Guard recommended.',
+        observeLabel: 'A wrenching lunge — 20 composure if undefended. Guard recommended.',
       }),
     }),
     /**

@@ -77,11 +77,12 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
       ?? cfg.player.revolverAmmoReserve
       ?? 0,
     cylinderCapacity: capacity,
+    composure: loadout?.composure ?? cfg.player.composureStart,
   };
 
   let turn = 1;
   let phase = PHASE.PLAYER;
-  let composure = cfg.player.composureStart;
+  let composure = initialLoadout.composure;
   let presence = cfg.enemy.presenceStart;
   let cigarettes = initialLoadout.cigarettes;
   let equippedWeaponId = initialLoadout.equippedWeaponId;
@@ -446,7 +447,7 @@ export function createCombatState(config = COMBAT_CONFIG, loadout = null) {
   function reset() {
     turn = 1;
     phase = PHASE.PLAYER;
-    composure = cfg.player.composureStart;
+    composure = initialLoadout.composure;
     presence = cfg.enemy.presenceStart;
     cigarettes = initialLoadout.cigarettes;
     equippedWeaponId = initialLoadout.equippedWeaponId;

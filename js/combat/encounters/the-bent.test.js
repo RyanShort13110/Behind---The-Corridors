@@ -43,7 +43,7 @@ test('Bent config loads without Waiting Thing attack ids', () => {
   });
   const s = c.snapshot();
   assert.equal(s.enemyName, 'THE BENT');
-  assert.equal(s.presence, 95);
+  assert.equal(s.presence, 72);
   assert.equal(s.nextAttackId, 'twist');
   assert.equal(s.attackDamage, 18);
 });
@@ -77,10 +77,55 @@ test('reset clears escalation and restores loadout', () => {
   c.reset();
   const s = c.snapshot();
   assert.equal(s.turn, 1);
-  assert.equal(s.presence, 95);
+  assert.equal(s.presence, 72);
   assert.equal(s.cigarettes, 2);
   assert.equal(s.equippedWeaponId, 'crowbar');
   assert.equal(s.attackDamage, 23);
+});
+
+test('story loadout uses real composure and grants no free cigarettes', () => {
+  const c = createCombatState(BENT_COMBAT_CONFIG, {
+    composure: 61,
+    cigarettes: 0,
+    equippedWeaponId: null,
+    cylinderLoaded: 0,
+    ammoReserve: 0,
+  });
+  const s = c.snapshot();
+  assert.equal(s.composure, 61);
+  assert.equal(s.cigarettes, 0);
+  assert.equal(s.equippedWeaponId, null);
+  assert.equal(s.attackDamage, 18);
+});
+
+test('unarmed fight can clear Presence with OBSERVE openings + GUARD', () => {
+  // Post-rupture composure floor — no cigarettes, no weapons.
+  const c = createCombatState(BENT_COMBAT_CONFIG, {
+    composure: 55,
+    cigarettes: 0,
+    equippedWeaponId: null,
+    cylinderLoaded: 0,
+    ammoReserve: 0,
+  });
+  let steps = 0;
+  while (!c.snapshot().isOver && steps < 48) {
+    steps += 1;
+    const snap = c.snapshot();
+    if (!snap.canAct) break;
+    if (snap.telegraphActive) {
+      c.playerAct(COMBAT_COMMANDS.GUARD);
+    } else if (snap.openingActive || snap.presence <= 18) {
+      c.playerAct(COMBAT_COMMANDS.ATTACK);
+    } else {
+      c.playerAct(COMBAT_COMMANDS.OBSERVE);
+    }
+    if (c.snapshot().isOver) break;
+    c.beginEnemyPhase();
+    c.enemyAct();
+  }
+  const end = c.snapshot();
+  assert.equal(end.phase, 'victory');
+  assert.ok(end.composure > 0);
 });
 
 console.log('all bent encounter tests passed');

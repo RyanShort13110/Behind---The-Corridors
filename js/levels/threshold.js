@@ -384,7 +384,7 @@ export function createThreshold(scene) {
     cigaretteInteractable('cigarette-threshold', cigarette),
   ];
 
-  // Debug encounter figure — hidden until bentEnabled; never mandatory.
+  // Story encounter figure — visible when bentEnabled; blocks the rail until defeated.
   const bent = createTheBent({
     homePosition: new THREE.Vector3(0.05, 0, BENT_WORLD_Z),
   });
@@ -406,7 +406,7 @@ export function createThreshold(scene) {
     },
     update(progress,state,dt,reduced) {
       pulseTime += dt;
-      // Pre-combat presence for debug Threshold combat experiment.
+      // Pre-combat presence for the mandatory Bent encounter.
       if (state?.bentEnabled && !state.bentDefeated && !state.bentSkipped) {
         if (bent.state === bent.BENT_STATES.hidden) {
           bent.reset(new THREE.Vector3(0.05, 0, BENT_WORLD_Z));

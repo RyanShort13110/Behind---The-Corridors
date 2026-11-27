@@ -49,7 +49,7 @@ import { createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_EN
 import {
   createThresholdStory, thresholdNarrative, THRESHOLD_METERS, THRESHOLD_START_Z,
   THRESHOLD_END_PROGRESS, THRESHOLD_COMBAT_TRIGGER,
-} from './levels/threshold-story.js?v=dlg-003';
+} from './levels/threshold-story.js?v=bent-story-1';
 import { createUnseenStory, unseenNarrative, UNSEEN_METERS, UNSEEN_START_Z, UNSEEN_BARRIER_PROGRESS, UNSEEN_EXIT_PROGRESS } from './levels/unseen-story.js?v=dlg-003';
 import { unseenCameraPose } from './levels/unseen-route.js';
 import {
@@ -96,10 +96,13 @@ const TAPE_ID = DEBUG_MODE ? urlParams.get('tape') : null;
 /** Debug-only ending prototype. Requires ?debug=1&ending=finale-prototype. */
 const ENDING_ID = DEBUG_MODE ? urlParams.get('ending') : null;
 /**
- * Debug-only Threshold in-world combat (THE BENT).
- * Requires ?debug=1&combat=1 (or ENABLE THRESHOLD COMBAT in DEV TOOLS).
+ * Threshold Bent encounter is story-mandatory.
+ * Debug bypass: ?debug=1&nocombat=1 or DEV TOOLS → DISABLE THRESHOLD COMBAT.
+ * ?debug=1&combat=1 still forces the encounter on after a bypass.
  */
-const THRESHOLD_COMBAT_URL = DEBUG_MODE && urlParams.get('combat') === '1';
+const THRESHOLD_COMBAT_FORCE = DEBUG_MODE && urlParams.get('combat') === '1';
+const THRESHOLD_COMBAT_OFF = DEBUG_MODE && urlParams.get('nocombat') === '1'
+  && !THRESHOLD_COMBAT_FORCE;
 if (DEBUG_MODE) document.body.classList.add('debug-performance');
 const el = {
   intro: $('intro'), begin: $('begin'), topbar: $('topbar'), bottom: $('bottom'),
@@ -171,10 +174,14 @@ let combatSession = null;
 /** Chapter id to restore when exiting the combat prototype. */
 let combatResumeChapter = 'corridor';
 let combatExiting = false;
-/** Opt-in for Threshold in-world Bent encounter (debug only). */
-let thresholdCombatEnabled = Boolean(THRESHOLD_COMBAT_URL);
+/** Debug-only: when true, story Bent encounter is suppressed. */
+let thresholdCombatDisabled = Boolean(THRESHOLD_COMBAT_OFF);
 /** Progress frozen when in-world combat starts. */
 let thresholdCombatFrozenProgress = null;
+/** Snapshot captured immediately before Bent combat (retry restore). */
+let bentPreEncounterSnapshot = null;
+/** Loadout frozen at Bent fight start for victory commit. */
+let bentFightStartLoadout = null;
 /** Show first-encounter tutorial once per page load for Bent fights. */
 let bentTutorialPending = true;
 /** Checkpoint snapshot to restore after camcorder LCD playback ends. */
@@ -362,6 +369,13 @@ function progressBounds() {
       max: hospitalReverseMaxProgress(hospitalReverseStory.state),
     };
   }
+  // The Bent blocks the Threshold rail until defeated (or debug-skipped).
+  if (chapterId === 'threshold'
+      && thresholdStory.state.bentEnabled
+      && !thresholdStory.state.bentDefeated
+      && !thresholdStory.state.bentSkipped) {
+    return { min: 0, max: THRESHOLD_COMBAT_TRIGGER };
+  }
   return { min: 0, max: 1 };
 }
 
@@ -414,7 +428,12 @@ function forceProgress(p) {
 }
 
 function syncThresholdCombatFlag() {
-  thresholdStory.state.bentEnabled = Boolean(DEBUG_MODE && thresholdCombatEnabled);
+  // Story default: enabled. Debug may disable for unrelated chapter testing.
+  thresholdStory.state.bentEnabled = !thresholdCombatDisabled;
+}
+
+function isThresholdCombatEnabled() {
+  return !thresholdCombatDisabled;
 }
 
 try {
@@ -773,14 +792,17 @@ async function endCombatPrototype() {
 
 function setThresholdCombatEnabled(on) {
   if (!DEBUG_MODE) return false;
-  thresholdCombatEnabled = Boolean(on);
+  thresholdCombatDisabled = !on;
   syncThresholdCombatFlag();
-  if (!thresholdCombatEnabled) {
+  if (thresholdCombatDisabled) {
     thresholdStory.state.bentNoticed = false;
     thresholdStory.state.bentCombatStarted = false;
+    thresholdStory.state.bentSkipped = true;
+  } else {
+    thresholdStory.state.bentSkipped = false;
   }
-  console.info(`[Behind. COMBAT] Threshold encounter ${thresholdCombatEnabled ? 'ENABLED' : 'disabled'}.`);
-  return thresholdCombatEnabled;
+  console.info(`[Behind. COMBAT] Threshold encounter ${!thresholdCombatDisabled ? 'ENABLED' : 'disabled'}.`);
+  return !thresholdCombatDisabled;
 }
 
 function restoreExplorationHudAfterCombat() {
@@ -795,14 +817,15 @@ function restoreExplorationHudAfterCombat() {
 }
 
 /**
- * Debug in-world Bent fight — keeps Threshold scene + camera.
- * Isolated combat loadout; story inventory untouched.
+ * Story (and debug) in-world Bent fight — keeps Threshold scene + camera.
+ * Uses real inventory / composure; commits results only on victory.
  */
-async function startThresholdBentCombat() {
-  if (!DEBUG_MODE || !thresholdCombatEnabled) return false;
+async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
+  if (!thresholdStory.state.bentEnabled && !debugArenaLoadout) return false;
   if (!renderer || !scene || !camera || chapterId !== 'threshold') return false;
   if (combatSession || tapeSession || endingSession || transitioning) return false;
   if (steady?.isActive || outsideDialogue.isActive()) return false;
+  if (thresholdStory.state.bentDefeated || thresholdStory.state.bentCombatStarted) return false;
 
   const module = director?.get?.('threshold');
   const bent = module?.bent;
@@ -821,12 +844,34 @@ async function startThresholdBentCombat() {
   inventoryMenu?.close?.();
   keypad?.close?.();
 
+  // Exact pre-fight snapshot for defeat retry (inventory + composure + rail).
+  bentPreEncounterSnapshot = captureCheckpointSnapshot();
+  checkpoints.saveLatest(bentPreEncounterSnapshot);
+  savedCheckpointKeys.add('threshold:threshold-pre-bent');
+
   try {
-    const { startInWorldCombat } = await import('./combat/in-world.js?v=wpn-2');
-    const { BENT_COMBAT_CONFIG, BENT_RETRY_PROGRESS } = await import(
-      './combat/encounters/the-bent.js?v=wpn-2'
+    const { startInWorldCombat } = await import('./combat/in-world.js?v=bent-story-1');
+    const { BENT_COMBAT_CONFIG } = await import(
+      './combat/encounters/the-bent.js?v=bent-story-1'
     );
-    const { CROWBAR_ITEM_ID: crowbarId } = await import('./items/catalog.js?v=wpn-2');
+    const {
+      buildCombatLoadoutFromInventory,
+      commitCombatResultToStory,
+    } = await import('./combat/story-loadout.js?v=bent-story-1');
+
+    const storyLoadout = debugArenaLoadout
+      ? {
+        composure: 100,
+        cigarettes: 2,
+        cigaretteIds: [],
+        equippedWeaponId: inventory?.getEquippedWeaponId?.() || null,
+        cylinderLoaded: 6,
+        ammoReserve: 6,
+        cylinderCapacity: 6,
+      }
+      : buildCombatLoadoutFromInventory(inventory, composure.value);
+
+    bentFightStartLoadout = storyLoadout;
 
     const showTutorial = bentTutorialPending;
     bentTutorialPending = false;
@@ -836,27 +881,32 @@ async function startThresholdBentCombat() {
       camera,
       enemy: bent,
       config: BENT_COMBAT_CONFIG,
-      loadout: {
-        cigarettes: BENT_COMBAT_CONFIG.player.cigaretteCount,
-        equippedWeaponId: crowbarId,
-        cylinderLoaded: BENT_COMBAT_CONFIG.player.revolverCylinderLoaded,
-        ammoReserve: BENT_COMBAT_CONFIG.player.revolverAmmoReserve,
-        cylinderCapacity: BENT_COMBAT_CONFIG.player.revolverCylinderCapacity,
-      },
+      loadout: storyLoadout,
       reduced,
       showTutorial,
-      eyebrow: 'THRESHOLD · THE BENT · DEBUG',
+      storyMode: !debugArenaLoadout,
+      eyebrow: debugArenaLoadout ? 'THRESHOLD · THE BENT · DEBUG' : 'THRESHOLD · THE BENT',
       onFrame: (dt) => {
-        // Keep hallway atmosphere alive; progress stays frozen.
         const p = thresholdCombatFrozenProgress ?? displayed;
         director?.update?.(p, thresholdStory.state, dt, reduced);
       },
-      onVictory: async () => {
+      onVictory: async ({ snapshot: endSnap } = {}) => {
         combatSession = null;
+        if (!debugArenaLoadout && endSnap && bentFightStartLoadout) {
+          commitCombatResultToStory({
+            inventory,
+            composure,
+            startLoadout: bentFightStartLoadout,
+            endSnap,
+          });
+          renderInventory();
+          syncComposureUi();
+        }
+        bentFightStartLoadout = null;
+        bentPreEncounterSnapshot = null;
         thresholdStory.state.bentDefeated = true;
         thresholdStory.state.bentCombatStarted = false;
         thresholdCombatFrozenProgress = null;
-        // Leave path clear — figure stays defeated / hidden.
         bent.setState(bent.BENT_STATES.defeated);
         restoreExplorationHudAfterCombat();
         bindChapterInteractables();
@@ -864,20 +914,32 @@ async function startThresholdBentCombat() {
       },
       onRetry: async () => {
         combatSession = null;
+        bentFightStartLoadout = null;
+        thresholdCombatFrozenProgress = null;
         thresholdStory.state.bentCombatStarted = false;
         thresholdStory.state.bentNoticed = false;
         thresholdStory.state.bentDefeated = false;
-        bent.reset(bent.home);
-        bent.setState(bent.BENT_STATES.idle);
-        forceProgress(BENT_RETRY_PROGRESS);
-        thresholdCombatFrozenProgress = null;
-        restoreExplorationHudAfterCombat();
-        bindChapterInteractables();
+        const snap = bentPreEncounterSnapshot || checkpoints.latest;
+        if (snap) {
+          await restoreCheckpoint(snap);
+        } else {
+          const { BENT_RETRY_PROGRESS } = await import(
+            './combat/encounters/the-bent.js?v=bent-story-1'
+          );
+          bent.reset(bent.home);
+          bent.setState(bent.BENT_STATES.idle);
+          forceProgress(BENT_RETRY_PROGRESS);
+          restoreExplorationHudAfterCombat();
+          bindChapterInteractables();
+        }
         syncThresholdCombatFlag();
-        console.info('[Behind. COMBAT] Bent retry — rewound before encounter.');
+        console.info('[Behind. COMBAT] Bent retry — restored pre-encounter checkpoint.');
       },
       onExit: async () => {
+        // Debug-only path clear (storyMode hides exit).
         combatSession = null;
+        bentFightStartLoadout = null;
+        bentPreEncounterSnapshot = null;
         thresholdStory.state.bentSkipped = true;
         thresholdStory.state.bentCombatStarted = false;
         thresholdCombatFrozenProgress = null;
@@ -898,6 +960,7 @@ async function startThresholdBentCombat() {
     combatSession = null;
     thresholdStory.state.bentCombatStarted = false;
     thresholdCombatFrozenProgress = null;
+    bentFightStartLoadout = null;
     restoreExplorationHudAfterCombat();
     return false;
   } finally {
@@ -906,7 +969,6 @@ async function startThresholdBentCombat() {
 }
 
 function maybeStartThresholdBentCombat() {
-  if (!DEBUG_MODE || !thresholdCombatEnabled) return;
   if (chapterId !== 'threshold' || combatSession || transitioning) return;
   if (gameOverActive || ended) return;
   const s = thresholdStory.state;
@@ -1044,7 +1106,7 @@ async function endCamcorderPlayback() {
       camera.updateProjectionMatrix();
       camera.rotation.order = 'YXZ';
     } else if (target === 'threshold') {
-      const { createThreshold } = await import('./levels/threshold.js?v=bent-1');
+      const { createThreshold } = await import('./levels/threshold.js?v=bent-story-1');
       director.add('threshold', createThreshold(scene));
       el.location.textContent = 'SOUTH WING / THE THRESHOLD';
       look?.setMaxYaw();
@@ -1615,6 +1677,14 @@ function maybeAutoCheckpoint() {
       && !thresholdStory.state.ruptureArmed
       && !composureHits.has('threshold-rupture')) {
     saveSafeCheckpoint('threshold-pre-rupture');
+  } else if (chapterId === 'threshold'
+      && thresholdStory.state.ruptureArmed
+      && composureHits.has('threshold-rupture')
+      && !thresholdStory.state.bentDefeated
+      && !thresholdStory.state.bentCombatStarted
+      && progress >= 0.63
+      && progress < THRESHOLD_COMBAT_TRIGGER) {
+    saveSafeCheckpoint('threshold-pre-bent');
   } else if (chapterId === 'unseen' && unseenStory.state.ceilingRattle
       && !unseenStory.state.darkness
       && !composureHits.has('unseen-blackout')) {
@@ -1736,6 +1806,8 @@ function hideGameOver() {
 }
 
 async function triggerGameOver() {
+  // Combat owns its own defeat / RETRY UI — never stack the chapter game-over.
+  if (combatSession) return;
   if (gameOverActive || gameOverBusy) return;
   gameOverActive = true;
   gameOverBusy = true;
@@ -2323,6 +2395,9 @@ function reset() {
   stairwellsStory.reset();
   thresholdStory.reset();
   syncThresholdCombatFlag();
+  bentTutorialPending = true;
+  bentPreEncounterSnapshot = null;
+  bentFightStartLoadout = null;
   unseenStory.reset();
   if (camera.far !== 65) {
     camera.far = 65;
@@ -2568,7 +2643,7 @@ async function enterThreshold() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createThreshold } = await import('./levels/threshold.js?v=bent-1');
+    const { createThreshold } = await import('./levels/threshold.js?v=bent-story-1');
     module = createThreshold(scene);
     preserveCarryInventory();
     interaction?.clear();
@@ -2734,7 +2809,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createNightShift } = await import('./levels/night.js?v=ow-msg-3');
       next.add('night', createNightShift(scene));
     } else if (target === 'threshold') {
-      const { createThreshold } = await import('./levels/threshold.js?v=bent-1');
+      const { createThreshold } = await import('./levels/threshold.js?v=bent-story-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
       const { createMemoryWhite } = await import('./levels/memory-white.js');
@@ -3049,10 +3124,11 @@ if (DEBUG_MODE) {
         if (combatSession) return true;
         return startCombatPrototypeSession();
       },
-      getThresholdCombatEnabled: () => thresholdCombatEnabled,
+      getThresholdCombatEnabled: () => isThresholdCombatEnabled(),
       setThresholdCombatEnabled: (on) => setThresholdCombatEnabled(on),
       async jumpToBentApproach() {
-        setThresholdCombatEnabled(true);
+        thresholdCombatDisabled = false;
+        syncThresholdCombatFlag();
         const ok = await debugJumpToChapter('threshold', 'start');
         if (!ok) return false;
         // Past rupture arming, before Bent trigger — STEADY may still fire.
@@ -3060,6 +3136,8 @@ if (DEBUG_MODE) {
         // Seed rupture resolved so combat can begin without replaying STEADY when jumping.
         thresholdStory.state.ruptureArmed = true;
         thresholdStory.state.ruptureSteadyReady = false;
+        thresholdStory.state.bentSkipped = false;
+        thresholdStory.state.bentDefeated = false;
         composureHits.add('threshold-rupture');
         syncThresholdCombatFlag();
         return true;

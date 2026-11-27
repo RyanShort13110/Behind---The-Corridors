@@ -6,7 +6,7 @@ import { BENT_COMBAT_CONFIG, BENT_ENCOUNTER_ID } from './encounters/the-bent.js'
 
 /**
  * In-world combat session — keeps the active chapter scene and camera.
- * Debug experiment: does not unload Threshold or teleport to the arena.
+ * Story encounters and debug experiments share this path (no arena teleport).
  *
  * @param {object} opts
  * @param {THREE.Scene} opts.scene
@@ -16,11 +16,12 @@ import { BENT_COMBAT_CONFIG, BENT_ENCOUNTER_ID } from './encounters/the-bent.js'
  * @param {object} [opts.loadout]
  * @param {boolean} [opts.reduced]
  * @param {boolean} [opts.showTutorial]
+ * @param {boolean} [opts.storyMode]  Mandatory fight — no skip/exit to clear path
  * @param {string} [opts.eyebrow]
  * @param {(dt: number) => void} [opts.onFrame] Ambient chapter update while frozen
- * @param {() => void | Promise<void>} opts.onVictory
+ * @param {(result: { snapshot: object }) => void | Promise<void>} opts.onVictory
  * @param {() => void | Promise<void>} opts.onRetry
- * @param {() => void | Promise<void>} opts.onExit
+ * @param {() => void | Promise<void>} [opts.onExit]
  */
 export async function startInWorldCombat({
   scene,
@@ -30,6 +31,7 @@ export async function startInWorldCombat({
   loadout = null,
   reduced = false,
   showTutorial = true,
+  storyMode = false,
   eyebrow = 'IN-WORLD COMBAT · DEBUG',
   onFrame,
   onVictory,
@@ -39,6 +41,7 @@ export async function startInWorldCombat({
   const experience = document.getElementById('experience');
   experience?.classList.add('combat-mode', 'combat-mode--in-world');
   experience?.setAttribute('data-combat', BENT_ENCOUNTER_ID);
+  if (storyMode) experience?.classList.add('combat-mode--story');
 
   document.getElementById('inventory')?.classList.remove('is-visible');
   document.getElementById('inventory')?.setAttribute('aria-hidden', 'true');
@@ -47,14 +50,15 @@ export async function startInWorldCombat({
   document.getElementById('steady')?.classList.remove('is-active');
 
   const initialLoadout = {
-    cigarettes: loadout?.cigarettes ?? config.player.cigaretteCount ?? 2,
+    composure: loadout?.composure ?? config.player.composureStart,
+    cigarettes: loadout?.cigarettes ?? config.player.cigaretteCount ?? 0,
     equippedWeaponId: loadout && 'equippedWeaponId' in loadout
       ? loadout.equippedWeaponId
       : (config.player.startEquippedWeaponId
         || (config.player.startWithCrowbarEquipped ? CROWBAR_ITEM_ID : null)),
-    cylinderLoaded: loadout?.cylinderLoaded ?? config.player.revolverCylinderLoaded,
-    ammoReserve: loadout?.ammoReserve ?? config.player.revolverAmmoReserve,
-    cylinderCapacity: loadout?.cylinderCapacity ?? config.player.revolverCylinderCapacity,
+    cylinderLoaded: loadout?.cylinderLoaded ?? config.player.revolverCylinderLoaded ?? 0,
+    ammoReserve: loadout?.ammoReserve ?? config.player.revolverAmmoReserve ?? 0,
+    cylinderCapacity: loadout?.cylinderCapacity ?? config.player.revolverCylinderCapacity ?? 6,
   };
 
   let machine = createCombatState(config, initialLoadout);
@@ -111,7 +115,8 @@ export async function startInWorldCombat({
 
   const ui = createCombatUi({
     eyebrow,
-    exitLabel: 'EXIT TEST',
+    exitLabel: storyMode ? '' : 'EXIT TEST',
+    allowExit: !storyMode,
     showTutorial,
     onCommand: (cmd) => { void handleCommand(cmd); },
     onItemSelect: (itemId) => { void handleCommand('item', { itemId }); },
@@ -137,9 +142,17 @@ export async function startInWorldCombat({
         clearContinueWait();
         return;
       }
-      if (event.code === 'Escape') {
+      if (event.code === 'Escape' && !storyMode) {
         event.preventDefault();
         void handleExit();
+      }
+      return;
+    }
+
+    if (ui.isTutorialOpen?.()) {
+      if (event.code === 'Escape' || event.code === 'Enter' || event.code === 'Space') {
+        event.preventDefault();
+        ui.dismissTutorial?.();
       }
       return;
     }
@@ -165,7 +178,7 @@ export async function startInWorldCombat({
     if (!action) return;
     event.preventDefault();
     if (action === '__exit') {
-      void handleExit();
+      if (!storyMode) void handleExit();
       return;
     }
     void handleCommand(action);
@@ -225,9 +238,10 @@ export async function startInWorldCombat({
       await sleep(config.timing.endHoldMs);
       victoryPending = true;
       busy = false;
-      ui.render(machine.snapshot());
+      const finalSnap = machine.snapshot();
+      ui.render(finalSnap);
       disposeSession({ keepEnemy: true });
-      await onVictory?.();
+      await onVictory?.({ snapshot: finalSnap });
       return;
     }
 
@@ -279,7 +293,7 @@ export async function startInWorldCombat({
   }
 
   async function handleExit() {
-    if (disposed || exitRequested) return;
+    if (disposed || exitRequested || storyMode) return;
     exitRequested = true;
     busy = true;
     clearContinueWait();
@@ -300,7 +314,7 @@ export async function startInWorldCombat({
     }
     ui.dispose();
     if (!keepEnemy) enemy.dispose?.();
-    experience?.classList.remove('combat-mode', 'combat-mode--in-world');
+    experience?.classList.remove('combat-mode', 'combat-mode--in-world', 'combat-mode--story');
     experience?.removeAttribute('data-combat');
   }
 
