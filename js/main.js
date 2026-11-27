@@ -51,8 +51,8 @@ import {
 import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-7';
 import {
   createInterludeStory, interludeNarrative, INTERLUDE_METERS, INTERLUDE_START_Z,
-} from './levels/interlude-story.js?v=ib-4';
-import { interludeCameraPose } from './levels/interlude-route.js?v=ib-4';
+} from './levels/interlude-story.js?v=ib-6';
+import { interludeCameraPose } from './levels/interlude-route.js?v=ib-6';
 import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
@@ -96,7 +96,7 @@ import {
 import {
   readProcgenBootConfig,
   createProcgenSession,
-} from './procgen/index.js?v=proc-4';
+} from './procgen/index.js?v=proc-5';
 
 /**
  * Behind. — Level 01 / 001.8: The Second Pass.
@@ -153,7 +153,7 @@ function rollPlaythroughSeed() {
   } else {
     procgenSession.setSeed((Date.now() ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0);
   }
-  void import('./levels/interlude.js?v=ib-4')
+  void import('./levels/interlude.js?v=ib-6')
     .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
     .catch(() => {});
 }
@@ -1180,7 +1180,7 @@ async function endCamcorderPlayback() {
       bindMaintenanceLayout(maintenanceModule);
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-4');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-6');
       const interludeModule = createInterlude(scene, { procgen: procgenSession });
       director.add('interlude', interludeModule);
       bindInterludeLayout(interludeModule);
@@ -2648,7 +2648,7 @@ async function enterInterlude() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createInterlude } = await import('./levels/interlude.js?v=ib-4');
+    const { createInterlude } = await import('./levels/interlude.js?v=ib-6');
     module = createInterlude(scene, { procgen: procgenSession });
     preserveCarryInventory();
     interaction?.clear();
@@ -3084,7 +3084,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       next.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
     } else if (target === 'interlude') {
-      const { createInterlude } = await import('./levels/interlude.js?v=ib-4');
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-6');
       interludeStory.reset();
       const interludeModule = createInterlude(scene, { procgen: procgenSession });
       next.add('interlude', interludeModule);
@@ -3315,7 +3315,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=ib-4').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=ib-6').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3472,7 +3472,7 @@ if (DEBUG_MODE) {
       get theme() { return procgenSession.theme; },
       setTheme(next) {
         procgenSession.setTheme(next);
-        void import('./levels/interlude.js?v=ib-4')
+        void import('./levels/interlude.js?v=ib-6')
           .then(({ clearInterludePlanCache }) => clearInterludePlanCache())
           .catch(() => {});
         return procgenSession.theme;

@@ -4,6 +4,7 @@
  */
 
 import * as THREE from 'three';
+import { corridorFaceX, flushWallLabelX } from '../procgen/label-mount.js';
 
 export function createMaintenanceMaterials() {
   return {
@@ -63,7 +64,12 @@ function baseShell(kit, g, z, len, rng) {
   if (rng.chance(0.6)) {
     const num = String(rng.nextInt(12, 96)).padStart(2, '0');
     const letter = String.fromCharCode(65 + rng.nextInt(0, 6));
-    label(g, `${num}-${letter}`, 4.99, 2.40, z - rng.nextFloat(3, len - 3), 1);
+    // Wall center X=5.23, thickness 0.16 → tag on the corridor face (slight stand-off).
+    const faceX = corridorFaceX(1, 5.23, 0.16);
+    const labelX = flushWallLabelX(1, faceX, 0.02);
+    label(g, `${num}-${letter}`, labelX, 2.40, z - rng.nextFloat(3, len - 3), 1, {
+      preset: 'tag',
+    });
   }
 }
 

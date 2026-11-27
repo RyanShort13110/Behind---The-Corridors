@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { createSeededRng } from '../procgen/index.js';
+import { createProcgenLabel } from '../procgen/labels.js';
 import { getInterludeTheme, DEFAULT_INTERLUDE_THEME_ID } from './interlude-themes/index.js';
 import {
   createMaintenanceMaterials,
@@ -56,34 +57,26 @@ export function createInterludeKit(world, mat) {
     return pt;
   };
 
-  const label = (parent, text, x, y, z, side = 1) => {
-    const can = document.createElement('canvas');
-    can.width = 512;
-    can.height = 128;
-    const c = can.getContext('2d');
-    c.fillStyle = '#3a4741';
-    c.fillRect(0, 0, 512, 128);
-    c.strokeStyle = '#67776c';
-    c.lineWidth = 5;
-    c.strokeRect(4, 4, 504, 120);
-    c.fillStyle = '#bfc7ae';
-    c.font = 'bold 48px monospace';
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText(text, 256, 64);
-    const tex = new THREE.CanvasTexture(can);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const geo = new THREE.PlaneGeometry(1.15, 0.28);
-    const mesh = new THREE.Mesh(
-      geo,
-      new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }),
-    );
-    mesh.position.set(x, y, z);
-    mesh.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-    parent.add(mesh);
-    disposable.push(geo, tex, mesh.material);
-    return mesh;
-  };
+  /**
+   * Wall / door label. Pass `{ preset: 'door' }` for room plaques;
+   * default `tag` is the service-corridor marker.
+   * @param {THREE.Object3D} parent
+   * @param {string} text
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @param {number} [side=1]
+   * @param {object} [opts]
+   */
+  const label = (parent, text, x, y, z, side = 1, opts = {}) => createProcgenLabel(parent, text, {
+    x,
+    y,
+    z,
+    side,
+    preset: 'tag',
+    disposable,
+    ...opts,
+  });
 
   return { world, mat, addBox, cylinder, addLight, label, lights, disposable };
 }

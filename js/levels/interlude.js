@@ -4,7 +4,7 @@
  * Plans are cached per playthrough seed + theme so retries / re-entry never reshuffle.
  */
 
-import { createSeededRng } from '../procgen/index.js?v=ib-4';
+import { createSeededRng } from '../procgen/index.js?v=ib-6';
 import {
   assembleInterludePlan,
   validateInterludePlan,
@@ -12,9 +12,9 @@ import {
   normalizeInterludeThemeId,
   getInterludeTheme,
   DEFAULT_INTERLUDE_THEME_ID,
-} from './interlude-plan.js?v=ib-4';
-import { buildInterludeWorld } from './interlude-build.js?v=ib-4';
-import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-4';
+} from './interlude-plan.js?v=ib-6';
+import { buildInterludeWorld } from './interlude-build.js?v=ib-6';
+import { INTERLUDE_METERS, INTERLUDE_START_Z } from './interlude-story.js?v=ib-6';
 
 /** @type {Map<string, object>} */
 const planCache = new Map();

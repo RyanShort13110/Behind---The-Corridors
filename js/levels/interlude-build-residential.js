@@ -43,17 +43,17 @@ const WALL_X = 4.15;
 const HEIGHT = 3.1;
 const WIDTH = 8.4;
 
-function apartmentDoor(kit, g, side, z, number, rng) {
-  const { addBox, label, mat } = kit;
-  const x = side * (WALL_X - 0.08);
-  addBox(g, x, 1.25, z, 0.08, 2.45, 1.05, mat.doorFrame);
-  addBox(g, x - side * 0.04, 1.22, z, 0.06, 2.35, 0.92, mat.door);
-  addBox(g, x - side * 0.08, 1.25, z + 0.28, 0.04, 0.08, 0.04, mat.brass);
-  if (number) {
-    label(g, number, x - side * 0.09, 2.05, z - 0.15, side);
-  }
+function apartmentDoor(kit, g, side, z, _number, _rng) {
+  const { addBox, mat } = kit;
+  const frameX = side * (WALL_X - 0.08);
+  const doorDepth = 0.06;
+  const doorCenterX = frameX - side * 0.04;
+  addBox(g, frameX, 1.25, z, 0.08, 2.45, 1.05, mat.doorFrame);
+  addBox(g, doorCenterX, 1.22, z, doorDepth, 2.35, 0.92, mat.door);
+  addBox(g, doorCenterX - side * 0.04, 1.25, z + 0.28, 0.04, 0.08, 0.04, mat.brass);
+  // Residential doors stay unnumbered for now (shared label helper ready when needed).
   // Baseboard stop beside door
-  addBox(g, x - side * 0.02, 0.12, z, 0.1, 0.22, 1.15, mat.trim);
+  addBox(g, frameX - side * 0.02, 0.12, z, 0.1, 0.22, 1.15, mat.trim);
 }
 
 function sconce(kit, g, side, z, on) {
