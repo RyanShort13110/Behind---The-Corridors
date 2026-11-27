@@ -14,6 +14,7 @@ const OPTIONS = [
   ['memory-white', 'DEV — White Memory', 'memory-white'],
   ['memory-black', 'DEV — Black Memory', 'memory-black'],
   ['hospital-reverse', 'DEV — The Ward', 'hospital-reverse'],
+  ['interlude', 'DEV — The In-Between', 'interlude'],
 ];
 const STAIRWELLS_CHAPTERS = new Set(['stairwells']);
 

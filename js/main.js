@@ -50,6 +50,10 @@ import {
 } from './levels/maintenance-story.js?v=proc-7';
 import { maintenanceCameraPose } from './levels/maintenance-route.js?v=proc-7';
 import {
+  createInterludeStory, interludeNarrative, INTERLUDE_METERS, INTERLUDE_START_Z,
+} from './levels/interlude-story.js?v=ib-1';
+import { interludeCameraPose } from './levels/interlude-route.js?v=ib-1';
+import {
   createNightStory, nightNarrative, NIGHT_METERS, NIGHT_START_Z, NIGHT_END_PROGRESS,
   NIGHT_COMBAT_TRIGGER,
 } from './levels/night-story.js?v=night-bent-1';
@@ -173,6 +177,7 @@ const reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const story = createStory();
 const officeStory = createOfficeStory();
 const maintenanceStory = createMaintenanceStory();
+const interludeStory = createInterludeStory();
 const recordsStory = createRecordsStory();
 const nightStory = createNightStory();
 const thresholdStory = createThresholdStory();
@@ -409,10 +414,21 @@ function maintenanceRail() {
   return director?.get?.('maintenance')?.rail ?? null;
 }
 
+/** In-Between rail from the active generated module. */
+function interludeRail() {
+  return director?.get?.('interlude')?.rail ?? null;
+}
+
 /** Bind story progress markers to an assembled (or authored) Service Wing layout. */
 function bindMaintenanceLayout(module) {
   if (module?.markers) maintenanceStory.setLayoutMarkers(module.markers);
   else maintenanceStory.clearLayoutMarkers();
+}
+
+/** Bind In-Between section layout for HUD / progress. */
+function bindInterludeLayout(module) {
+  if (module?.plan) interludeStory.setLayout(module.plan);
+  else interludeStory.clearLayout();
 }
 
 /** Active rail length for walk-speed / scroll-lead. Bedroom uses its own meters. */
@@ -421,6 +437,9 @@ function chapterMeters() {
   if (chapterId === 'office') return OFFICE_METERS;
   if (chapterId === 'maintenance') {
     return maintenanceRail()?.meters ?? MAINTENANCE_METERS;
+  }
+  if (chapterId === 'interlude') {
+    return interludeRail()?.meters ?? INTERLUDE_METERS;
   }
   if (chapterId === 'records') return RECORDS_METERS;
   if (chapterId === 'night') return NIGHT_METERS;
@@ -1136,6 +1155,12 @@ async function endCamcorderPlayback() {
       director.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
       el.location.textContent = 'EAST ANNEX / SERVICE WING';
+    } else if (target === 'interlude') {
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-1');
+      const interludeModule = createInterlude(scene, { procgen: procgenSession });
+      director.add('interlude', interludeModule);
+      bindInterludeLayout(interludeModule);
+      el.location.textContent = 'DEV / THE IN-BETWEEN';
     } else if (target === 'records') {
       const { createRecords } = await import('./levels/records.js?v=svc-1');
       director.add('records', createRecords(scene));
@@ -1642,6 +1667,7 @@ function captureCheckpointSnapshot() {
     story: { ...story.state },
     office: { ...officeStory.state },
     maintenance: { ...maintenanceStory.state },
+    interlude: { ...interludeStory.state },
     records: { ...recordsStory.state },
     hospital: { ...hospitalReverseStory.state },
     night: { ...nightStory.state },
@@ -1675,7 +1701,7 @@ function applyInventorySnapshot(items = [], equippedWeaponId = null) {
 }
 
 function saveChapterStartCheckpoint() {
-  if (!['corridor', 'office', 'maintenance', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   for (const key of [...savedCheckpointKeys]) {
     if (key.startsWith(`${chapterId}:`)) savedCheckpointKeys.delete(key);
   }
@@ -1685,7 +1711,7 @@ function saveChapterStartCheckpoint() {
 const savedCheckpointKeys = new Set();
 
 function saveSafeCheckpoint(reason = '') {
-  if (!['corridor', 'office', 'maintenance', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   if (gameOverActive || transitioning || steady?.isActive) return;
   if (reason && savedCheckpointKeys.has(`${chapterId}:${reason}`)) return;
   checkpoints.saveLatest(captureCheckpointSnapshot());
@@ -1696,7 +1722,7 @@ function saveSafeCheckpoint(reason = '') {
 }
 
 function maybeAutoCheckpoint() {
-  if (!['corridor', 'office', 'maintenance', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
+  if (!['corridor', 'office', 'maintenance', 'interlude', 'records', 'hospital-reverse', 'stairwells', 'night', 'threshold', 'unseen'].includes(chapterId)) return;
   if (chapterId === 'corridor' && story.state.reachedDeadEnd
       && !composureHits.has('corridor-cascade')) {
     saveSafeCheckpoint('corridor-dead-end');
@@ -1768,6 +1794,9 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
       director?.reset();
     } else if (target === 'maintenance') {
       Object.assign(maintenanceStory.state, snapshot.maintenance || {});
+      director?.reset();
+    } else if (target === 'interlude') {
+      Object.assign(interludeStory.state, snapshot.interlude || {});
       director?.reset();
     } else if (target === 'records') {
       Object.assign(recordsStory.state, snapshot.records);
@@ -1921,6 +1950,10 @@ async function restartCurrentChapterFromStart() {
     progress = displayed = 0;
   } else if (chapterId === 'maintenance') {
     maintenanceStory.reset();
+    director?.reset();
+    progress = displayed = 0;
+  } else if (chapterId === 'interlude') {
+    interludeStory.reset();
     director?.reset();
     progress = displayed = 0;
   } else if (chapterId === 'records') {
@@ -2476,6 +2509,8 @@ function reset() {
   story.reset();
   officeStory.reset();
   maintenanceStory.reset();
+  interludeStory.reset();
+  interludeStory.clearLayout();
   recordsStory.reset();
   nightStory.reset();
   stairwellsStory.reset();
@@ -2890,6 +2925,7 @@ const DEV_CHAPTER_CONFIG = {
   'memory-white': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / WHITE DRAGON (DEV)' },
   'memory-black': { start: 0, z: MEMORY_STAGING_START_Z, location: 'MEMORY / BLACK DRAGON (DEV)' },
   'hospital-reverse': { start: 0, z: HOSPITAL_REVERSE_START_Z, location: 'DEV / THE WARD' },
+  interlude: { start: 0, z: INTERLUDE_START_Z, location: 'DEV / THE IN-BETWEEN' },
   'stairwells': {
     start: 0,
     z: STAIRWELLS_START.z,
@@ -2941,6 +2977,12 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const maintenanceModule = createMaintenance(scene, { procgen: procgenSession });
       next.add('maintenance', maintenanceModule);
       bindMaintenanceLayout(maintenanceModule);
+    } else if (target === 'interlude') {
+      const { createInterlude } = await import('./levels/interlude.js?v=ib-1');
+      interludeStory.reset();
+      const interludeModule = createInterlude(scene, { procgen: procgenSession });
+      next.add('interlude', interludeModule);
+      bindInterludeLayout(interludeModule);
     } else if (target === 'records') {
       const { createRecords } = await import('./levels/records.js?v=svc-1');
       next.add('records', createRecords(scene));
@@ -2992,6 +3034,10 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       maintenanceStory.reset();
       maintenanceStory.clearLayoutMarkers();
     }
+    if (target !== 'interlude') {
+      interludeStory.reset();
+      interludeStory.clearLayout();
+    }
     if (target !== 'records') recordsStory.reset();
     nightStory.reset();
     thresholdStory.reset();
@@ -3012,7 +3058,9 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     audio.cancelWardDelayedSfx?.();
     audio.reset();
     if (target === 'office') audio.enterOffice();
-    else if (target === 'maintenance' || target === 'records') audio.enterRecords();
+    else if (target === 'maintenance' || target === 'interlude' || target === 'records') {
+      audio.enterRecords();
+    }
     else if (target === 'night') audio.enterNight();
     else if (target === 'threshold') audio.enterThreshold();
     else if (target === 'unseen') audio.enterUnseen();
@@ -3029,11 +3077,16 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     const maintenanceStartZ = target === 'maintenance'
       ? (director.get('maintenance')?.rail?.startZ ?? MAINTENANCE_START_Z)
       : DEV_CHAPTER_CONFIG[target].z;
+    const interludeStartZ = target === 'interlude'
+      ? (director.get('interlude')?.rail?.startZ ?? INTERLUDE_START_Z)
+      : DEV_CHAPTER_CONFIG[target].z;
+    const bootZ = target === 'maintenance' ? maintenanceStartZ
+      : target === 'interlude' ? interludeStartZ
+        : DEV_CHAPTER_CONFIG[target].z;
     camera.position.set(
       0,
       1.7,
-      (target === 'maintenance' ? maintenanceStartZ : DEV_CHAPTER_CONFIG[target].z)
-        - (target === 'corridor' ? progress * CORRIDOR_METERS : 0),
+      bootZ - (target === 'corridor' ? progress * CORRIDOR_METERS : 0),
     );
     camera.rotation.set(0, 0, 0);
     if (target === 'unseen') {
@@ -3114,6 +3167,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
     director.update(progress,
       target === 'corridor' ? story.state : target === 'office' ? officeStory.state
         : target === 'maintenance' ? maintenanceStory.state
+        : target === 'interlude' ? interludeStory.state
         : target === 'records' ? recordsStory.state : target === 'night' ? nightStory.state
           : target === 'threshold' ? thresholdStory.state
             : isMemoryChapter(target) ? memoryStoryFor(target).state
@@ -3152,7 +3206,7 @@ function continueChapter() {
 // Load the small developer UI ONLY when explicitly requested via ?debug=1.
 // ?debug=1&level=05 also loads Level 05 (Stairwells) directly for bookmarked testing.
 if (DEBUG_MODE) {
-  import('./dev-chapters.js?v=proc-3').then(({ mountDevChapters }) => {
+  import('./dev-chapters.js?v=ib-1').then(({ mountDevChapters }) => {
     devChapterUI = mountDevChapters(debugJumpToChapter, () => chapterId, {
       get: () => composure.value,
       set: (v) => {
@@ -3434,6 +3488,7 @@ function updateNarrative(p, dt = 0) {
   const inCorridor = chapterId === 'corridor';
   const inOffice = chapterId === 'office';
   const inMaintenance = chapterId === 'maintenance';
+  const inInterlude = chapterId === 'interlude';
   const inRecords = chapterId === 'records';
   const inNight = chapterId === 'night';
   const inThreshold = chapterId === 'threshold';
@@ -3443,6 +3498,7 @@ function updateNarrative(p, dt = 0) {
   const state = inCorridor ? story.state
     : inOffice ? officeStory.state
       : inMaintenance ? maintenanceStory.state
+        : inInterlude ? interludeStory.state
         : inRecords ? recordsStory.state
           : inNight ? nightStory.state
             : inThreshold ? thresholdStory.state
@@ -3452,6 +3508,7 @@ function updateNarrative(p, dt = 0) {
   const narrative = inCorridor ? narrativeFor(p, state)
     : inOffice ? officeNarrative(p, state)
       : inMaintenance ? maintenanceNarrative(p, state)
+        : inInterlude ? interludeNarrative(p, state)
         : inRecords ? recordsNarrative(p, state)
           : inNight ? nightNarrative(p, state)
             : inThreshold ? thresholdNarrative(p, state)
@@ -3653,6 +3710,8 @@ function frame(now) {
       : chapterId === 'office' ? OFFICE_START_Z
         : chapterId === 'maintenance'
           ? (maintenanceRail()?.startZ ?? MAINTENANCE_START_Z)
+        : chapterId === 'interlude'
+          ? (interludeRail()?.startZ ?? INTERLUDE_START_Z)
         : chapterId === 'records' ? RECORDS_START_Z
           : chapterId === 'night' ? NIGHT_START_Z
             : chapterId === 'threshold' ? THRESHOLD_START_Z
@@ -3670,6 +3729,8 @@ function frame(now) {
     if (chapterId === 'corridor') story.observe(previousDisplayed, p);
     else if (chapterId === 'maintenance') {
       maintenanceStory.observe(previousDisplayed, p, dt);
+    } else if (chapterId === 'interlude') {
+      interludeStory.observe(previousDisplayed, p, dt);
     } else if (chapterId === 'office') {
       const previouslyTriggered = officeStory.state.soundTriggered;
       officeStory.observe(previousDisplayed, p, dt);
@@ -3828,6 +3889,12 @@ function frame(now) {
       camera.position.z = route.z;
       camera.rotation.y = route.yaw ?? 0;
       camera.rotation.x = route.pitch ?? 0;
+    } else if (chapterId === 'interlude') {
+      const route = interludeCameraPose(p, interludeRail());
+      camera.position.x = route.x;
+      camera.position.z = route.z;
+      camera.rotation.y = route.yaw ?? 0;
+      camera.rotation.x = route.pitch ?? 0;
     } else if (chapterId === 'office') {
       const route = officeCameraPose(
         p,
@@ -3887,6 +3954,7 @@ function frame(now) {
     const interactStory = chapterId === 'corridor' ? story.state
       : chapterId === 'office' ? officeStory.state
         : chapterId === 'maintenance' ? maintenanceStory.state
+        : chapterId === 'interlude' ? interludeStory.state
         : chapterId === 'records' ? recordsStory.state
           : chapterId === 'night' ? nightStory.state
             : chapterId === 'threshold' ? thresholdStory.state
@@ -3957,6 +4025,9 @@ function frame(now) {
     } else if (chapterId === 'maintenance') {
       director.update(p, maintenanceStory.state, dt, reduced);
       audio.updateRecords(p, maintenanceStory.state);
+    } else if (chapterId === 'interlude') {
+      director.update(p, interludeStory.state, dt, reduced);
+      audio.updateRecords(p, interludeStory.state);
     } else if (chapterId === 'records') {
       director.update(p, recordsStory.state, dt, reduced);
       audio.updateRecords(p, recordsStory.state);
