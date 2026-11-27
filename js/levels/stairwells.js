@@ -654,9 +654,12 @@ export function createStairwells(scene) {
   const WALLS_UNTIL = 0.33;
   const DIM_UNTIL = 0.40;
   const SWAP_AT = 0.43;
-  // Stay black until ~63%, then lift into the impossible room.
-  const ROOM_FROM = 0.63;
-  const REVEAL_SPAN = 0.22;
+  // Soft pre-glow before the room so pure black doesn't last long enough
+  // to feel like a freeze (~60% of the void run).
+  const PRE_GLOW_FROM = 0.52;
+  // Start lifting into the impossible room around ~60% of the void.
+  const ROOM_FROM = 0.58;
+  const REVEAL_SPAN = 0.24;
   const FOG_BLACK = 0.55;
   const BG_BLACK = 0x000000;
   let skylineTime = 0;
@@ -672,6 +675,7 @@ export function createStairwells(scene) {
     let fogD = FOG_SHAFT;
     let wallsGone = false;
     let roomReveal = 0;
+    let preGlow = 0;
     const bg = new THREE.Color(BG_SHAFT);
 
     if (inVoid) {
@@ -690,23 +694,32 @@ export function createStairwells(scene) {
         fogD = 0.06 + (FOG_BLACK - 0.06) * ease;
         bg.copy(new THREE.Color(BG_VOID)).lerp(new THREE.Color(BG_BLACK), ease);
       } else if (voidAmount < ROOM_FROM) {
-        // Hold pitch black; swap geometry mid-hold so the cut is unseen.
+        // Hold dark; swap geometry mid-hold so the cut is unseen.
+        // From ~52% start a faint pre-glow so players know motion continues.
         sleeveLit = 0;
         upperDim = 0;
-        fogD = FOG_BLACK;
-        bg.setHex(BG_BLACK);
         wallsGone = voidAmount >= SWAP_AT;
+        if (voidAmount >= PRE_GLOW_FROM) {
+          preGlow = (voidAmount - PRE_GLOW_FROM) / Math.max(1e-6, ROOM_FROM - PRE_GLOW_FROM);
+          preGlow = Math.min(1, preGlow * preGlow);
+          fogD = FOG_BLACK + (0.12 - FOG_BLACK) * preGlow;
+          bg.setHex(BG_BLACK).lerp(new THREE.Color(BG_VOID), preGlow * 0.28);
+        } else {
+          fogD = FOG_BLACK;
+          bg.setHex(BG_BLACK);
+        }
       } else {
-        // Faster lift out of black into the impossible room.
+        // Lift out of black into the impossible room.
+        // Continue from the pre-glow fog/bg so there is no dip back to black.
         const t = Math.min(1, (voidAmount - ROOM_FROM) / REVEAL_SPAN);
-        const ease = Math.min(1, Math.pow(t, 0.72));
+        const ease = Math.min(1, Math.pow(t, 0.68));
         sleeveLit = 0;
         upperDim = 0;
         wallsGone = true;
         roomReveal = ease;
-        // Open fog so far-left window lights can read across the void.
-        fogD = FOG_BLACK + (0.0016 - FOG_BLACK) * ease;
-        bg.setHex(BG_BLACK).lerp(new THREE.Color(BG_VOID), ease * 0.85);
+        const fogStart = 0.12;
+        fogD = fogStart + (0.0016 - fogStart) * ease;
+        bg.setHex(BG_BLACK).lerp(new THREE.Color(BG_VOID), 0.28 + ease * 0.67);
       }
     }
 
@@ -721,10 +734,13 @@ export function createStairwells(scene) {
 
     sleeve.visible = !wallsGone;
     room.visible = wallsGone;
-    hazeA.visible = wallsGone && roomReveal > 0.08;
-    hazeB.visible = wallsGone && roomReveal > 0.08;
-    voidMats.haze.opacity = wallsGone ? Math.min(0.36, roomReveal * 0.38) : 0;
-    voidAmbient.intensity = wallsGone ? roomReveal * 0.5 : 0;
+    hazeA.visible = wallsGone && roomReveal > 0.06;
+    hazeB.visible = wallsGone && roomReveal > 0.06;
+    voidMats.haze.opacity = wallsGone ? Math.min(0.36, roomReveal * 0.4) : 0;
+    // Pre-glow uses a whisper of void ambient; full reveal still owns the lift.
+    voidAmbient.intensity = wallsGone
+      ? Math.max(preGlow * 0.12, roomReveal * 0.58)
+      : preGlow * 0.08;
     // Skyline lags the ambient lift slightly so windows ease in, not pop.
     const skyReveal = wallsGone
       ? Math.max(0, Math.min(1, (roomReveal - 0.06) / 0.78))
