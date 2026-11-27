@@ -2248,8 +2248,14 @@ function renderInventory(items) {
     const qty = total > 0
       ? `<span class="inventory__open-qty" aria-hidden="true">${total}</span>`
       : '';
-    const icon = '<svg class="inventory__open-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
-      + '<path fill="currentColor" d="M8.2 7.1V5.6c0-2 1.6-3.6 3.8-3.6s3.8 1.6 3.8 3.6v1.5h2.4c.9 0 1.6.7 1.6 1.6v10.6c0 1.2-1 2.2-2.2 2.2H6.4c-1.2 0-2.2-1-2.2-2.2V8.7c0-.9.7-1.6 1.6-1.6h2.4zm1.6 0h4.4V5.6c0-1.1-.9-2-2.2-2s-2.2.9-2.2 2v1.5zm-3.2 1.7v10.5c0 .3.3.6.6.6h10.6c.3 0 .6-.3.6-.6V8.8H6.6zm4.1 3.2c0-.4.3-.7.7-.7h1.2c.4 0 .7.3.7.7v2.4c0 .4-.3.7-.7.7h-1.2c-.4 0-.7-.3-.7-.7v-2.4z"/>'
+    // Backpack — twin straps + front pocket (avoids the lock “shackle + body” read).
+    const icon = '<svg class="inventory__open-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M8.2 9.2V6.4c0-1.2.9-2.2 2-2.2h0"/>'
+      + '<path d="M15.8 9.2V6.4c0-1.2-.9-2.2-2-2.2h0"/>'
+      + '<path d="M10.2 4.2h3.6"/>'
+      + '<path d="M6.2 9.2h11.6v9.1c0 1.1-.9 2-2 2H8.2c-1.1 0-2-.9-2-2V9.2z"/>'
+      + '<path d="M9 13.2h6v4.2H9z"/>'
+      + '<path d="M11.2 15.3h1.6"/>'
       + '</svg>';
     el.inventory.innerHTML = `<button type="button" class="inventory__open" data-inventory-open aria-label="Open inventory${total ? `, ${total} items` : ''}">`
       + `${icon}${qty}</button>`;
