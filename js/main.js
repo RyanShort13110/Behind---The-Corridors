@@ -178,6 +178,8 @@ let combatExiting = false;
 let thresholdCombatDisabled = Boolean(THRESHOLD_COMBAT_OFF);
 /** Progress frozen when in-world combat starts. */
 let thresholdCombatFrozenProgress = null;
+/** Base camera yaw at in-world combat start (look offset is applied on top). */
+let thresholdCombatBaseYaw = 0;
 /** Snapshot captured immediately before Bent combat (retry restore). */
 let bentPreEncounterSnapshot = null;
 /** Loadout frozen at Bent fight start for victory commit. */
@@ -836,6 +838,9 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
 
   transitioning = true;
   thresholdCombatFrozenProgress = displayed;
+  // Face the hallway; look.update returns absolute yaw, not a delta.
+  look?.reset?.();
+  thresholdCombatBaseYaw = camera?.rotation?.y ?? 0;
   thresholdStory.state.bentCombatStarted = true;
   interaction?.close?.();
   interaction?.clear?.();
@@ -850,14 +855,14 @@ async function startThresholdBentCombat({ debugArenaLoadout = false } = {}) {
   savedCheckpointKeys.add('threshold:threshold-pre-bent');
 
   try {
-    const { startInWorldCombat } = await import('./combat/in-world.js?v=bent-story-1');
+    const { startInWorldCombat } = await import('./combat/in-world.js?v=bent-spin-1');
     const { BENT_COMBAT_CONFIG } = await import(
-      './combat/encounters/the-bent.js?v=bent-story-1'
+      './combat/encounters/the-bent.js?v=bent-spin-1'
     );
     const {
       buildCombatLoadoutFromInventory,
       commitCombatResultToStory,
-    } = await import('./combat/story-loadout.js?v=bent-story-1');
+    } = await import('./combat/story-loadout.js?v=bent-spin-1');
 
     const storyLoadout = debugArenaLoadout
       ? {
@@ -3444,8 +3449,9 @@ function frame(now) {
     combatSession.update(dt);
     if (combatSession.mode === 'in-world') {
       // Limited look only — scroll / interact stay blocked.
+      // Must ASSIGN base+yaw (look returns absolute offset). += spun the camera.
       look?.setEnabled(true);
-      camera.rotation.y += look?.update(dt, reduced) ?? 0;
+      camera.rotation.y = thresholdCombatBaseYaw + (look?.update(dt, reduced) ?? 0);
       // Hold scroll pin so the rail cannot drift under the fight.
       if (thresholdCombatFrozenProgress != null) {
         window.scrollTo({
