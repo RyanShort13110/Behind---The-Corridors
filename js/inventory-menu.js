@@ -62,8 +62,8 @@ export function createInventoryMenu({
             <p class="inventory-menu__tape-empty" data-inv-tape-empty hidden>NO CASSETTE</p>
             <p class="inventory-menu__tape-note" data-inv-tape-note hidden></p>
           </div>
-          <div class="inventory-menu__actions" data-inv-actions></div>
           <p class="inventory-menu__hint" data-inv-hint>SELECT AN ITEM</p>
+          <div class="inventory-menu__actions" data-inv-actions></div>
         </aside>
       </div>
     </div>
@@ -222,6 +222,12 @@ export function createInventoryMenu({
           btn.textContent = String(action).toUpperCase();
         }
         els.actions.appendChild(btn);
+      }
+      // On phones the grid can push EQUIP below the fold — pull it into view.
+      if (els.actions.childElementCount > 0 && open && window.matchMedia('(max-width: 720px)').matches) {
+        requestAnimationFrame(() => {
+          els.actions.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        });
       }
     }
   }

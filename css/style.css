@@ -178,7 +178,7 @@ body.debug-performance .perf-hud{display:block}
 .inventory-menu{position:absolute;inset:0;z-index:22;display:flex;align-items:stretch;justify-content:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .28s,visibility .28s}
 .inventory-menu.is-open{opacity:1;visibility:visible;pointer-events:auto}
 .inventory-menu__veil{position:absolute;inset:0;background:rgba(2,5,6,.92)}
-.inventory-menu__panel{position:relative;z-index:1;display:flex;flex-direction:column;width:min(960px,94vw);margin:4vh auto;max-height:92vh;padding:18px 18px 16px;background:rgba(4,9,11,.96);border:1px solid rgba(150,170,166,.28);box-shadow:0 24px 80px rgba(0,0,0,.55);color:#d7e4e0}
+.inventory-menu__panel{position:relative;z-index:1;display:flex;flex-direction:column;width:min(960px,94vw);margin:4vh auto;max-height:92vh;max-height:92dvh;padding:18px 18px 16px;background:rgba(4,9,11,.96);border:1px solid rgba(150,170,166,.28);box-shadow:0 24px 80px rgba(0,0,0,.55);color:#d7e4e0;box-sizing:border-box}
 .inventory-menu__header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(150,170,166,.18)}
 .inventory-menu__mark{display:block;font:700 11px/1 'Courier New',monospace;letter-spacing:.28em;color:#8a9e99}
 .inventory-menu__title{margin:8px 0 0;font:700 14px/1.2 'Courier New',monospace;letter-spacing:.32em;color:#dce8e6}
@@ -217,10 +217,55 @@ body.debug-performance .perf-hud{display:block}
 .inventory-menu__tape-note{margin-top:8px;font:11px/1.4 Arial,Helvetica,sans-serif;color:#9aada8;letter-spacing:0}
 body.inventory-open{overflow:hidden}
 @media(max-width:720px){
-  .inventory-menu__panel{margin:2vh auto;padding:14px;max-height:96vh}
-  .inventory-menu__body{grid-template-columns:1fr;gap:14px}
-  .inventory-menu__detail{border-left:0;padding-left:0;border-top:1px solid rgba(150,170,166,.14);padding-top:14px}
+  /* Fill the visual viewport; leave room for browser chrome + home indicator. */
+  .inventory-menu__panel{
+    width:100%;
+    margin:0;
+    max-height:none;
+    height:100%;
+    padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));
+  }
+  .inventory-menu__header{margin-bottom:10px;padding-bottom:10px;flex-shrink:0}
+  .inventory-menu__body{
+    grid-template-columns:1fr;
+    gap:10px;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  .inventory-menu__grid-wrap{
+    /* Cap the grid so detail + EQUIP stay reachable without hunting. */
+    max-height:34vh;
+    max-height:34dvh;
+    flex:0 0 auto;
+  }
+  .inventory-menu__detail{
+    border-left:0;
+    padding-left:0;
+    border-top:1px solid rgba(150,170,166,.14);
+    padding-top:12px;
+    flex:1 1 auto;
+  }
   .inventory-menu__grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .inventory-menu__slot{min-height:72px;padding:8px 10px}
+  .inventory-menu__canvas{max-width:160px;max-height:96px;margin-bottom:10px}
+  .inventory-menu__hint{margin:10px 0 0}
+  /* Keep USE / EQUIP on-screen above mobile browser chrome. */
+  .inventory-menu__actions{
+    position:sticky;
+    bottom:0;
+    z-index:3;
+    margin-top:12px;
+    padding:10px 0 calc(6px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(to top,rgba(4,9,11,1) 65%,rgba(4,9,11,.92) 85%,rgba(4,9,11,0));
+  }
+  .inventory-menu__action{
+    min-height:44px;
+    flex:1 1 auto;
+    padding:12px 14px;
+    font-size:11px;
+    letter-spacing:.16em;
+  }
 }
 
 /* Office service keypad — utilitarian, no glowing cyber chrome. */
