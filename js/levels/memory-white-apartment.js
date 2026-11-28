@@ -5,8 +5,8 @@
  */
 import * as THREE from 'three';
 import { createStuffedDragon } from '../props/stuffed-dragon.js';
-import { createApartment } from './apartment.js?v=apt-18';
-import { APARTMENT_METERS, APARTMENT_START_Z } from './apartment-story.js?v=apt-8';
+import { createApartment } from './apartment.js?v=apt-24';
+import { APARTMENT_METERS, APARTMENT_START_Z } from './apartment-story.js?v=apt-9';
 
 const HIT_MAT = () => new THREE.MeshBasicMaterial({ visible: false });
 
@@ -336,6 +336,10 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
       entranceDoorAjar: false,
     });
     clearWindowCurtains();
+    // Chair backs face the right wall (+X); seat toward the aisle.
+    const wallYaw = -Math.PI * 0.5;
+    if (apt.props?.entryChairA) apt.props.entryChairA.rotation.y = wallYaw;
+    if (apt.props?.entryChairB) apt.props.entryChairB.rotation.y = wallYaw;
   }
 
   applyMemoryLook();

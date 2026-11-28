@@ -10,7 +10,7 @@
 
 import * as THREE from 'three';
 import { createStuffedDragon } from '../props/stuffed-dragon.js';
-import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-8';
+import { APARTMENT_START_Z, APARTMENT_METERS } from './apartment-story.js?v=apt-9';
 
 /** @typedef {'present' | 'memory-white' | 'memory-black' | 'vhs'} ApartmentPreset */
 
@@ -19,7 +19,7 @@ export const APARTMENT_PRESETS = Object.freeze({
     lighting: 'warm',
     objects: Object.freeze({
       lampOn: true,
-      kitchenLightOn: true,
+      kitchenLightOn: false,
       tvOn: false,
       curtainsOpen: false,
       bedroomDoorAjar: true,
@@ -162,10 +162,13 @@ export function createApartment(scene, {
   add(2.6, 0.12, vestDepth, 0, -0.06, vestMidZ, materials.floor, hallway);
   add(2.6, 0.12, vestDepth, 0, 2.88, vestMidZ, materials.ceiling, hallway);
 
-  // Kitchen floor (right bay) — raised tile, inset so it doesn't z-fight the
-  // living/vest wood (same Y + overlapping X/Z was flickering at the seam).
-  add(2.7, 0.1, vestDepth - 0.08, 2.7, -0.02, vestMidZ, materials.floorTile, kitchen);
-  add(2.7, 0.12, vestDepth - 0.08, 2.7, 2.88, vestMidZ, materials.ceiling, kitchen);
+  // Kitchen floor/ceiling (right bay). Floor sits slightly above living wood
+  // to avoid z-fight in the aisle overlap; both run full bay depth and a
+  // lip under the living-facing return so the bump-out corner stays sealed.
+  add(2.7, 0.1, vestDepth, 2.7, -0.02, vestMidZ, materials.floorTile, kitchen);
+  add(2.7, 0.12, vestDepth, 2.7, 2.88, vestMidZ, materials.ceiling, kitchen);
+  add(0.9, 0.1, 0.4, 3.68, -0.02, LIVING_FAR_Z + 0.08, materials.floorTile, kitchen);
+  add(0.9, 0.12, 0.4, 3.68, 2.88, LIVING_FAR_Z + 0.08, materials.ceiling, kitchen);
 
   // Hall floor/ceiling
   const hallDepth = HALL_NEAR_Z - DOOR_WALL_Z;
@@ -272,14 +275,15 @@ export function createApartment(scene, {
   const lampShade = add(0.3, 0.26, 0.3, 2.95, 1.4, -1.05, materials.lampShade, livingRoom);
   const livingLamp = addLight(0xffd8a8, 1.15, 7.5, 2.85, 1.55, -1.05, livingRoom);
 
-  // TV + stand (left, clear of window — flush to the wall)
-  add(0.42, 0.08, 0.42, -3.0, 0.48, -0.2, materials.wood, livingRoom);
-  add(0.05, 0.44, 0.05, -3.12, 0.22, -0.05, materials.wood, livingRoom);
-  add(0.05, 0.44, 0.05, -2.88, 0.22, -0.05, materials.wood, livingRoom);
-  add(0.05, 0.44, 0.05, -3.12, 0.22, -0.35, materials.wood, livingRoom);
-  add(0.05, 0.44, 0.05, -2.88, 0.22, -0.35, materials.wood, livingRoom);
-  add(0.08, 0.72, 0.95, -3.18, 1.15, -0.2, materials.dark, livingRoom);
-  const tvScreen = add(0.04, 0.6, 0.84, -3.12, 1.15, -0.2, materials.screenOff, livingRoom);
+  // TV + stand (left wall, toward the entrance — clear of drawn curtains)
+  const TV_Z = 0.85;
+  add(0.42, 0.08, 0.42, -3.0, 0.48, TV_Z, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -3.12, 0.22, TV_Z + 0.15, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -2.88, 0.22, TV_Z + 0.15, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -3.12, 0.22, TV_Z - 0.15, materials.wood, livingRoom);
+  add(0.05, 0.44, 0.05, -2.88, 0.22, TV_Z - 0.15, materials.wood, livingRoom);
+  add(0.08, 0.72, 0.7, -3.18, 1.15, TV_Z, materials.dark, livingRoom);
+  const tvScreen = add(0.04, 0.6, 0.6, -3.12, 1.15, TV_Z, materials.screenOff, livingRoom);
 
   // Coffee table + mugs (right of aisle, in front of couch)
   add(1.05, 0.05, 0.55, 1.65, 0.4, -1.15, materials.wood, livingRoom);
@@ -307,18 +311,34 @@ export function createApartment(scene, {
     separate.push(dragon);
   }
 
-  // Side plant + shelf (right wall — long along Z, shallow into the room)
+  // Side plant (left wall near window)
   add(0.2, 0.24, 0.2, -2.9, 0.14, -3.55, materials.pot, livingRoom);
   add(0.22, 0.38, 0.22, -2.88, 0.45, -3.55, materials.plant, livingRoom);
-  add(0.28, 0.05, 0.7, 3.12, 1.15, -4.15, materials.wood, livingRoom);
-  add(0.16, 0.22, 0.08, 3.05, 1.28, -3.95, materials.book, livingRoom);
-  add(0.15, 0.2, 0.08, 3.05, 1.27, -4.2, materials.bookBlue, livingRoom);
+
+  // Right-wall shelf — one screw gone; board tips and books spilled to the floor.
+  const wallShelf = new THREE.Group();
+  wallShelf.name = 'apartment/wall-shelf';
+  wallShelf.position.set(3.12, 1.12, -4.15);
+  wallShelf.rotation.x = 0.28;
+  livingRoom.add(wallShelf);
+  add(0.28, 0.05, 0.7, 0, 0, 0, materials.wood, wallShelf);
+  // Books on the floor under the shelf
+  const bookA = add(0.16, 0.04, 0.22, 2.88, 0.03, -3.92, materials.book, livingRoom);
+  bookA.rotation.set(0.15, 0.55, 0.08);
+  const bookB = add(0.15, 0.04, 0.2, 2.95, 0.03, -4.28, materials.bookBlue, livingRoom);
+  bookB.rotation.set(-0.1, -0.4, 0.2);
 
   // Wall art
   add(0.05, 0.78, 1.05, 3.22, 1.65, -1.35, materials.frame, livingRoom);
   add(0.03, 0.66, 0.92, 3.18, 1.65, -1.35, materials.artSky, livingRoom);
-  add(0.05, 0.55, 0.45, -3.22, 1.7, 1.35, materials.frame, livingRoom);
-  add(0.03, 0.44, 0.35, -3.18, 1.7, 1.35, materials.photoSoft, livingRoom);
+  // Left-wall photo near the TV — slightly crooked
+  const leftPhoto = new THREE.Group();
+  leftPhoto.name = 'apartment/left-photo';
+  leftPhoto.position.set(-3.2, 1.7, 1.65);
+  leftPhoto.rotation.x = 0.16;
+  livingRoom.add(leftPhoto);
+  add(0.05, 0.55, 0.45, 0, 0, 0, materials.frame, leftPhoto);
+  add(0.03, 0.44, 0.35, 0.04, 0, 0, materials.photoSoft, leftPhoto);
 
   // Soft living fill
   const livingAmb = new THREE.HemisphereLight(0xfff0d8, 0x8a7a60, 0.62);
@@ -327,9 +347,14 @@ export function createApartment(scene, {
   const livingFill = addLight(0xffe2c0, 0.7, 11, 0, 2.4, livingMidZ, livingRoom);
 
   // ——— Kitchen (right bay — open to living / vestibule on the aisle side) ———
-  // Outer + rear walls only; front and aisle stay open so A/D look can see counters.
+  // Outer + rear walls; front return closes the gap where living right wall
+  // (x=3.3) stops and the bay steps out to x=4.05.
   add(0.14, 2.95, vestDepth, 4.05, 1.42, vestMidZ, materials.wall, kitchen);
   add(2.9, 2.95, 0.14, 2.6, 1.42, HALL_NEAR_Z, materials.wall, kitchen);
+  // Living-facing return of the bump-out (was a bright void slit at ~60%).
+  add(0.82, 2.95, 0.14, 3.68, 1.42, LIVING_FAR_Z, materials.wall, kitchen);
+  add(0.12, 0.14, vestDepth, 3.97, 0.07, vestMidZ, materials.trim, kitchen);
+  add(0.7, 0.14, 0.12, 3.68, 0.07, LIVING_FAR_Z + 0.1, materials.trim, kitchen);
   // Short knee-wall toward the aisle (does not block sightlines into the bay)
   add(0.1, 0.95, 2.4, 1.25, 0.48, -8.35, materials.cabinet, kitchen);
   // Counters along outer wall — clear of rail
@@ -355,10 +380,15 @@ export function createApartment(scene, {
   add(0.05, 0.72, 0.05, 2.2, 0.38, -6.8, materials.wood, kitchen);
   addCyl(0.05, 0.1, 1.95, 0.88, -6.55, materials.mug, kitchen);
   // Kitchen pendant — one continuous fixture (canopy → stem → shade).
+  // Own shade material so a burnt bulb can go dark without dimming the living lamp.
+  const kitchenShadeMat = new THREE.MeshStandardMaterial({
+    color: 0xe8dcc4, emissive: 0xffd8a0, emissiveIntensity: 0.02, roughness: 0.92,
+  });
+  disposable.push(kitchenShadeMat);
   add(0.2, 0.04, 0.2, 2.55, 2.9, -7.5, materials.metal, kitchen);
   add(0.07, 0.32, 0.07, 2.55, 2.72, -7.5, materials.metal, kitchen);
-  add(0.52, 0.1, 0.52, 2.55, 2.52, -7.5, materials.lampShade, kitchen);
-  const kitchenLamp = addLight(0xffe8c8, 0.95, 6.5, 2.55, 2.35, -7.5, kitchen);
+  add(0.52, 0.1, 0.52, 2.55, 2.52, -7.5, kitchenShadeMat, kitchen);
+  const kitchenLamp = addLight(0xffe8c8, 0.05, 6.5, 2.55, 2.35, -7.5, kitchen);
 
   // ——— Vestibule side walls + hallway ———
   // Left wall continuous from living far through vestibule into hall
@@ -434,6 +464,28 @@ export function createApartment(scene, {
   addCyl(0.08, 0.18, 1.6, 1.0, ENTRY_Z - 0.25, materials.pot, livingRoom);
   add(0.12, 0.22, 0.12, 1.6, 1.2, ENTRY_Z - 0.25, materials.plant, livingRoom);
 
+  // Right-wall seating near the start — breaks up the bare stretch by the entrance.
+  // Keep |x| ≥ ~1.4 so the center rail stays clear.
+  add(1.35, 0.03, 2.1, 2.45, 0.02, 2.55, materials.entryRug, livingRoom);
+  add(1.45, 0.02, 2.2, 2.45, 0.01, 2.55, materials.entryRugBorder, livingRoom);
+  const addChair = (x, z, yaw = 0) => {
+    const chair = new THREE.Group();
+    chair.name = 'apartment/entry-chair';
+    chair.position.set(x, 0, z);
+    chair.rotation.y = yaw;
+    livingRoom.add(chair);
+    add(0.42, 0.06, 0.42, 0, 0.42, 0, materials.wood, chair); // seat
+    add(0.05, 0.4, 0.05, -0.16, 0.2, -0.16, materials.wood, chair);
+    add(0.05, 0.4, 0.05, 0.16, 0.2, -0.16, materials.wood, chair);
+    add(0.05, 0.4, 0.05, -0.16, 0.2, 0.16, materials.wood, chair);
+    add(0.05, 0.4, 0.05, 0.16, 0.2, 0.16, materials.wood, chair);
+    add(0.42, 0.45, 0.06, 0, 0.66, -0.18, materials.fabric, chair); // back
+    return chair;
+  };
+  // Present-day: angled slightly into the room. Memory can re-yaw via props.
+  const entryChairA = addChair(2.55, 3.15, -0.2);
+  const entryChairB = addChair(2.55, 2.05, 0.15);
+
   const landmarks = {
     livingRoom: markLandmark('living-room', 0, 1.2, livingMidZ, livingRoom),
     couch: markLandmark('couch', 1.95, 0.5, -2.1, couch),
@@ -464,6 +516,8 @@ export function createApartment(scene, {
     bedroomDoor,
     entranceDoor,
     windowGlass,
+    entryChairA,
+    entryChairB,
   };
 
   let currentPreset = initialPreset;
@@ -570,6 +624,11 @@ export function createApartment(scene, {
     }
   }
 
+  function syncKitchenShade() {
+    kitchenShadeMat.emissiveIntensity = objectState.kitchenLightOn ? 0.28 : 0.01;
+    kitchenShadeMat.color.setHex(objectState.kitchenLightOn ? 0xf2e6cc : 0x9a9080);
+  }
+
   function applyObjectState(partial = {}) {
     Object.assign(objectState, partial);
     livingLamp.intensity = objectState.lampOn ? lampOnIntensity() : 0.05;
@@ -577,21 +636,23 @@ export function createApartment(scene, {
       ? (currentLighting === 'day' ? 0.2 : currentLighting === 'vhs' ? 0.28 : 0.35)
       : 0.02;
     kitchenLamp.intensity = objectState.kitchenLightOn ? kitchenOnIntensity() : 0.05;
+    syncKitchenShade();
     tvScreen.material = objectState.tvOn ? materials.screenOn : materials.screenOff;
     curtainL.visible = true;
     curtainR.visible = true;
-    // Drawn curtains close the glass; open parks them past the jambs
-    // so the opening stays clear (no opaque slabs over the view).
+    // Drawn curtains close the glass; open parks them past the jambs.
+    // scale.z is absolute mesh scale (base geo is 1), not a multiplier —
+    // keep closed depth inside the window opening so they don't cover the TV.
     if (objectState.curtainsOpen) {
       curtainL.position.z = WIN_NEAR + 0.16;
       curtainR.position.z = WIN_FAR - 0.16;
-      curtainL.scale.z = 0.7;
-      curtainR.scale.z = 0.7;
+      curtainL.scale.z = 0.22;
+      curtainR.scale.z = 0.22;
     } else {
-      curtainL.position.z = WIN_Z + 0.18;
-      curtainR.position.z = WIN_Z - 0.18;
-      curtainL.scale.z = 2.2;
-      curtainR.scale.z = 2.2;
+      curtainL.position.z = WIN_Z + WIN_OPEN * 0.22;
+      curtainR.position.z = WIN_Z - WIN_OPEN * 0.22;
+      curtainL.scale.z = 0.82;
+      curtainR.scale.z = 0.82;
     }
     doorHinge.rotation.y = objectState.bedroomDoorAjar ? -0.55 : 0;
     bedGlow.intensity = bedroomGlowIntensity();
@@ -719,6 +780,8 @@ function createApartmentMaterials() {
     curtain: new THREE.MeshStandardMaterial({ color: 0xe8d8c4, roughness: 0.93 }),
     rug: new THREE.MeshStandardMaterial({ color: 0xb07058, roughness: 0.97 }),
     rugBorder: new THREE.MeshStandardMaterial({ color: 0x9a5a42, roughness: 0.95 }),
+    entryRug: new THREE.MeshStandardMaterial({ color: 0x8a6e58, roughness: 0.96 }),
+    entryRugBorder: new THREE.MeshStandardMaterial({ color: 0x6e5644, roughness: 0.95 }),
     runner: new THREE.MeshStandardMaterial({ color: 0x8a6a58, roughness: 0.96 }),
     frame: new THREE.MeshStandardMaterial({ color: 0x7a6248, roughness: 0.7 }),
     artSky: new THREE.MeshStandardMaterial({

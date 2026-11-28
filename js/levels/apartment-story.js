@@ -33,9 +33,9 @@ export function createApartmentStory() {
     dragonTaken: false,
     objects: {
       lampOn: true,
-      kitchenLightOn: true,
+      kitchenLightOn: false,
       tvOn: false,
-      curtainsOpen: true,
+      curtainsOpen: false,
       bedroomDoorAjar: true,
       entranceDoorAjar: false,
     },
@@ -62,12 +62,13 @@ export function createApartmentStory() {
         entranceDoorAjar: false,
       };
     } else {
+      // Present-day / first visit — drawn curtains, burnt kitchen bulb.
       state.lightingMode = 'warm';
       state.objects = {
         lampOn: true,
-        kitchenLightOn: true,
+        kitchenLightOn: false,
         tvOn: false,
-        curtainsOpen: true,
+        curtainsOpen: false,
         bedroomDoorAjar: true,
         entranceDoorAjar: false,
       };
