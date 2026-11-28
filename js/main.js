@@ -7,6 +7,7 @@ import { createAudioDirector } from './audio.js?v=stairs-void-10';
 import { createPerformanceMonitor } from './performance.js';
 import { createInteractionSystem } from './interaction.js?v=cam-3';
 import { createLookControls } from './look.js';
+import { createTouchControls } from './touch-controls.js?v=touch-1';
 import { createInventory } from './inventory.js?v=wpn-2';
 import { createInventoryMenu } from './inventory-menu.js?v=inv-clip-1';
 import {
@@ -189,6 +190,7 @@ const el = {
   itemDetailTapeEmpty: $('item-detail-tape-empty'), itemDetailTapeNote: $('item-detail-tape-note'),
   composure: $('composure'), composureFill: $('composure-fill'),
   experience: $('experience'),
+  touchControls: $('touch-controls'),
   keypad: $('keypad'), keypadClose: $('keypad-close'),
   keypadDisplay: $('keypad-display'), keypadGrid: $('keypad-grid'),
   steady: $('steady'), steadyCue: $('steady-cue'),
@@ -278,6 +280,7 @@ let progress = START_PROGRESS;
 let displayed = START_PROGRESS;
 let ended = false;
 let renderer, camera, scene, director, monitor, interaction, look, inventory, keypad;
+let touchControls = null;
 /** Full-screen inventory menu (null until init). */
 let inventoryMenu = null;
 let cigaretteFx = createCigaretteFx();
@@ -738,6 +741,13 @@ try {
     },
   });
   look = createLookControls({ canvas: renderer.domElement });
+  touchControls = createTouchControls({
+    root: el.touchControls,
+    walkKeys,
+    look,
+    isActive: () => started && !transitioning && !ended && !gameOverActive
+      && !el.experience?.classList.contains('combat-mode'),
+  });
   steady = createSteadySystem({
     root: el.steady,
     cueEl: el.steadyCue,
@@ -1663,7 +1673,7 @@ async function endCamcorderPlayback() {
       director.add('unseen', createUnseen(scene));
       el.location.textContent = 'SERVICE LEVEL / MAINTENANCE';
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-18');
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-20');
       const memMod = createMemoryWhite(scene);
       memMod.setCamera?.(camera);
       director.add('memory-white', memMod);
@@ -1915,7 +1925,7 @@ async function enterWhiteMemoryInPlace(visit) {
   await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 920));
   let module = null;
   try {
-    const mod = await import('./levels/memory-white.js?v=mem-apt-18');
+    const mod = await import('./levels/memory-white.js?v=mem-apt-20');
     if (!mod.memoryWhiteUsesApartment?.()) {
       setMemoryWhiteScreen(false);
       el.veil.classList.remove('is-active', 'memory-veil');
@@ -2001,7 +2011,7 @@ async function enterMemoryFromApartment() {
   try {
     const mod = target === 'memory-black'
       ? await import('./levels/memory-black.js')
-      : await import('./levels/memory-white.js?v=mem-apt-18');
+      : await import('./levels/memory-white.js?v=mem-apt-20');
     const create = target === 'memory-black' ? mod.createMemoryBlack : mod.createMemoryWhite;
     module = create(scene);
     keepDragonInventory();
@@ -2613,6 +2623,7 @@ async function restoreCheckpoint(snapshot, { asChapterRestart = false } = {}) {
     gameOverActive = false;
     ended = false;
     hideEndCard();
+    touchControls?.sync?.();
     renderer?.render(scene, camera);
     return true;
   } finally {
@@ -2633,6 +2644,7 @@ async function triggerGameOver() {
   if (gameOverActive || gameOverBusy) return;
   gameOverActive = true;
   gameOverBusy = true;
+  touchControls?.sync?.();
   steady?.cancel(true);
   interaction?.close();
   closeInventoryOverlays();
@@ -2668,6 +2680,7 @@ async function restartCurrentChapterFromStart() {
   steady?.cancel(true);
   hideGameOver();
   gameOverActive = false;
+  touchControls?.sync?.();
   if (chapterId === 'corridor') {
     story.reset();
     director?.reset();
@@ -3115,6 +3128,7 @@ function start() {
   el.experience?.classList.add('is-playing');
   el.composure?.classList.add('is-active');
   el.composure?.setAttribute('aria-hidden', 'false');
+  touchControls?.sync?.();
   saveChapterStartCheckpoint();
   noteFogBase();
   syncComposureUi();
@@ -3215,6 +3229,7 @@ function setEndCard(which) {
 
 function showEndCard(which) {
   ended = true;
+  touchControls?.sync?.();
   const id = which === 'corridor' ? '01'
     : which === 'office' ? '02'
       : which === 'maintenance' ? '02b'
@@ -3643,7 +3658,7 @@ async function enterApartmentFirst() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createApartment } = await import('./levels/apartment.js?v=apt-29');
+    const { createApartment } = await import('./levels/apartment.js?v=apt-32');
     apartmentStory.reset({ visit: 'first', lightingMode: 'warm' });
     module = createApartment(scene, {
       lightingMode: apartmentStory.state.lightingMode,
@@ -3705,7 +3720,7 @@ async function enterApartmentReturn() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createApartment } = await import('./levels/apartment.js?v=apt-29');
+    const { createApartment } = await import('./levels/apartment.js?v=apt-32');
     apartmentStory.reset({ visit: 'return', lightingMode: 'night' });
     module = createApartment(scene, {
       lightingMode: apartmentStory.state.lightingMode,
@@ -3961,7 +3976,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createThreshold } = await import('./levels/threshold.js?v=night-bent-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-18');
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-20');
       memoryWhiteStory.reset();
       const memMod = createMemoryWhite(scene);
       memMod.setCamera?.(camera);
@@ -3971,7 +3986,7 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'apartment') {
-      const { createApartment } = await import('./levels/apartment.js?v=apt-29');
+      const { createApartment } = await import('./levels/apartment.js?v=apt-32');
       // Debug: ?visit=first|return loads the story dragon visit; default explores without.
       let aptVisit = 'debug';
       try {
@@ -4499,6 +4514,8 @@ window.addEventListener('keydown', onWalkKeyDown, { passive: false });
 window.addEventListener('keyup', onWalkKeyUp);
 window.addEventListener('blur', () => {
   walkKeys.forward = walkKeys.back = false;
+  look?.setKey?.('left', false);
+  look?.setKey?.('right', false);
 });
 el.quality.addEventListener('click', () => {
   quality = quality === 'auto' ? 'low' : quality === 'low' ? 'high' : 'auto';

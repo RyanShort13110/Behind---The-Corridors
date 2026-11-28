@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { createStuffedDragon } from '../props/stuffed-dragon.js';
-import { createApartment } from './apartment.js?v=apt-29';
+import { createApartment } from './apartment.js?v=apt-32';
 import { APARTMENT_METERS, APARTMENT_START_Z } from './apartment-story.js?v=apt-9';
 
 const HIT_MAT = () => new THREE.MeshBasicMaterial({ visible: false });
@@ -115,14 +115,14 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
   const bed = lm.bedroom?.position;
   // Dragon seat on the couch cushion (matches present apartment placement).
   const dragonSeat = {
-    x: couch?.x != null ? couch.x + 0.45 : 2.4,
-    y: 0.52,
-    z: couch?.z != null ? couch.z + 0.28 : -1.82,
+    x: couch?.x != null ? couch.x - 0.4 : 1.55,
+    y: 0.54,
+    z: couch?.z != null ? couch.z + 0.15 : -1.95,
   };
   const coffee = {
     x: couch?.x != null ? couch.x - 0.3 : 1.65,
     y: 0.44,
-    z: couch?.z != null ? couch.z + 0.95 : -1.15,
+    z: couch?.z != null ? couch.z + 1.75 : -0.35,
   };
   const shelf = { x: 3.05, y: 1.22, z: -4.15 };
   const WIN_Z = win?.z ?? -1.8;
@@ -246,12 +246,19 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
   let dragon = null;
   if (mode === 'create') {
     dragon = createStuffedDragon({
-      color: 0xf2f0ea,
+      color: 0xe4d8c8,
       name: 'memory-white-dragon',
     });
     dragon.group.position.set(dragonSeat.x, dragonSeat.y, dragonSeat.z);
-    dragon.group.rotation.y = -0.85;
-    dragon.group.scale.setScalar(0.88);
+    dragon.group.rotation.y = 0.55;
+    dragon.group.scale.setScalar(0.95);
+    dragon.group.traverse((child) => {
+      if (!child.isMesh || child.userData.inspectHitOnly) return;
+      const mat = child.material;
+      if (!mat || mat.emissive == null) return;
+      mat.emissive.setHex(0xc8b8a0);
+      mat.emissiveIntensity = 0.12;
+    });
     extras.add(dragon.group);
   }
 

@@ -291,29 +291,38 @@ export function createApartment(scene, {
   add(0.08, 0.72, 0.7, -3.18, 1.15, TV_Z, materials.dark, livingRoom);
   const tvScreen = add(0.04, 0.6, 0.6, -3.12, 1.15, TV_Z, materials.screenOff, livingRoom);
 
-  // Coffee table + mugs (right of aisle, in front of couch)
-  add(1.05, 0.05, 0.55, 1.65, 0.4, -1.15, materials.wood, livingRoom);
-  add(0.05, 0.36, 0.05, 1.28, 0.2, -0.98, materials.wood, livingRoom);
-  add(0.05, 0.36, 0.05, 2.02, 0.2, -0.98, materials.wood, livingRoom);
-  add(0.05, 0.36, 0.05, 1.28, 0.2, -1.32, materials.wood, livingRoom);
-  add(0.05, 0.36, 0.05, 2.02, 0.2, -1.32, materials.wood, livingRoom);
-  addCyl(0.05, 0.09, 1.48, 0.48, -1.08, materials.mug, livingRoom);
-  addCyl(0.05, 0.09, 1.82, 0.48, -1.22, materials.mugDark, livingRoom);
-  add(0.12, 0.02, 0.18, 1.65, 0.44, -1.35, materials.book, livingRoom);
+  // Coffee table + mugs — pulled toward the aisle / entry so it clears the couch.
+  add(1.05, 0.05, 0.55, 1.65, 0.4, -0.35, materials.wood, livingRoom);
+  add(0.05, 0.36, 0.05, 1.28, 0.2, -0.18, materials.wood, livingRoom);
+  add(0.05, 0.36, 0.05, 2.02, 0.2, -0.18, materials.wood, livingRoom);
+  add(0.05, 0.36, 0.05, 1.28, 0.2, -0.52, materials.wood, livingRoom);
+  add(0.05, 0.36, 0.05, 2.02, 0.2, -0.52, materials.wood, livingRoom);
+  addCyl(0.05, 0.09, 1.48, 0.48, -0.28, materials.mug, livingRoom);
+  addCyl(0.05, 0.09, 1.82, 0.48, -0.42, materials.mugDark, livingRoom);
+  add(0.12, 0.02, 0.18, 1.65, 0.44, -0.55, materials.book, livingRoom);
 
-  // Story dragon — seated on the couch cushion (clear of center rail)
+  // Story dragon — left seat cushion, facing the aisle (reads clearly from the rail).
   let dragon = null;
   const separate = [];
   if (dragonVariant) {
     const isBlack = dragonVariant === 'black';
     dragon = createStuffedDragon({
-      color: isBlack ? 0x0a0c0a : 0xf2f0ea,
+      color: isBlack ? 0x0a0c0a : 0xe4d8c8,
       name: isBlack ? 'apartment-black-dragon' : 'apartment-white-dragon',
     });
-    // Front-right of the seat — ahead of the back pillows, clear of the arm.
-    dragon.group.position.set(2.4, 0.52, -1.82);
-    dragon.group.rotation.y = -0.85;
-    dragon.group.scale.setScalar(0.88);
+    dragon.group.position.set(1.55, 0.54, -1.95);
+    dragon.group.rotation.y = 0.55;
+    dragon.group.scale.setScalar(0.95);
+    // Soft fill so the cream plush reads as a solid toy, not just the outline.
+    if (!isBlack) {
+      dragon.group.traverse((child) => {
+        if (!child.isMesh || child.userData.inspectHitOnly) return;
+        const mat = child.material;
+        if (!mat || mat.emissive == null) return;
+        mat.emissive.setHex(0xc8b8a0);
+        mat.emissiveIntensity = 0.12;
+      });
+    }
     livingRoom.add(dragon.group);
     separate.push(dragon);
   }

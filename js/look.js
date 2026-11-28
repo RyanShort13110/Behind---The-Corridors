@@ -191,6 +191,12 @@ export function createLookControls({ canvas }) {
       maxYaw = value;
       yaw = Math.max(-maxYaw, Math.min(maxYaw, yaw));
     },
+    /** On-screen / virtual look buttons (mobile touch pad). */
+    setKey(side, down) {
+      if (side === 'left') keys.left = Boolean(down);
+      else if (side === 'right') keys.right = Boolean(down);
+      if (down) sticky = true;
+    },
     dispose() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);

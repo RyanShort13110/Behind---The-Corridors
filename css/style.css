@@ -502,3 +502,37 @@ body.inventory-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .combat-hud,.combat-meter__fill{transition:none}
 }
+
+/* On-screen walk / look pads — touch / coarse-pointer only. */
+.touch-controls{
+  position:absolute;z-index:5;inset:auto 0 78px 0;display:none;
+  justify-content:space-between;align-items:flex-end;
+  padding:0 18px;pointer-events:none;
+}
+.touch-controls.is-active{display:flex}
+.touch-controls__cluster{display:flex;flex-direction:column;gap:10px;pointer-events:auto}
+.touch-controls__cluster--look{flex-direction:row}
+.touch-controls__btn{
+  width:58px;height:58px;border-radius:14px;
+  border:1px solid rgba(150,170,166,.38);
+  background:rgba(4,9,11,.55);color:#dce8e6;
+  font:700 16px/1 Arial,Helvetica,sans-serif;
+  text-shadow:0 2px 10px #000;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  touch-action:none;user-select:none;-webkit-user-select:none;
+}
+.touch-controls__btn:active,
+.touch-controls__btn.is-pressed{
+  background:rgba(30,48,46,.72);border-color:rgba(210,195,154,.55);color:#fff;
+}
+@media(max-width:650px){
+  .touch-controls{bottom:92px;padding:0 12px}
+  .touch-controls__btn{width:54px;height:54px;border-radius:12px}
+}
+#experience.combat-mode .touch-controls,
+#experience:has(.inspect.is-open) .touch-controls,
+#experience:has(.game-over.is-active) .touch-controls,
+#experience:has(.ending.is-visible) .touch-controls{
+  opacity:0;visibility:hidden;pointer-events:none;
+}
