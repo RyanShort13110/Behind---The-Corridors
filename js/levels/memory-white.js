@@ -7,7 +7,7 @@ import { createMemoryHome } from './memory-home.js';
 import {
   createMemoryWhiteApartment,
   adoptApartmentAsWhiteMemory,
-} from './memory-white-apartment.js?v=mem-apt-16';
+} from './memory-white-apartment.js?v=mem-apt-18';
 
 /** Prefer the shared apartment unless explicitly opted out. */
 export function memoryWhiteUsesApartment() {

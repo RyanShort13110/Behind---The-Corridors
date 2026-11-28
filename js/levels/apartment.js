@@ -237,9 +237,15 @@ export function createApartment(scene, {
   add(0.08, 0.1, WIN_OPEN, -3.22, WIN_HEAD_Y, WIN_Z, materials.trim, window);
   add(0.08, winH, 0.1, -3.22, winMidY, WIN_NEAR - 0.05, materials.trim, window);
   add(0.08, winH, 0.1, -3.22, winMidY, WIN_FAR + 0.05, materials.trim, window);
-  add(0.06, winH - 0.1, 0.06, -3.22, winMidY, WIN_Z, materials.trim, window);
+  const windowMullion = add(0.06, winH - 0.1, 0.06, -3.22, winMidY, WIN_Z, materials.trim, window);
+  windowMullion.name = 'apartment/window-mullion';
   const windowGlass = add(0.03, winH - 0.12, WIN_OPEN - 0.12, -3.18, winMidY, WIN_Z, materials.glass, window);
   windowGlass.renderOrder = 2;
+  windowGlass.name = 'apartment/window-glass';
+  // Raised sash (hidden until memory opens the window).
+  const windowSash = add(0.04, winH - 0.12, WIN_OPEN - 0.12, -3.14, winMidY, WIN_Z, materials.trim, window);
+  windowSash.name = 'apartment/window-sash';
+  windowSash.visible = false;
   const curtainL = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z + 0.55, materials.curtain, window);
   const curtainR = add(0.05, winH - 0.2, 0.28, -3.08, winMidY, WIN_Z - 0.55, materials.curtain, window);
 
@@ -516,6 +522,8 @@ export function createApartment(scene, {
     bedroomDoor,
     entranceDoor,
     windowGlass,
+    windowMullion,
+    windowSash,
     entryChairA,
     entryChairB,
   };

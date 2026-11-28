@@ -24,8 +24,9 @@ export function createMemoryHomeStory(variant = 'white') {
     dragonTaken: false,
     introLine: 0, // white: 1 = "Oh...", 2 = done; black unused
     introElapsed: 0,
-    // White discrepancy: remote snaps table → shelf after leaving camera view
+    // White discrepancy: arm after coffee zone, snap only once off-camera
     remoteSeen: false,
+    remotePending: false,
     remoteMoved: false,
     // Optional inspect latch
     mugsInspected: false,
@@ -72,10 +73,11 @@ export function createMemoryHomeStory(variant = 'white') {
       if (!isBlack && current >= coffeeLo && current <= coffeeHi) {
         state.remoteSeen = true;
       }
-      // After leaving that zone, the remote is already on the shelf (one-way snap).
+      // Past the coffee zone the move is armed; the level snaps only when
+      // the table remote is genuinely outside the camera frustum.
       const remoteMoveAt = apt ? 0.46 : 0.40;
       if (!isBlack && state.remoteSeen && current >= remoteMoveAt) {
-        state.remoteMoved = true;
+        state.remotePending = true;
       }
 
       // White: unfinished line near hallway — once, then fades.
@@ -214,6 +216,7 @@ export function createMemoryHomeStory(variant = 'white') {
       state.introLine = 0;
       state.introElapsed = 0;
       state.remoteSeen = false;
+      state.remotePending = false;
       state.remoteMoved = false;
       state.mugsInspected = false;
       state.unfinishedSaid = false;
@@ -272,7 +275,9 @@ export function memoryHomeNarrative(progress, state) {
 
   const exitHint = isBlack
     ? 'SCROLL · A / D LOOK · INSPECT THE WINDOW TO LEAVE'
-    : 'SCROLL · A / D LOOK · INSPECT THE DOOR WHEN YOU’RE READY';
+    : state.environment === 'apartment'
+      ? 'SCROLL · A / D LOOK · INSPECT THE BEDROOM DOOR WHEN YOU’RE READY'
+      : 'SCROLL · A / D LOOK · INSPECT THE DOOR WHEN YOU’RE READY';
 
   return {
     chapter,

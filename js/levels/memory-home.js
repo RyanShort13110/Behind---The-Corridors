@@ -617,8 +617,9 @@ export function createMemoryHome(scene, { variant = 'white' } = {}) {
       this.syncPhase(state);
       if (state.phase !== 'memory') return;
 
-      // White: remote snaps once the off-camera latch fires (no flight).
+      // White: arm in story; legacy home has no camera hook so snap on pending.
       if (!isBlack) {
+        if (state.remotePending && !state.remoteMoved) state.remoteMoved = true;
         const target = state.remoteMoved ? remoteAway : remoteHome;
         remote.position.set(target.x, target.y, target.z);
         remote.visible = true;

@@ -1663,8 +1663,10 @@ async function endCamcorderPlayback() {
       director.add('unseen', createUnseen(scene));
       el.location.textContent = 'SERVICE LEVEL / MAINTENANCE';
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-16');
-      director.add('memory-white', createMemoryWhite(scene));
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-18');
+      const memMod = createMemoryWhite(scene);
+      memMod.setCamera?.(camera);
+      director.add('memory-white', memMod);
     } else if (target === 'memory-black') {
       const { createMemoryBlack } = await import('./levels/memory-black.js');
       director.add('memory-black', createMemoryBlack(scene));
@@ -1913,7 +1915,7 @@ async function enterWhiteMemoryInPlace(visit) {
   await new Promise(resolve => setTimeout(resolve, reduced ? 40 : 920));
   let module = null;
   try {
-    const mod = await import('./levels/memory-white.js?v=mem-apt-16');
+    const mod = await import('./levels/memory-white.js?v=mem-apt-18');
     if (!mod.memoryWhiteUsesApartment?.()) {
       setMemoryWhiteScreen(false);
       el.veil.classList.remove('is-active', 'memory-veil');
@@ -1932,6 +1934,7 @@ async function enterWhiteMemoryInPlace(visit) {
     memStory.state.environment = 'apartment';
     director.add('memory-white', module);
     director.activate('memory-white');
+    module.setCamera?.(camera);
     director.get('memory-white')?.syncPhase(memStory.state);
     chapterId = 'memory-white';
     apartmentStory.reset();
@@ -1998,7 +2001,7 @@ async function enterMemoryFromApartment() {
   try {
     const mod = target === 'memory-black'
       ? await import('./levels/memory-black.js')
-      : await import('./levels/memory-white.js?v=mem-apt-16');
+      : await import('./levels/memory-white.js?v=mem-apt-18');
     const create = target === 'memory-black' ? mod.createMemoryBlack : mod.createMemoryWhite;
     module = create(scene);
     keepDragonInventory();
@@ -2032,6 +2035,7 @@ async function enterMemoryFromApartment() {
     progress = displayed = 0;
     if (target === 'memory-white' && module.environment === 'apartment') {
       memStory.state.environment = 'apartment';
+      module.setCamera?.(camera);
       setMemoryWhiteScreen(true);
       const pose = apartmentCameraPose(0);
       camera.position.set(pose.x, 1.65, pose.z);
@@ -3639,7 +3643,7 @@ async function enterApartmentFirst() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createApartment } = await import('./levels/apartment.js?v=apt-28');
+    const { createApartment } = await import('./levels/apartment.js?v=apt-29');
     apartmentStory.reset({ visit: 'first', lightingMode: 'warm' });
     module = createApartment(scene, {
       lightingMode: apartmentStory.state.lightingMode,
@@ -3701,7 +3705,7 @@ async function enterApartmentReturn() {
   await new Promise(resolve => setTimeout(resolve, reduced ? 25 : 720));
   let module = null;
   try {
-    const { createApartment } = await import('./levels/apartment.js?v=apt-28');
+    const { createApartment } = await import('./levels/apartment.js?v=apt-29');
     apartmentStory.reset({ visit: 'return', lightingMode: 'night' });
     module = createApartment(scene, {
       lightingMode: apartmentStory.state.lightingMode,
@@ -3957,15 +3961,17 @@ async function debugJumpToChapter(target, checkpoint = 'start') {
       const { createThreshold } = await import('./levels/threshold.js?v=night-bent-1');
       next.add('threshold', createThreshold(scene));
     } else if (target === 'memory-white') {
-      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-16');
+      const { createMemoryWhite } = await import('./levels/memory-white.js?v=mem-apt-18');
       memoryWhiteStory.reset();
-      next.add('memory-white', createMemoryWhite(scene));
+      const memMod = createMemoryWhite(scene);
+      memMod.setCamera?.(camera);
+      next.add('memory-white', memMod);
     } else if (target === 'memory-black') {
       const { createMemoryBlack } = await import('./levels/memory-black.js');
       memoryBlackStory.reset();
       next.add('memory-black', createMemoryBlack(scene));
     } else if (target === 'apartment') {
-      const { createApartment } = await import('./levels/apartment.js?v=apt-28');
+      const { createApartment } = await import('./levels/apartment.js?v=apt-29');
       // Debug: ?visit=first|return loads the story dragon visit; default explores without.
       let aptVisit = 'debug';
       try {

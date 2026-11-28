@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { createStuffedDragon } from '../props/stuffed-dragon.js';
-import { createApartment } from './apartment.js?v=apt-28';
+import { createApartment } from './apartment.js?v=apt-29';
 import { APARTMENT_METERS, APARTMENT_START_Z } from './apartment-story.js?v=apt-9';
 
 const HIT_MAT = () => new THREE.MeshBasicMaterial({ visible: false });
@@ -32,7 +32,8 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
   const box = new THREE.BoxGeometry(1, 1, 1);
   const cyl = new THREE.CylinderGeometry(0.5, 0.5, 1, 10);
   const cone = new THREE.ConeGeometry(0.5, 1, 8);
-  disposable.push(box, cyl, cone);
+  const sphere = new THREE.SphereGeometry(0.5, 8, 6);
+  disposable.push(box, cyl, cone, sphere);
 
   const add = (w, h, d, x, y, z, material, parent = extras) => {
     const mesh = new THREE.Mesh(box, material);
@@ -63,10 +64,18 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
     mats.push(m);
     return m;
   };
-  const matTrunk = mkMat({ color: 0x4a3828, roughness: 0.92, fog: false });
+  const matTrunk = mkMat({ color: 0x3e3226, roughness: 0.94, fog: false });
   const matLeaves = mkMat({
-    color: 0x5a8a52, roughness: 0.88, fog: false,
-    emissive: 0x1a3018, emissiveIntensity: 0.08,
+    color: 0x4a6e48, roughness: 0.92, fog: false,
+    emissive: 0x142418, emissiveIntensity: 0.05,
+  });
+  const matLeavesDeep = mkMat({
+    color: 0x3a5a3c, roughness: 0.94, fog: false,
+    emissive: 0x0e1c10, emissiveIntensity: 0.04,
+  });
+  const matLeavesLit = mkMat({
+    color: 0x5c7e52, roughness: 0.9, fog: false,
+    emissive: 0x1a3018, emissiveIntensity: 0.06,
   });
   // Happier-time palette — reads against the present cream/wood shell.
   const matThrow = mkMat({ color: 0xb86a58, roughness: 0.94 });
@@ -119,37 +128,43 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
   const WIN_Z = win?.z ?? -1.8;
 
   // ——— Trees outside the open window (memory-only) ———
+  // Soft clustered canopies read as silhouettes instead of stacked cones.
   const trees = new THREE.Group();
   trees.name = 'memory-white/trees';
   extras.add(trees);
-  const addTree = (x, z, scale = 1) => {
-    const trunk = new THREE.Mesh(cyl, matTrunk);
-    trunk.scale.set(0.14 * scale, 1.2 * scale, 0.14 * scale);
-    trunk.position.set(x, 0.55 * scale, z);
-    trees.add(trunk);
-    const lower = new THREE.Mesh(cone, matLeaves);
-    lower.scale.set(0.95 * scale, 1.05 * scale, 0.95 * scale);
-    lower.position.set(x, 1.2 * scale, z);
-    trees.add(lower);
-    const mid = new THREE.Mesh(cone, matLeaves);
-    mid.scale.set(0.75 * scale, 0.95 * scale, 0.75 * scale);
-    mid.position.set(x, 1.75 * scale, z);
-    trees.add(mid);
-    const top = new THREE.Mesh(cone, matLeaves);
-    top.scale.set(0.48 * scale, 0.75 * scale, 0.48 * scale);
-    top.position.set(x, 2.2 * scale, z);
-    trees.add(top);
+  const addCanopy = (x, y, z, sx, sy, sz, mat) => {
+    const crown = new THREE.Mesh(sphere, mat);
+    crown.scale.set(sx, sy, sz);
+    crown.position.set(x, y, z);
+    trees.add(crown);
   };
-  addTree(-4.4, WIN_Z + 0.35, 1.0);
-  addTree(-5.2, WIN_Z - 0.85, 1.15);
-  addTree(-6.0, WIN_Z + 0.55, 1.35);
-  addTree(-7.1, WIN_Z - 1.2, 1.2);
-  addTree(-7.9, WIN_Z + 0.1, 1.45);
-  // Extra trees along the facade so the yard reads continuous past the pane.
-  addTree(-5.6, WIN_Z + 2.4, 1.1);
-  addTree(-6.8, WIN_Z + 3.6, 1.25);
-  addTree(-5.0, WIN_Z - 2.8, 1.05);
-  addTree(-7.4, WIN_Z - 3.5, 1.3);
+  const addTree = (x, z, scale = 1, lean = 0) => {
+    const trunk = new THREE.Mesh(cyl, matTrunk);
+    trunk.scale.set(0.11 * scale, 1.05 * scale, 0.11 * scale);
+    trunk.position.set(x, 0.5 * scale, z);
+    trunk.rotation.z = lean;
+    trunk.rotation.y = lean * 2.4;
+    trees.add(trunk);
+    // Irregular sphere clumps — slight offsets break the Christmas-tree read.
+    addCanopy(x - 0.12 * scale, 1.15 * scale, z + 0.08 * scale, 0.95 * scale, 0.72 * scale, 0.88 * scale, matLeaves);
+    addCanopy(x + 0.18 * scale, 1.35 * scale, z - 0.1 * scale, 0.78 * scale, 0.68 * scale, 0.8 * scale, matLeavesDeep);
+    addCanopy(x - 0.05 * scale, 1.7 * scale, z + 0.04 * scale, 0.7 * scale, 0.62 * scale, 0.66 * scale, matLeavesLit);
+    addCanopy(x + 0.08 * scale, 2.0 * scale, z - 0.06 * scale, 0.48 * scale, 0.5 * scale, 0.46 * scale, matLeaves);
+    // Soft under-cone for vertical mass without a hard tip.
+    const skirt = new THREE.Mesh(cone, matLeavesDeep);
+    skirt.scale.set(0.55 * scale, 0.55 * scale, 0.55 * scale);
+    skirt.position.set(x, 0.95 * scale, z);
+    trees.add(skirt);
+  };
+  addTree(-4.35, WIN_Z + 0.4, 1.0, 0.04);
+  addTree(-5.15, WIN_Z - 0.9, 1.18, -0.03);
+  addTree(-6.05, WIN_Z + 0.5, 1.32, 0.02);
+  addTree(-7.05, WIN_Z - 1.15, 1.22, -0.05);
+  addTree(-7.95, WIN_Z + 0.15, 1.42, 0.03);
+  addTree(-5.55, WIN_Z + 2.35, 1.08, -0.02);
+  addTree(-6.75, WIN_Z + 3.5, 1.22, 0.04);
+  addTree(-4.95, WIN_Z - 2.75, 1.02, -0.04);
+  addTree(-7.35, WIN_Z - 3.4, 1.28, 0.02);
 
   // Soft afternoon sun through the window.
   const windowSun = new THREE.DirectionalLight(0xfff2d8, 0.55);
@@ -306,12 +321,13 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
       body: 'Soft at the edges. Kept.',
     },
     {
+      // Keep id for exit wiring; copy matches the apartment bedroom doorway.
       id: 'memory-front-door',
       object: doorHit,
       radius: 4.0,
-      title: 'FRONT DOOR',
-      body: 'Closed.',
-      lockedBody: 'The hallway ends here.',
+      title: 'BEDROOM DOOR',
+      body: 'Ajar.',
+      lockedBody: 'The hallway ends at the bedroom.',
       unlockedBody: 'I shouldn’t stay.',
     },
     {
@@ -320,18 +336,38 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
       radius: 4.4,
       title: 'WINDOW',
       body: 'Warm light.',
-      lockedBody: 'Afternoon light through thin curtains. Trees beyond the glass.',
+      lockedBody: 'The sash is open. Afternoon air. Trees beyond.',
       unlockedBody: 'Warm light.',
     },
   );
 
-  function clearWindowCurtains() {
-    // Opaque curtain boxes cover the glass; memory needs a clear opening.
+  let cameraRef = null;
+  let lookApplied = false;
+  let lastRemoteMoved = null;
+  let lastDragonHidden = null;
+  const _frustum = new THREE.Frustum();
+  const _proj = new THREE.Matrix4();
+  const _box = new THREE.Box3();
+  const _sphere = new THREE.Sphere();
+  const _margin = new THREE.Vector3(0.35, 0.25, 0.35);
+
+  function openMemoryWindow() {
+    // Curtains / glass / mullion off; sash parked up so the opening reads open.
     if (apt.props?.curtainL) apt.props.curtainL.visible = false;
     if (apt.props?.curtainR) apt.props.curtainR.visible = false;
+    if (apt.props?.windowGlass) apt.props.windowGlass.visible = false;
+    if (apt.props?.windowMullion) apt.props.windowMullion.visible = false;
+    const sash = apt.props?.windowSash;
+    if (sash) {
+      sash.visible = true;
+      // Slide the sash up into the header pocket.
+      sash.position.y = 2.55;
+      sash.scale.y = 0.22;
+    }
   }
 
-  function applyMemoryLook() {
+  function ensureMemoryLook() {
+    if (lookApplied) return;
     apt.setPreset?.('memory-white');
     apt.setObjectState?.({
       lampOn: false,
@@ -341,14 +377,64 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
       bedroomDoorAjar: true,
       entranceDoorAjar: false,
     });
-    clearWindowCurtains();
-    // Chair backs face the right wall (+X); seat toward the aisle.
+    openMemoryWindow();
     const wallYaw = -Math.PI * 0.5;
     if (apt.props?.entryChairA) apt.props.entryChairA.rotation.y = wallYaw;
     if (apt.props?.entryChairB) apt.props.entryChairB.rotation.y = wallYaw;
+    trees.visible = true;
+    dressing.visible = true;
+    windowSun.intensity = 0.55;
+    lookApplied = true;
   }
 
-  applyMemoryLook();
+  function isRemoteOffCamera() {
+    if (!cameraRef) return false;
+    // Probe the table-home pose even if the mesh already moved.
+    const ox = remote.position.x;
+    const oy = remote.position.y;
+    const oz = remote.position.z;
+    remote.position.set(remoteHome.x, remoteHome.y, remoteHome.z);
+    const wasVisible = remote.visible;
+    remote.visible = true;
+    remote.updateWorldMatrix(true, true);
+    _box.setFromObject(remote);
+    remote.visible = wasVisible;
+    remote.position.set(ox, oy, oz);
+    if (_box.isEmpty()) return true;
+    _box.expandByVector(_margin);
+    _box.getBoundingSphere(_sphere);
+    cameraRef.updateMatrixWorld(true);
+    _proj.multiplyMatrices(cameraRef.projectionMatrix, cameraRef.matrixWorldInverse);
+    _frustum.setFromProjectionMatrix(_proj);
+    return !_frustum.intersectsSphere(_sphere);
+  }
+
+  function syncRemote(state) {
+    if (!state) return;
+    if (state.remotePending && !state.remoteMoved && isRemoteOffCamera()) {
+      state.remoteMoved = true;
+    }
+    const moved = Boolean(state.remoteMoved);
+    if (moved === lastRemoteMoved) return;
+    lastRemoteMoved = moved;
+    const target = moved ? remoteAway : remoteHome;
+    remote.position.set(target.x, target.y, target.z);
+    remote.visible = true;
+  }
+
+  function syncDragon(state) {
+    if (!dragon) return;
+    const inMem = state?.phase === 'memory';
+    const taken = mode === 'adopt' || Boolean(state?.dragonTaken);
+    const hide = inMem || taken;
+    if (hide === lastDragonHidden) return;
+    lastDragonHidden = hide;
+    dragon.group.visible = !hide;
+    if (taken) dragon.group.userData.taken = true;
+  }
+
+  ensureMemoryLook();
+  remote.position.set(remoteHome.x, remoteHome.y, remoteHome.z);
 
   return {
     variant: 'white',
@@ -358,71 +444,34 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
     landmarks: apt.landmarks,
     zones: apt.zones,
     apartment: apt,
+    setCamera(cam) { cameraRef = cam; },
     syncPhase(state) {
       if (state) state.environment = 'apartment';
-      const inMem = state?.phase === 'memory';
-      if (dragon) {
-        dragon.group.visible = !inMem && !state?.dragonTaken;
-        if (state?.dragonTaken) dragon.group.userData.taken = true;
-      }
-      applyMemoryLook();
-      // Apartment memory is already the happier-time shell — keep lived-in
-      // dressing / trees / sun on for both adopt and create (including staging).
-      trees.visible = true;
-      dressing.visible = true;
-      windowSun.intensity = 0.55;
-      const target = state?.remoteMoved ? remoteAway : remoteHome;
-      remote.position.set(target.x, target.y, target.z);
-      remote.visible = true;
-      apt.update?.(0, {
-        lightingMode: 'day',
-        objects: {
-          lampOn: false,
-          kitchenLightOn: true,
-          tvOn: true,
-          curtainsOpen: true,
-          bedroomDoorAjar: true,
-          entranceDoorAjar: false,
-        },
-        dragonTaken: mode === 'adopt' || Boolean(state?.dragonTaken),
-      });
-      clearWindowCurtains();
+      ensureMemoryLook();
+      syncDragon(state);
+      syncRemote(state);
     },
     update(progress, state, dt, reduced) {
-      this.syncPhase(state);
-      apt.update?.(progress, {
-        lightingMode: 'day',
-        objects: {
-          lampOn: false,
-          kitchenLightOn: true,
-          tvOn: true,
-          curtainsOpen: true,
-          bedroomDoorAjar: true,
-          entranceDoorAjar: false,
-        },
-        dragonTaken: true,
-      });
-      // apt.update re-shows curtains — clear again after.
-      clearWindowCurtains();
-      if (state?.phase === 'memory' || mode === 'adopt') {
-        const target = state?.remoteMoved ? remoteAway : remoteHome;
-        remote.position.set(target.x, target.y, target.z);
-        remote.visible = true;
-      }
+      // Look/preset applied once; only remote + dragon visibility can change.
+      syncDragon(state);
+      syncRemote(state);
+      void progress;
       void dt;
       void reduced;
     },
     reset() {
+      lookApplied = false;
+      lastRemoteMoved = null;
+      lastDragonHidden = null;
       apt.reset?.();
-      applyMemoryLook();
+      ensureMemoryLook();
       if (dragon) {
         dragon.group.visible = true;
         dragon.group.userData.taken = false;
       }
       remote.position.set(remoteHome.x, remoteHome.y, remoteHome.z);
       remote.visible = true;
-      trees.visible = true;
-      dressing.visible = true;
+      lastRemoteMoved = false;
     },
     dispose() {
       if (living) living.remove(extras);
