@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { createStuffedDragon } from '../props/stuffed-dragon.js';
-import { createApartment } from './apartment.js?v=apt-24';
+import { createApartment } from './apartment.js?v=apt-28';
 import { APARTMENT_METERS, APARTMENT_START_Z } from './apartment-story.js?v=apt-9';
 
 const HIT_MAT = () => new THREE.MeshBasicMaterial({ visible: false });
@@ -104,6 +104,12 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
   const couch = lm.couch?.position;
   const win = lm.window?.position;
   const bed = lm.bedroom?.position;
+  // Dragon seat on the couch cushion (matches present apartment placement).
+  const dragonSeat = {
+    x: couch?.x != null ? couch.x + 0.45 : 2.4,
+    y: 0.52,
+    z: couch?.z != null ? couch.z + 0.28 : -1.82,
+  };
   const coffee = {
     x: couch?.x != null ? couch.x - 0.3 : 1.65,
     y: 0.44,
@@ -228,8 +234,8 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
       color: 0xf2f0ea,
       name: 'memory-white-dragon',
     });
-    dragon.group.position.set(coffee.x, coffee.y, coffee.z);
-    dragon.group.rotation.y = -0.65;
+    dragon.group.position.set(dragonSeat.x, dragonSeat.y, dragonSeat.z);
+    dragon.group.rotation.y = -0.85;
     dragon.group.scale.setScalar(0.88);
     extras.add(dragon.group);
   }
@@ -329,7 +335,7 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
     apt.setPreset?.('memory-white');
     apt.setObjectState?.({
       lampOn: false,
-      kitchenLightOn: false,
+      kitchenLightOn: true,
       tvOn: true,
       curtainsOpen: true,
       bedroomDoorAjar: true,
@@ -372,7 +378,7 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
         lightingMode: 'day',
         objects: {
           lampOn: false,
-          kitchenLightOn: false,
+          kitchenLightOn: true,
           tvOn: true,
           curtainsOpen: true,
           bedroomDoorAjar: true,
@@ -388,7 +394,7 @@ function buildWhiteMemoryOnApartment(scene, apt, { mode = 'create' } = {}) {
         lightingMode: 'day',
         objects: {
           lampOn: false,
-          kitchenLightOn: false,
+          kitchenLightOn: true,
           tvOn: true,
           curtainsOpen: true,
           bedroomDoorAjar: true,

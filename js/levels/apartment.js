@@ -30,7 +30,7 @@ export const APARTMENT_PRESETS = Object.freeze({
     lighting: 'day',
     objects: Object.freeze({
       lampOn: false,
-      kitchenLightOn: false,
+      kitchenLightOn: true,
       tvOn: true,
       curtainsOpen: true,
       bedroomDoorAjar: true,
@@ -295,7 +295,7 @@ export function createApartment(scene, {
   addCyl(0.05, 0.09, 1.82, 0.48, -1.22, materials.mugDark, livingRoom);
   add(0.12, 0.02, 0.18, 1.65, 0.44, -1.35, materials.book, livingRoom);
 
-  // Story dragon — coffee table, clear of the center rail (|x| stays ≥ ~1.4)
+  // Story dragon — seated on the couch cushion (clear of center rail)
   let dragon = null;
   const separate = [];
   if (dragonVariant) {
@@ -304,8 +304,9 @@ export function createApartment(scene, {
       color: isBlack ? 0x0a0c0a : 0xf2f0ea,
       name: isBlack ? 'apartment-black-dragon' : 'apartment-white-dragon',
     });
-    dragon.group.position.set(1.65, 0.44, -1.15);
-    dragon.group.rotation.y = -0.65;
+    // Front-right of the seat — ahead of the back pillows, clear of the arm.
+    dragon.group.position.set(2.4, 0.52, -1.82);
+    dragon.group.rotation.y = -0.85;
     dragon.group.scale.setScalar(0.88);
     livingRoom.add(dragon.group);
     separate.push(dragon);
@@ -315,27 +316,26 @@ export function createApartment(scene, {
   add(0.2, 0.24, 0.2, -2.9, 0.14, -3.55, materials.pot, livingRoom);
   add(0.22, 0.38, 0.22, -2.88, 0.45, -3.55, materials.plant, livingRoom);
 
-  // Right-wall shelf — one screw gone; board tips and books spilled to the floor.
+  // Right-wall shelf — neat by default; present preset tips it and spills books.
   const wallShelf = new THREE.Group();
   wallShelf.name = 'apartment/wall-shelf';
-  wallShelf.position.set(3.12, 1.12, -4.15);
-  wallShelf.rotation.x = 0.28;
+  wallShelf.position.set(3.12, 1.22, -4.15);
   livingRoom.add(wallShelf);
   add(0.28, 0.05, 0.7, 0, 0, 0, materials.wood, wallShelf);
-  // Books on the floor under the shelf
-  const bookA = add(0.16, 0.04, 0.22, 2.88, 0.03, -3.92, materials.book, livingRoom);
-  bookA.rotation.set(0.15, 0.55, 0.08);
-  const bookB = add(0.15, 0.04, 0.2, 2.95, 0.03, -4.28, materials.bookBlue, livingRoom);
-  bookB.rotation.set(-0.1, -0.4, 0.2);
+  const shelfBookA = add(0.14, 0.04, 0.2, -0.12, 0.05, 0.08, materials.book, wallShelf);
+  const shelfBookB = add(0.13, 0.04, 0.18, 0.1, 0.05, -0.12, materials.bookBlue, wallShelf);
+  const floorBookA = add(0.16, 0.04, 0.22, 2.88, 0.03, -3.92, materials.book, livingRoom);
+  floorBookA.rotation.set(0.15, 0.55, 0.08);
+  const floorBookB = add(0.15, 0.04, 0.2, 2.95, 0.03, -4.28, materials.bookBlue, livingRoom);
+  floorBookB.rotation.set(-0.1, -0.4, 0.2);
 
   // Wall art
   add(0.05, 0.78, 1.05, 3.22, 1.65, -1.35, materials.frame, livingRoom);
   add(0.03, 0.66, 0.92, 3.18, 1.65, -1.35, materials.artSky, livingRoom);
-  // Left-wall photo near the TV — slightly crooked
+  // Left-wall photo near the TV — crooked only in the present apartment.
   const leftPhoto = new THREE.Group();
   leftPhoto.name = 'apartment/left-photo';
   leftPhoto.position.set(-3.2, 1.7, 1.65);
-  leftPhoto.rotation.x = 0.16;
   livingRoom.add(leftPhoto);
   add(0.05, 0.55, 0.45, 0, 0, 0, materials.frame, leftPhoto);
   add(0.03, 0.44, 0.35, 0.04, 0, 0, materials.photoSoft, leftPhoto);
@@ -660,6 +660,18 @@ export function createApartment(scene, {
     entranceHinge.rotation.y = objectState.entranceDoorAjar ? 0.7 : 0;
   }
 
+  function syncPresentDisorder() {
+    // Slanted shelf, floor books, and crooked photo are present-day only.
+    const messy = currentPreset === 'present';
+    wallShelf.position.y = messy ? 1.12 : 1.22;
+    wallShelf.rotation.x = messy ? 0.28 : 0;
+    shelfBookA.visible = !messy;
+    shelfBookB.visible = !messy;
+    floorBookA.visible = messy;
+    floorBookB.visible = messy;
+    leftPhoto.rotation.x = messy ? 0.16 : 0;
+  }
+
   function applyPreset(name, { mergeObjects = false } = {}) {
     const id = resolvePreset(name);
     const cfg = APARTMENT_PRESETS[id];
@@ -671,6 +683,7 @@ export function createApartment(scene, {
     }
     applyLightingMode(cfg.lighting);
     applyObjectState(objectState);
+    syncPresentDisorder();
     return id;
   }
 
